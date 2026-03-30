@@ -1,0 +1,15 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/fabula",
+    "crates/fabula-memory",
+    "crates/fabula-petgraph",
+    "crates/fabula-grafeo",
+    "crates/fabula-test-suite",
+]
+
+[workspace.package]
+edition = "2021"
+license = "Apache-2.0"
+description = "Incremental pattern matching over temporal graphs"
+keywords = ["graph", "pattern-matching", "temporal", "sifting", "narrative"]
