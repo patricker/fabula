@@ -1,0 +1,26 @@
+---
+title: Allen Interval Visualizer
+description: Explore Allen's 13 temporal relations interactively
+---
+
+import AllenVisualizer from '@site/src/components/wasm/AllenVisualizer';
+
+# Allen Interval Visualizer
+
+Drag the interval endpoints to explore all 13 of Allen's temporal relations. The relation between intervals A and B is computed in real-time by the fabula WASM engine.
+
+<AllenVisualizer presets />
+
+## The 13 Relations
+
+| Relation | Description | Inverse |
+|----------|-------------|---------|
+| **Before** | A ends before B starts | After |
+| **Meets** | A ends exactly where B starts | MetBy |
+| **Overlaps** | A starts first, they share time, B ends last | OverlappedBy |
+| **Starts** | A and B start together, A ends first | StartedBy |
+| **During** | A is entirely within B | Contains |
+| **Finishes** | A and B end together, A starts later | FinishedBy |
+| **Equals** | A and B have identical start and end | Equals |
+
+Each relation has a unique inverse. Together they form a complete, mutually exclusive classification of how two bounded intervals can relate in time.

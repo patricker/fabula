@@ -1,0 +1,415 @@
+/**
+ * THEME: Diagrammatica — Technical Illustration / Blueprint
+ *
+ * 18th-century scientific illustration meets architectural blueprint.
+ * Da Vinci's notebook for pattern matching. Precision meets beauty.
+ * Elegant serif headings, grid-lined backgrounds, annotation-style
+ * errors, and proof-like results formatting.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,500;1,600&family=Source+Serif+4:ital,opsz,wght@0,8..60,300;0,8..60,400;0,8..60,500;0,8..60,600;0,8..60,700;1,8..60,300;1,8..60,400;1,8..60,500&family=Inconsolata:wght@300;400;500;600;700&display=swap');
+
+/* ============================================================
+   LIGHT MODE — Cream Paper with Ink
+   ============================================================ */
+:root {
+  --ifm-font-family-base: 'Source Serif 4', 'Georgia', serif;
+  --ifm-font-family-monospace: 'Inconsolata', 'Consolas', monospace;
+  --ifm-heading-font-family: 'Playfair Display', serif;
+  --ifm-font-size-base: 16.5px;
+  --ifm-line-height-base: 1.75;
+
+  --ifm-color-primary: #1b365d;
+  --ifm-color-primary-dark: #182f52;
+  --ifm-color-primary-darker: #162c4e;
+  --ifm-color-primary-darkest: #122440;
+  --ifm-color-primary-light: #1e3d68;
+  --ifm-color-primary-lighter: #1f406c;
+  --ifm-color-primary-lightest: #244a7c;
+
+  --ifm-background-color: #f5f0e8;
+  --ifm-background-surface-color: #f0eadf;
+  --ifm-font-color-base: #1b365d;
+  --ifm-font-color-secondary: #4a5f7a;
+
+  --ifm-color-emphasis-0: #f8f4ee;
+  --ifm-color-emphasis-100: #f0eadf;
+  --ifm-color-emphasis-200: #e0d8ca;
+  --ifm-color-emphasis-300: #c8bfae;
+  --ifm-color-emphasis-400: #a49880;
+  --ifm-color-emphasis-500: #847665;
+  --ifm-color-emphasis-600: #6b5f50;
+  --ifm-color-emphasis-700: #4a4438;
+  --ifm-color-emphasis-800: #2e2820;
+  --ifm-color-emphasis-900: #1b365d;
+
+  --ifm-color-success: #2e7d32;
+  --ifm-color-success-darkest: #1b5e20;
+  --ifm-color-success-contrast-background: #e8f2e8;
+  --ifm-color-info: #1565c0;
+  --ifm-color-info-darkest: #0d47a1;
+  --ifm-color-info-contrast-background: #e3f0fc;
+  --ifm-color-warning: #e65100;
+  --ifm-color-warning-darkest: #bf360c;
+  --ifm-color-warning-contrast-background: #fbe9e7;
+  --ifm-color-danger: #c62828;
+  --ifm-color-danger-darkest: #b71c1c;
+  --ifm-color-danger-contrast-background: #fce4e4;
+
+  --ifm-navbar-background-color: #f5f0e8;
+  --ifm-navbar-shadow: none;
+  --ifm-footer-background-color: #1b365d;
+  --ifm-footer-color: #c8bfae;
+  --ifm-footer-link-color: #e0d8ca;
+
+  --ifm-code-font-size: 92%;
+  --ifm-code-background: rgba(27, 54, 93, 0.05);
+  --ifm-code-border-radius: 2px;
+
+  --ifm-border-radius: 2px;
+
+  --docusaurus-highlighted-code-line-bg: rgba(27, 54, 93, 0.06);
+
+  /* Fabula component tokens */
+  --fabula-editor-bg: #f8f4ee;
+  --fabula-editor-text: #1b365d;
+  --fabula-editor-caret: #1b365d;
+
+  --fabula-hl-keyword: #1b365d;
+  --fabula-hl-string: #2e7d32;
+  --fabula-hl-number: #1565c0;
+  --fabula-hl-variable: #c62828;
+  --fabula-hl-comment: #a49880;
+  --fabula-hl-operator: #6b5f50;
+}
+
+/* ============================================================
+   DARK MODE — True Blueprint
+   ============================================================ */
+[data-theme='dark'] {
+  --ifm-color-primary: #8ab4f8;
+  --ifm-color-primary-dark: #6ea2f6;
+  --ifm-color-primary-darker: #6099f5;
+  --ifm-color-primary-darkest: #3680f2;
+  --ifm-color-primary-light: #a6c6fa;
+  --ifm-color-primary-lighter: #b4cffb;
+  --ifm-color-primary-lightest: #d2e3fd;
+
+  --ifm-background-color: #0e1b30;
+  --ifm-background-surface-color: #132240;
+  --ifm-font-color-base: #d8dce8;
+  --ifm-font-color-secondary: #8898b8;
+
+  --ifm-color-emphasis-0: #101e35;
+  --ifm-color-emphasis-100: #152642;
+  --ifm-color-emphasis-200: #1e3356;
+  --ifm-color-emphasis-300: #2a4470;
+  --ifm-color-emphasis-400: #3a5a90;
+  --ifm-color-emphasis-500: #5878a8;
+  --ifm-color-emphasis-600: #7898c0;
+  --ifm-color-emphasis-700: #98b4d0;
+  --ifm-color-emphasis-800: #b8cce0;
+  --ifm-color-emphasis-900: #d8e4f0;
+
+  --ifm-color-success: #66bb6a;
+  --ifm-color-success-contrast-background: rgba(102, 187, 106, 0.1);
+  --ifm-color-danger: #ef5350;
+  --ifm-color-danger-contrast-background: rgba(239, 83, 80, 0.1);
+
+  --ifm-navbar-background-color: #0e1b30;
+  --ifm-footer-background-color: #0a1422;
+
+  --ifm-code-background: rgba(138, 180, 248, 0.06);
+
+  --fabula-editor-bg: #101e35;
+  --fabula-editor-text: #d8dce8;
+  --fabula-editor-caret: #8ab4f8;
+
+  --fabula-hl-keyword: #8ab4f8;
+  --fabula-hl-string-dark: #66bb6a;
+  --fabula-hl-number-dark: #82b1ff;
+  --fabula-hl-variable-dark: #ef5350;
+  --fabula-hl-comment: #2a4470;
+  --fabula-hl-operator: #5878a8;
+}
+
+/* ============================================================
+   GLOBAL — Grid Lines (Blueprint Paper)
+   ============================================================ */
+.main-wrapper {
+  background-image:
+    linear-gradient(rgba(27, 54, 93, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(27, 54, 93, 0.03) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+[data-theme='dark'] .main-wrapper {
+  background-image:
+    linear-gradient(rgba(138, 180, 248, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(138, 180, 248, 0.04) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* ============================================================
+   TYPOGRAPHY — Elegant Serif + Technical
+   ============================================================ */
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  font-family: 'Playfair Display', serif;
+}
+
+.markdown h1 {
+  font-size: 2.4rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  border-bottom: 2px solid var(--ifm-color-primary);
+  padding-bottom: 0.4rem;
+  margin-bottom: 1.2rem;
+}
+
+.markdown h2 {
+  font-size: 1.55rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin-top: 2.5rem;
+}
+
+.markdown h2::after {
+  content: '';
+  display: block;
+  width: 40px;
+  height: 2px;
+  background: var(--ifm-color-primary);
+  margin-top: 0.4rem;
+  opacity: 0.5;
+}
+
+.markdown h3 {
+  font-size: 1.15rem;
+  font-weight: 600;
+  font-style: italic;
+}
+
+/* Body text refinement */
+.markdown p {
+  text-align: left;
+  hyphens: auto;
+  -webkit-hyphens: auto;
+}
+
+/* ============================================================
+   NAVBAR — Clean Rule
+   ============================================================ */
+.navbar {
+  border-bottom: 2px solid var(--ifm-color-primary);
+  font-family: 'Source Serif 4', serif;
+}
+
+.navbar__title {
+  font-family: 'Playfair Display', serif !important;
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  font-style: italic;
+}
+
+.navbar__link {
+  font-family: 'Source Serif 4', serif;
+  font-weight: 500;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+}
+
+/* ============================================================
+   FOOTER — Navy Foundation
+   ============================================================ */
+.footer {
+  font-family: 'Source Serif 4', serif;
+}
+
+.footer__title {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: 1rem;
+  font-style: italic;
+}
+
+.footer__link-item {
+  font-size: 0.9rem;
+}
+
+/* ============================================================
+   SIDEBAR — Index Style
+   ============================================================ */
+.menu__link {
+  font-family: 'Source Serif 4', serif;
+  font-size: 0.9rem;
+  border-radius: 0;
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+  border-left: 2px solid var(--ifm-color-primary);
+  background: transparent;
+  font-weight: 600;
+  padding-left: calc(0.75rem - 2px);
+}
+
+.menu__link--sublist-caret {
+  font-family: 'Playfair Display', serif;
+  font-weight: 700;
+  font-size: 0.88rem;
+  font-style: italic;
+}
+
+/* ============================================================
+   CODE BLOCKS — Notebook Margin Style
+   ============================================================ */
+pre[class*='language-'] {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-left: 3px solid var(--ifm-color-primary);
+  border-radius: 0;
+  background: var(--fabula-editor-bg) !important;
+  padding-left: 1.2rem;
+}
+
+code {
+  font-family: 'Inconsolata', monospace;
+  font-weight: 500;
+}
+
+/* ============================================================
+   TABLES — Published Data Table
+   ============================================================ */
+.markdown table {
+  font-size: 0.9rem;
+  border-collapse: collapse;
+  border: none;
+}
+
+.markdown table thead {
+  border-bottom: 2px solid var(--ifm-color-primary);
+}
+
+.markdown table th {
+  font-family: 'Playfair Display', serif;
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: transparent;
+  border: none;
+  border-bottom: 2px solid var(--ifm-color-primary);
+  padding: 0.5rem 0.75rem;
+}
+
+.markdown table td {
+  border: none;
+  border-bottom: 1px solid var(--ifm-color-emphasis-200);
+  padding: 0.5rem 0.75rem;
+}
+
+.markdown table tbody tr:last-child td {
+  border-bottom: 2px solid var(--ifm-color-emphasis-300);
+}
+
+/* ============================================================
+   HR — Clean Rule
+   ============================================================ */
+.markdown hr {
+  border: none;
+  height: 1px;
+  background: var(--ifm-color-primary);
+  opacity: 0.3;
+  margin: 2.5rem 0;
+}
+
+/* ============================================================
+   ANNOTATION-STYLE ELEMENTS
+   ============================================================ */
+.alert {
+  border-radius: 0;
+  border-left: 3px solid;
+  font-family: 'Source Serif 4', serif;
+}
+
+.alert--danger {
+  border-left-color: #c62828;
+}
+
+.alert--info {
+  border-left-color: #1565c0;
+}
+
+/* ============================================================
+   BLOCKQUOTES — Margin Notes
+   ============================================================ */
+.markdown blockquote {
+  border-left: 3px solid var(--ifm-color-primary);
+  background: transparent;
+  font-style: italic;
+  color: var(--ifm-font-color-secondary);
+  padding: 0.5rem 1rem;
+}
+
+/* ============================================================
+   LINKS — Underlined Scholarly
+   ============================================================ */
+.markdown a {
+  text-decoration: underline;
+  text-decoration-color: var(--ifm-color-emphasis-300);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+}
+
+.markdown a:hover {
+  text-decoration-color: var(--ifm-color-primary);
+  text-decoration-thickness: 2px;
+}
+
+/* ============================================================
+   TYPEWRITER REVEAL — Result Rows
+   ============================================================ */
+@keyframes typewriter-row {
+  from {
+    opacity: 0;
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    opacity: 1;
+    clip-path: inset(0 0 0 0);
+  }
+}
+
+/* ============================================================
+   SCROLLBAR — Subtle
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ifm-color-emphasis-300);
+  border-radius: 0;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ifm-color-primary);
+}
+
+/* ============================================================
+   SELECTION — Blueprint Highlight
+   ============================================================ */
+::selection {
+  background: rgba(27, 54, 93, 0.15);
+  color: inherit;
+}
+
+[data-theme='dark'] ::selection {
+  background: rgba(138, 180, 248, 0.2);
+}

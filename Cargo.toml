@@ -6,6 +6,8 @@ members = [
     "crates/fabula-petgraph",
     "crates/fabula-grafeo",
     "crates/fabula-test-suite",
+    "crates/fabula-dsl",
+    "crates/fabula-wasm",
 ]
 
 [workspace.package]

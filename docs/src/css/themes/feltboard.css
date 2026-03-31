@@ -1,0 +1,354 @@
+/**
+ * THEME: Feltboard — Soft Material / Craft
+ *
+ * Named after the Felt library that inspired fabula. Warm, tactile,
+ * handmade. Patterns are felt cutouts pinned to a board. Approachable
+ * and disarming for an academic library.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;0,9..144,800;1,9..144,300;1,9..144,400;1,9..144,500&family=Nunito:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;1,400;1,600&family=Fira+Code:wght@400;500;600&display=swap');
+
+/* ============================================================
+   LIGHT MODE — Craft Paper
+   ============================================================ */
+:root {
+  --ifm-font-family-base: 'Nunito', 'Helvetica Neue', sans-serif;
+  --ifm-font-family-monospace: 'Fira Code', 'Consolas', monospace;
+  --ifm-heading-font-family: 'Fraunces', 'Georgia', serif;
+  --ifm-font-size-base: 16px;
+  --ifm-line-height-base: 1.7;
+
+  --ifm-color-primary: #2d5f3f;
+  --ifm-color-primary-dark: #275338;
+  --ifm-color-primary-darker: #244e34;
+  --ifm-color-primary-darkest: #1d402b;
+  --ifm-color-primary-light: #336b46;
+  --ifm-color-primary-lighter: #36714a;
+  --ifm-color-primary-lightest: #3e8155;
+
+  --ifm-background-color: #faf7f2;
+  --ifm-background-surface-color: #f5f0e8;
+  --ifm-font-color-base: #2a2520;
+  --ifm-font-color-secondary: #5c5248;
+
+  --ifm-color-emphasis-0: #fdfcfa;
+  --ifm-color-emphasis-100: #f5f0e8;
+  --ifm-color-emphasis-200: #e8dfd3;
+  --ifm-color-emphasis-300: #d4c5a9;
+  --ifm-color-emphasis-400: #b8a78c;
+  --ifm-color-emphasis-500: #978670;
+  --ifm-color-emphasis-600: #7a6a58;
+  --ifm-color-emphasis-700: #5c5248;
+  --ifm-color-emphasis-800: #3e3630;
+  --ifm-color-emphasis-900: #2a2520;
+
+  --ifm-color-success: #2d5f3f;
+  --ifm-color-success-darkest: #1d402b;
+  --ifm-color-success-contrast-background: #e8f0e4;
+  --ifm-color-info: #264653;
+  --ifm-color-info-darkest: #1a303a;
+  --ifm-color-info-contrast-background: #e0eaef;
+  --ifm-color-warning: #e9c46a;
+  --ifm-color-warning-darkest: #b8960a;
+  --ifm-color-warning-contrast-background: #faf3de;
+  --ifm-color-danger: #e07a5f;
+  --ifm-color-danger-darkest: #b85a42;
+  --ifm-color-danger-contrast-background: #fae8e3;
+
+  --ifm-navbar-background-color: #faf7f2;
+  --ifm-navbar-shadow: none;
+  --ifm-footer-background-color: #264653;
+  --ifm-footer-color: #d4c5a9;
+  --ifm-footer-link-color: #e9c46a;
+
+  --ifm-code-font-size: 90%;
+  --ifm-code-background: rgba(45, 95, 63, 0.06);
+  --ifm-code-border-radius: 4px;
+
+  --ifm-border-radius: 8px;
+
+  --docusaurus-highlighted-code-line-bg: rgba(233, 196, 106, 0.15);
+
+  /* Fabula component tokens */
+  --fabula-editor-bg: #fdfcfa;
+  --fabula-editor-text: #2a2520;
+  --fabula-editor-caret: #2d5f3f;
+
+  --fabula-hl-keyword: #2d5f3f;
+  --fabula-hl-string: #e07a5f;
+  --fabula-hl-number: #264653;
+  --fabula-hl-variable: #e9c46a;
+  --fabula-hl-comment: #b8a78c;
+  --fabula-hl-operator: #7a6a58;
+}
+
+/* ============================================================
+   DARK MODE — Night Craft
+   ============================================================ */
+[data-theme='dark'] {
+  --ifm-color-primary: #7dc98e;
+  --ifm-color-primary-dark: #6ac07e;
+  --ifm-color-primary-darker: #60bc76;
+  --ifm-color-primary-darkest: #43a85d;
+  --ifm-color-primary-light: #90d29e;
+  --ifm-color-primary-lighter: #9ad6a6;
+  --ifm-color-primary-lightest: #b6e2bf;
+
+  --ifm-background-color: #1e1e1e;
+  --ifm-background-surface-color: #262626;
+  --ifm-font-color-base: #e8dfd3;
+  --ifm-font-color-secondary: #b8a78c;
+
+  --ifm-color-emphasis-0: #222222;
+  --ifm-color-emphasis-100: #2a2a2a;
+  --ifm-color-emphasis-200: #363636;
+  --ifm-color-emphasis-300: #444444;
+  --ifm-color-emphasis-400: #5c5c5c;
+  --ifm-color-emphasis-500: #7a7a7a;
+  --ifm-color-emphasis-600: #9a9a9a;
+  --ifm-color-emphasis-700: #b8b8b8;
+  --ifm-color-emphasis-800: #d0d0d0;
+  --ifm-color-emphasis-900: #e8e8e8;
+
+  --ifm-color-success: #7dc98e;
+  --ifm-color-success-contrast-background: rgba(125, 201, 142, 0.1);
+  --ifm-color-danger: #e8967e;
+  --ifm-color-danger-contrast-background: rgba(232, 150, 126, 0.1);
+
+  --ifm-navbar-background-color: #1e1e1e;
+  --ifm-footer-background-color: #181818;
+
+  --ifm-code-background: rgba(125, 201, 142, 0.06);
+
+  --fabula-editor-bg: #222222;
+  --fabula-editor-text: #e8dfd3;
+  --fabula-editor-caret: #7dc98e;
+
+  --fabula-hl-keyword: #7dc98e;
+  --fabula-hl-string-dark: #e8967e;
+  --fabula-hl-number-dark: #7ab8c7;
+  --fabula-hl-variable-dark: #ecd27e;
+  --fabula-hl-comment: #5c5c5c;
+  --fabula-hl-operator: #9a9a9a;
+}
+
+/* ============================================================
+   GLOBAL — Felt Texture Overlay
+   ============================================================ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.018;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='felt'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='1.2' numOctaves='5' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23felt)'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+}
+
+[data-theme='dark'] body::before {
+  opacity: 0.03;
+}
+
+/* ============================================================
+   TYPOGRAPHY — Warm and Characterful
+   ============================================================ */
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+}
+
+.markdown h1 {
+  font-size: 2.4rem;
+  font-weight: 700;
+  font-variation-settings: 'opsz' 144;
+  color: #264653;
+  margin-bottom: 1rem;
+}
+
+[data-theme='dark'] .markdown h1 {
+  color: #7dc98e;
+}
+
+.markdown h2 {
+  font-size: 1.5rem;
+  color: #2d5f3f;
+  font-variation-settings: 'opsz' 48;
+}
+
+[data-theme='dark'] .markdown h2 {
+  color: #7dc98e;
+}
+
+.markdown h3 {
+  font-size: 1.15rem;
+  font-variation-settings: 'opsz' 24;
+}
+
+/* ============================================================
+   NAVBAR — Soft Header
+   ============================================================ */
+.navbar {
+  border-bottom: 2px solid var(--ifm-color-emphasis-200);
+  padding: 0.25rem 1rem;
+}
+
+.navbar__title {
+  font-family: 'Fraunces', serif !important;
+  font-weight: 800;
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+  font-variation-settings: 'opsz' 144;
+}
+
+.navbar__link {
+  font-family: 'Nunito', sans-serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+  border-radius: 20px;
+  padding: 0.3rem 0.8rem !important;
+}
+
+.navbar__link:hover {
+  background: var(--ifm-color-emphasis-100);
+}
+
+.navbar__link--active {
+  background: var(--ifm-color-emphasis-100);
+}
+
+/* ============================================================
+   FOOTER — Deep Felt
+   ============================================================ */
+.footer {
+  font-family: 'Nunito', sans-serif;
+}
+
+.footer__title {
+  font-family: 'Fraunces', serif;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+/* ============================================================
+   SIDEBAR — Rounded Tabs
+   ============================================================ */
+.menu__link {
+  font-family: 'Nunito', sans-serif;
+  font-size: 0.9rem;
+  border-radius: 8px;
+  padding: 0.4rem 0.75rem;
+}
+
+.menu__link:hover {
+  background: var(--ifm-color-emphasis-100);
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+  background: var(--ifm-color-emphasis-100);
+  font-weight: 700;
+}
+
+.menu__link--sublist-caret {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+/* ============================================================
+   CODE BLOCKS — Card Style
+   ============================================================ */
+pre[class*='language-'] {
+  border: 1px solid var(--ifm-color-emphasis-200);
+  border-radius: 12px;
+  background: var(--fabula-editor-bg) !important;
+  box-shadow: 0 2px 8px rgba(42, 37, 32, 0.06);
+}
+
+[data-theme='dark'] pre[class*='language-'] {
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.2);
+}
+
+code {
+  font-family: 'Fira Code', monospace;
+  font-feature-settings: 'liga' 1;
+}
+
+/* ============================================================
+   PHYSICAL DEPTH — Card Shadows
+   ============================================================ */
+.markdown table {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--ifm-color-emphasis-200);
+  box-shadow: 0 2px 8px rgba(42, 37, 32, 0.05);
+}
+
+.markdown table th {
+  font-family: 'Fraunces', serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  background: var(--ifm-color-emphasis-100);
+}
+
+/* ============================================================
+   SLIGHT ROTATION — Collage Feel
+   ============================================================ */
+.alert {
+  border-radius: 12px;
+  box-shadow: 0 2px 8px rgba(42, 37, 32, 0.06);
+}
+
+/* ============================================================
+   HR — Thread Line
+   ============================================================ */
+.markdown hr {
+  border: none;
+  height: 2px;
+  background: var(--ifm-color-emphasis-200);
+  border-radius: 1px;
+  margin: 2rem 0;
+}
+
+/* ============================================================
+   SELECTION — Warm Highlight
+   ============================================================ */
+::selection {
+  background: rgba(233, 196, 106, 0.3);
+  color: inherit;
+}
+
+/* ============================================================
+   SCROLLBAR — Soft
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ifm-color-emphasis-300);
+  border-radius: 10px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ifm-color-emphasis-400);
+}
+
+/* ============================================================
+   LINKS — Warm Underline
+   ============================================================ */
+.markdown a {
+  text-decoration-color: var(--ifm-color-emphasis-300);
+  text-underline-offset: 2px;
+}
+
+.markdown a:hover {
+  text-decoration-color: var(--ifm-color-primary);
+}

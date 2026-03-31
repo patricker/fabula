@@ -5,6 +5,15 @@ const sidebars: SidebarsConfig = {
     'getting-started',
     {
       type: 'category',
+      label: 'Playground',
+      items: [
+        'playground/pattern-playground',
+        'playground/step-through',
+        'playground/allen-visualizer',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Concepts',
       items: [
         'concepts/overview',
@@ -32,6 +41,7 @@ const sidebars: SidebarsConfig = {
         'reference/datasource',
         'reference/patterns',
         'reference/engine',
+        'reference/dsl',
         {
           type: 'category',
           label: 'Adapters',

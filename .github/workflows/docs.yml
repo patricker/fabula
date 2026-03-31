@@ -5,6 +5,10 @@ on:
     branches: [main]
     paths:
       - 'docs/**'
+      - 'crates/fabula/**'
+      - 'crates/fabula-memory/**'
+      - 'crates/fabula-dsl/**'
+      - 'crates/fabula-wasm/**'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -20,11 +24,18 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
-    defaults:
-      run:
-        working-directory: docs
     steps:
       - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: cargo install wasm-pack
+
+      - run: wasm-pack build --target web crates/fabula-wasm --out-dir ../../docs/static/wasm/pkg
 
       - uses: actions/setup-node@v4
         with:
@@ -32,8 +43,11 @@ jobs:
           cache: npm
           cache-dependency-path: docs/package-lock.json
 
-      - run: npm ci
-      - run: npm run build
+      - working-directory: docs
+        run: npm ci
+
+      - working-directory: docs
+        run: npm run build
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -1,0 +1,47 @@
+.selector {
+  display: flex;
+  flex-direction: column;
+  background: var(--ifm-color-emphasis-100);
+  border-bottom: 1px solid var(--ifm-color-emphasis-300);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+}
+
+.label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--ifm-color-emphasis-600);
+  white-space: nowrap;
+}
+
+.select {
+  flex: 1;
+  padding: 0.25rem 0.5rem;
+  font-size: 0.85rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 4px;
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+  cursor: pointer;
+  max-width: 400px;
+}
+
+.select:focus {
+  outline: none;
+  border-color: var(--ifm-color-primary);
+}
+
+.description {
+  padding: 0.35rem 0.75rem;
+  font-size: 0.85rem;
+  color: var(--ifm-font-color-secondary);
+  border-top: 1px solid var(--ifm-color-emphasis-200);
+  line-height: 1.4;
+}

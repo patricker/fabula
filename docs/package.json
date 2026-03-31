@@ -4,7 +4,10 @@
   "private": true,
   "scripts": {
     "docusaurus": "docusaurus",
+    "build:wasm": "cd .. && bash scripts/build-wasm.sh",
+    "prestart": "npm run build:wasm",
     "start": "docusaurus start",
+    "prebuild": "npm run build:wasm",
     "build": "docusaurus build",
     "swizzle": "docusaurus swizzle",
     "deploy": "docusaurus deploy",

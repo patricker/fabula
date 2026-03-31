@@ -1,0 +1,20 @@
+---
+title: Step-Through Debugger
+description: Watch incremental pattern matching unfold step by step
+---
+
+import StepThrough from '@site/src/components/wasm/StepThrough';
+
+# Step-Through Debugger
+
+Watch how the engine processes edges incrementally. Each timestamp is a step — click through to see which partial matches advance, complete, or get negated.
+
+<StepThrough />
+
+## How to read this
+
+- **Edges Added**: the edges that arrived at this timestamp
+- **Events**: what the engine emitted (`advanced`, `completed`, or `negated`)
+- **Partial Matches**: the current pool of partial matches with their state and bindings
+
+Try editing the graph to add a `leaveTown` event between the hospitality and harm — watch the negation kill the match.

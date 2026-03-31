@@ -1,0 +1,62 @@
+.container {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 8px;
+  overflow: hidden;
+  margin: 1rem 0;
+  padding: 0.75rem;
+}
+
+.loading {
+  padding: 2rem;
+  text-align: center;
+  color: var(--ifm-color-emphasis-500);
+}
+
+.presets {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.presets label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ifm-color-emphasis-600);
+}
+
+.presets select {
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 4px;
+  font-size: 0.85rem;
+  background: var(--ifm-background-color);
+  color: var(--ifm-font-color-base);
+}
+
+.svg {
+  width: 100%;
+  max-width: 500px;
+  display: block;
+  margin: 0 auto;
+  user-select: none;
+}
+
+.relation {
+  text-align: center;
+  font-size: 1.1rem;
+  padding: 0.5rem 0 0;
+}
+
+.relation strong {
+  color: var(--ifm-color-primary);
+  font-size: 1.2rem;
+}
+
+.intervals {
+  display: block;
+  font-size: 0.8rem;
+  font-family: var(--ifm-font-family-monospace);
+  color: var(--ifm-color-emphasis-500);
+  margin-top: 0.25rem;
+}

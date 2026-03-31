@@ -1,0 +1,333 @@
+/**
+ * THEME: The Manuscript — Illuminated Codex
+ *
+ * "Fabula" is Latin for story. This theme channels medieval manuscripts,
+ * illuminated texts, and the scribe's workshop. Patterns are incantations
+ * written on vellum; matches are revelations inscribed in gold.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap');
+
+/* ============================================================
+   LIGHT MODE — Parchment
+   ============================================================ */
+:root {
+  /* Infima overrides */
+  --ifm-font-family-base: 'Crimson Pro', 'Georgia', serif;
+  --ifm-font-family-monospace: 'JetBrains Mono', 'Consolas', monospace;
+  --ifm-heading-font-family: 'Cinzel', serif;
+  --ifm-font-size-base: 17px;
+  --ifm-line-height-base: 1.7;
+
+  --ifm-color-primary: #6b2027;
+  --ifm-color-primary-dark: #5e1c22;
+  --ifm-color-primary-darker: #581a20;
+  --ifm-color-primary-darkest: #48151a;
+  --ifm-color-primary-light: #78242c;
+  --ifm-color-primary-lighter: #7e262e;
+  --ifm-color-primary-lightest: #8e2b35;
+
+  --ifm-background-color: #f4ede4;
+  --ifm-background-surface-color: #efe7db;
+  --ifm-font-color-base: #2d1f14;
+  --ifm-font-color-secondary: #5a4638;
+
+  --ifm-color-emphasis-0: #f8f3ec;
+  --ifm-color-emphasis-100: #efe7db;
+  --ifm-color-emphasis-200: #ddd1c1;
+  --ifm-color-emphasis-300: #c4b39e;
+  --ifm-color-emphasis-400: #a8937a;
+  --ifm-color-emphasis-500: #8a7460;
+  --ifm-color-emphasis-600: #6b5848;
+  --ifm-color-emphasis-700: #4d3d31;
+  --ifm-color-emphasis-800: #362a20;
+  --ifm-color-emphasis-900: #2d1f14;
+
+  --ifm-color-success: #4a7c3f;
+  --ifm-color-success-darkest: #2f5227;
+  --ifm-color-success-contrast-background: #e8f0e4;
+  --ifm-color-info: #3a6b8c;
+  --ifm-color-info-darkest: #254a63;
+  --ifm-color-info-contrast-background: #e4eef4;
+  --ifm-color-warning: #b8860b;
+  --ifm-color-warning-darkest: #7a5a07;
+  --ifm-color-warning-contrast-background: #f5ecd4;
+  --ifm-color-danger: #c0392b;
+  --ifm-color-danger-darkest: #8b2920;
+  --ifm-color-danger-contrast-background: #f5e0dd;
+
+  --ifm-navbar-background-color: #efe7db;
+  --ifm-navbar-shadow: 0 1px 0 0 #c4b39e;
+  --ifm-footer-background-color: #2d1f14;
+  --ifm-footer-color: #ddd1c1;
+  --ifm-footer-link-color: #c49b2c;
+
+  --ifm-code-font-size: 90%;
+  --ifm-code-background: rgba(107, 32, 39, 0.06);
+  --ifm-code-border-radius: 3px;
+
+  --ifm-border-radius: 3px;
+
+  --docusaurus-highlighted-code-line-bg: rgba(196, 155, 44, 0.15);
+
+  /* Fabula component tokens */
+  --fabula-editor-bg: #f8f3ec;
+  --fabula-editor-text: #2d1f14;
+  --fabula-editor-caret: #6b2027;
+
+  --fabula-hl-keyword: #6b2027;
+  --fabula-hl-string: #4a7c3f;
+  --fabula-hl-number: #3a6b8c;
+  --fabula-hl-variable: #c49b2c;
+  --fabula-hl-comment: #a8937a;
+  --fabula-hl-operator: #5a4638;
+}
+
+/* ============================================================
+   DARK MODE — Midnight Scriptorium
+   ============================================================ */
+[data-theme='dark'] {
+  --ifm-color-primary: #c49b2c;
+  --ifm-color-primary-dark: #b08b27;
+  --ifm-color-primary-darker: #a68325;
+  --ifm-color-primary-darkest: #896c1f;
+  --ifm-color-primary-light: #cda83f;
+  --ifm-color-primary-lighter: #d0ad48;
+  --ifm-color-primary-lightest: #d9bc64;
+
+  --ifm-background-color: #0f1626;
+  --ifm-background-surface-color: #161e30;
+  --ifm-font-color-base: #ddd1c1;
+  --ifm-font-color-secondary: #a8937a;
+
+  --ifm-color-emphasis-0: #131b2b;
+  --ifm-color-emphasis-100: #1a2338;
+  --ifm-color-emphasis-200: #253046;
+  --ifm-color-emphasis-300: #354258;
+  --ifm-color-emphasis-400: #506074;
+  --ifm-color-emphasis-500: #7a8a9a;
+  --ifm-color-emphasis-600: #9aabb8;
+  --ifm-color-emphasis-700: #b8c4ce;
+  --ifm-color-emphasis-800: #d0d8df;
+  --ifm-color-emphasis-900: #e8edf0;
+
+  --ifm-color-success: #6bab5e;
+  --ifm-color-success-contrast-background: rgba(107, 171, 94, 0.12);
+  --ifm-color-danger: #e07a6e;
+  --ifm-color-danger-contrast-background: rgba(224, 122, 110, 0.12);
+
+  --ifm-navbar-background-color: #0f1626;
+  --ifm-footer-background-color: #0a0f1a;
+
+  --ifm-code-background: rgba(196, 155, 44, 0.08);
+
+  --fabula-editor-bg: #131b2b;
+  --fabula-editor-text: #ddd1c1;
+  --fabula-editor-caret: #c49b2c;
+
+  --fabula-hl-keyword: #c49b2c;
+  --fabula-hl-string-dark: #6bab5e;
+  --fabula-hl-number-dark: #7aaed4;
+  --fabula-hl-variable-dark: #e0a64a;
+  --fabula-hl-comment: #506074;
+  --fabula-hl-operator: #9aabb8;
+}
+
+/* ============================================================
+   GLOBAL TEXTURE — Parchment Grain
+   ============================================================ */
+body {
+  position: relative;
+}
+
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-size: 256px 256px;
+}
+
+[data-theme='dark'] body::before {
+  opacity: 0.04;
+}
+
+/* ============================================================
+   TYPOGRAPHY — Heading Treatment
+   ============================================================ */
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.markdown h1 {
+  font-size: 2.2rem;
+  border-bottom: 2px solid var(--ifm-color-emphasis-300);
+  padding-bottom: 0.5rem;
+}
+
+.markdown h2 {
+  font-size: 1.6rem;
+}
+
+.markdown h1::first-letter {
+  font-family: 'Cinzel Decorative', serif;
+  font-size: 1.2em;
+  color: var(--ifm-color-primary);
+}
+
+/* ============================================================
+   NAVBAR — Manuscript Header
+   ============================================================ */
+.navbar {
+  border-bottom: 2px solid var(--ifm-color-emphasis-300);
+  font-family: 'Cinzel', serif;
+}
+
+.navbar__title {
+  font-family: 'Cinzel Decorative', serif !important;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  font-size: 1.1rem;
+}
+
+.navbar__link {
+  font-family: 'Cinzel', serif;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+}
+
+/* ============================================================
+   FOOTER — Dark Leather
+   ============================================================ */
+.footer {
+  font-family: 'Crimson Pro', serif;
+}
+
+.footer__title {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-size: 0.85rem;
+}
+
+.footer__link-item {
+  font-size: 0.95rem;
+}
+
+/* ============================================================
+   SIDEBAR — Scroll Index
+   ============================================================ */
+.menu__link {
+  font-family: 'Crimson Pro', serif;
+  font-size: 0.95rem;
+}
+
+.menu__link--sublist-caret {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+/* ============================================================
+   CODE BLOCKS — Manuscript Margins
+   ============================================================ */
+pre[class*='language-'] {
+  border: 1px solid var(--ifm-color-emphasis-300);
+  border-radius: 3px;
+  background: var(--fabula-editor-bg) !important;
+}
+
+code {
+  font-family: 'JetBrains Mono', monospace;
+}
+
+/* ============================================================
+   DECORATIVE RULE — Section Dividers
+   ============================================================ */
+.markdown hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    var(--ifm-color-emphasis-300) 20%,
+    var(--ifm-color-primary) 50%,
+    var(--ifm-color-emphasis-300) 80%,
+    transparent
+  );
+  margin: 2rem 0;
+}
+
+/* ============================================================
+   TABLES — Tabular Hand
+   ============================================================ */
+.markdown table {
+  font-size: 0.95rem;
+}
+
+.markdown table th {
+  font-family: 'Cinzel', serif;
+  font-weight: 600;
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: var(--ifm-color-emphasis-100);
+}
+
+/* ============================================================
+   MATCH RESULTS — Gold Inscription Animation
+   ============================================================ */
+@keyframes inscribe {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+    filter: brightness(1.5);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+    filter: brightness(1);
+  }
+}
+
+.markdown table tbody tr {
+  animation: inscribe 0.3s ease both;
+}
+
+.markdown table tbody tr:nth-child(2) { animation-delay: 0.05s; }
+.markdown table tbody tr:nth-child(3) { animation-delay: 0.1s; }
+.markdown table tbody tr:nth-child(4) { animation-delay: 0.15s; }
+
+/* ============================================================
+   SCROLLBAR — Parchment
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--ifm-color-emphasis-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--ifm-color-emphasis-400);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--ifm-color-emphasis-500);
+}

@@ -55,6 +55,11 @@ const config: Config = {
           label: 'Docs',
         },
         {
+          to: '/docs/playground/pattern-playground',
+          label: 'Playground',
+          position: 'left',
+        },
+        {
           href: 'https://docs.rs/fabula',
           label: 'API',
           position: 'left',

@@ -1,0 +1,364 @@
+/**
+ * THEME: Nexus — Dark Technical / Neon Graph
+ *
+ * The graph IS the interface. Dark, technical, focused. Nodes and edges
+ * are the visual language. Glassmorphism panels over a deep void.
+ * Neon accents for each semantic role: blue=edges, violet=variables,
+ * cyan=completed, pink=negation.
+ */
+
+@import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Source+Code+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,400&display=swap');
+
+/* ============================================================
+   FORCE DARK — The void is the canvas
+   ============================================================ */
+:root,
+[data-theme='light'],
+[data-theme='dark'] {
+  color-scheme: dark;
+
+  --ifm-font-family-base: 'Outfit', 'Helvetica Neue', sans-serif;
+  --ifm-font-family-monospace: 'Source Code Pro', 'Consolas', monospace;
+  --ifm-heading-font-family: 'Outfit', sans-serif;
+  --ifm-font-size-base: 15.5px;
+  --ifm-line-height-base: 1.65;
+
+  --ifm-color-primary: #3b82f6;
+  --ifm-color-primary-dark: #2570ef;
+  --ifm-color-primary-darker: #1a66ed;
+  --ifm-color-primary-darkest: #1254cc;
+  --ifm-color-primary-light: #5192f8;
+  --ifm-color-primary-lighter: #5c9af8;
+  --ifm-color-primary-lightest: #7db0fa;
+
+  --ifm-background-color: #0a0a0f;
+  --ifm-background-surface-color: #0f0f18;
+  --ifm-font-color-base: #d0d5e0;
+  --ifm-font-color-secondary: #8890a5;
+
+  --ifm-color-emphasis-0: #0c0c14;
+  --ifm-color-emphasis-100: #12121e;
+  --ifm-color-emphasis-200: #1a1a2a;
+  --ifm-color-emphasis-300: #252538;
+  --ifm-color-emphasis-400: #383850;
+  --ifm-color-emphasis-500: #555570;
+  --ifm-color-emphasis-600: #7878a0;
+  --ifm-color-emphasis-700: #9898b8;
+  --ifm-color-emphasis-800: #b8b8d0;
+  --ifm-color-emphasis-900: #d8d8e8;
+
+  --ifm-color-success: #06b6d4;
+  --ifm-color-success-darkest: #0891b2;
+  --ifm-color-success-contrast-background: rgba(6, 182, 212, 0.08);
+  --ifm-color-info: #8b5cf6;
+  --ifm-color-info-darkest: #7c3aed;
+  --ifm-color-info-contrast-background: rgba(139, 92, 246, 0.08);
+  --ifm-color-warning: #f59e0b;
+  --ifm-color-warning-darkest: #d97706;
+  --ifm-color-warning-contrast-background: rgba(245, 158, 11, 0.08);
+  --ifm-color-danger: #ec4899;
+  --ifm-color-danger-darkest: #db2777;
+  --ifm-color-danger-contrast-background: rgba(236, 72, 153, 0.08);
+
+  --ifm-navbar-background-color: rgba(10, 10, 15, 0.85);
+  --ifm-navbar-shadow: 0 1px 0 0 rgba(59, 130, 246, 0.1);
+  --ifm-footer-background-color: #06060a;
+  --ifm-footer-color: #555570;
+  --ifm-footer-link-color: #3b82f6;
+
+  --ifm-code-font-size: 88%;
+  --ifm-code-background: rgba(59, 130, 246, 0.06);
+  --ifm-code-border-radius: 4px;
+
+  --ifm-border-radius: 8px;
+
+  --docusaurus-highlighted-code-line-bg: rgba(59, 130, 246, 0.1);
+
+  /* Fabula component tokens */
+  --fabula-editor-bg: rgba(12, 12, 20, 0.8);
+  --fabula-editor-text: #d0d5e0;
+  --fabula-editor-caret: #3b82f6;
+
+  --fabula-hl-keyword: #3b82f6;
+  --fabula-hl-string: #06b6d4;
+  --fabula-hl-number: #f59e0b;
+  --fabula-hl-variable: #8b5cf6;
+  --fabula-hl-comment: #383850;
+  --fabula-hl-operator: #555570;
+
+  --fabula-hl-string-dark: #06b6d4;
+  --fabula-hl-number-dark: #f59e0b;
+  --fabula-hl-variable-dark: #a78bfa;
+}
+
+/* ============================================================
+   GLOBAL — Dot Grid + Ambient Glow
+   ============================================================ */
+body {
+  background: #0a0a0f;
+}
+
+.main-wrapper {
+  background-image:
+    radial-gradient(circle, rgba(59, 130, 246, 0.03) 1px, transparent 1px),
+    radial-gradient(ellipse at 20% 50%, rgba(139, 92, 246, 0.04) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 50%, rgba(6, 182, 212, 0.03) 0%, transparent 50%);
+  background-size: 20px 20px, 100% 100%, 100% 100%;
+}
+
+/* ============================================================
+   TYPOGRAPHY — Geometric Precision
+   ============================================================ */
+.markdown h1,
+.markdown h2,
+.markdown h3 {
+  font-family: 'Outfit', sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.markdown h1 {
+  font-size: 2.2rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6, #06b6d4);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.markdown h2 {
+  font-size: 1.4rem;
+  color: #d0d5e0;
+}
+
+.markdown h3 {
+  font-size: 1.1rem;
+  color: #9898b8;
+}
+
+/* ============================================================
+   NAVBAR — Frosted Glass
+   ============================================================ */
+.navbar {
+  backdrop-filter: blur(16px) saturate(180%);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.1);
+}
+
+.navbar__title {
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  font-size: 1.1rem;
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.navbar__link {
+  font-weight: 500;
+  font-size: 0.85rem;
+  border-radius: 6px;
+  padding: 0.3rem 0.7rem !important;
+  transition: all 0.2s ease;
+}
+
+.navbar__link:hover {
+  background: rgba(59, 130, 246, 0.08);
+  color: #3b82f6 !important;
+}
+
+.navbar__link--active {
+  background: rgba(59, 130, 246, 0.1);
+  color: #3b82f6 !important;
+}
+
+/* ============================================================
+   FOOTER — Deep Void
+   ============================================================ */
+.footer {
+  border-top: 1px solid rgba(59, 130, 246, 0.08);
+}
+
+.footer__title {
+  font-weight: 700;
+  font-size: 0.85rem;
+  color: #3b82f6;
+  letter-spacing: -0.01em;
+}
+
+/* ============================================================
+   SIDEBAR — Glow on Active
+   ============================================================ */
+.menu__link {
+  font-size: 0.88rem;
+  font-weight: 400;
+  border-radius: 6px;
+  transition: all 0.15s ease;
+}
+
+.menu__link:hover {
+  background: rgba(59, 130, 246, 0.06);
+}
+
+.menu__link--active:not(.menu__link--sublist) {
+  color: #3b82f6 !important;
+  background: rgba(59, 130, 246, 0.08);
+  box-shadow: inset 2px 0 0 #3b82f6;
+}
+
+.menu__link--sublist-caret {
+  font-weight: 600;
+  font-size: 0.82rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #555570;
+}
+
+/* ============================================================
+   CODE BLOCKS — Glassmorphism
+   ============================================================ */
+pre[class*='language-'] {
+  background: rgba(12, 12, 20, 0.7) !important;
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(59, 130, 246, 0.12);
+  border-radius: 8px;
+  box-shadow:
+    0 0 1px rgba(59, 130, 246, 0.15),
+    0 4px 24px rgba(0, 0, 0, 0.3);
+}
+
+code {
+  font-family: 'Source Code Pro', monospace;
+}
+
+/* Neon glow on syntax tokens */
+pre[class*='language-'] .token.keyword {
+  text-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+}
+
+pre[class*='language-'] .token.string {
+  text-shadow: 0 0 8px rgba(6, 182, 212, 0.3);
+}
+
+/* ============================================================
+   TABLES — Subtle Glass
+   ============================================================ */
+.markdown table {
+  border: 1px solid rgba(59, 130, 246, 0.1);
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.markdown table th {
+  background: rgba(59, 130, 246, 0.06);
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-size: 0.75rem;
+  color: #3b82f6;
+}
+
+.markdown table td {
+  border-color: rgba(59, 130, 246, 0.06);
+}
+
+/* ============================================================
+   HR — Gradient Edge
+   ============================================================ */
+.markdown hr {
+  border: none;
+  height: 1px;
+  background: linear-gradient(
+    to right,
+    transparent,
+    rgba(59, 130, 246, 0.3) 20%,
+    rgba(139, 92, 246, 0.4) 50%,
+    rgba(6, 182, 212, 0.3) 80%,
+    transparent
+  );
+}
+
+/* ============================================================
+   NEON PULSE ANIMATIONS
+   ============================================================ */
+@keyframes neon-pulse {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(59, 130, 246, 0.2), 0 0 8px rgba(59, 130, 246, 0.1);
+  }
+  50% {
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.3), 0 0 16px rgba(59, 130, 246, 0.15);
+  }
+}
+
+@keyframes gradient-shift {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* ============================================================
+   SELECTION — Neon
+   ============================================================ */
+::selection {
+  background: rgba(59, 130, 246, 0.25);
+  color: white;
+}
+
+/* ============================================================
+   SCROLLBAR — Minimal Glow
+   ============================================================ */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #252538;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #3b82f6;
+  box-shadow: 0 0 6px rgba(59, 130, 246, 0.3);
+}
+
+/* ============================================================
+   ADMONITIONS — Colored Glow Borders
+   ============================================================ */
+.alert {
+  border-radius: 8px;
+  backdrop-filter: blur(4px);
+}
+
+.alert--info {
+  background: rgba(139, 92, 246, 0.06);
+  border-color: rgba(139, 92, 246, 0.3);
+}
+
+.alert--warning {
+  background: rgba(245, 158, 11, 0.06);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.alert--danger {
+  background: rgba(236, 72, 153, 0.06);
+  border-color: rgba(236, 72, 153, 0.3);
+}
+
+/* ============================================================
+   LINKS — Blue Glow
+   ============================================================ */
+.markdown a {
+  text-decoration: none;
+  color: #3b82f6;
+  transition: all 0.15s ease;
+}
+
+.markdown a:hover {
+  color: #5192f8;
+  text-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+}

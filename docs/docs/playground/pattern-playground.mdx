@@ -1,0 +1,45 @@
+---
+title: Pattern Playground
+description: Write fabula patterns and test them against graphs in real-time
+---
+
+import PatternPlayground from '@site/src/components/wasm/PatternPlayground';
+
+# Pattern Playground
+
+Write a pattern in the left editor and a graph in the right editor. The engine evaluates in real-time as you type — matches appear below, or gap analysis explains why nothing matched.
+
+<PatternPlayground />
+
+## DSL Quick Reference
+
+### Pattern syntax
+
+```
+pattern name {
+  stage eventVar {
+    eventVar.label = "value"        // literal match
+    eventVar.label -> ?variable     // bind to variable
+    eventVar.label < 0.5            // value constraint
+    ! eventVar.label = "forbidden"  // negated clause
+  }
+  unless between e1 e2 { ... }     // negation window
+  unless after e1 { ... }          // open-ended negation
+  unless { ... }                   // global negation
+  temporal e1 before e2             // explicit Allen constraint
+}
+```
+
+### Graph syntax
+
+```
+graph {
+  @timestamp node.label = "value"    // string edge
+  @timestamp node.label -> otherNode // node reference
+  @timestamp node.label = 42.5      // numeric edge
+  @start..end node.label = "value"  // bounded interval
+  now = 10                           // set current time
+}
+```
+
+See the [DSL Reference](/docs/reference/dsl) for the full grammar.
