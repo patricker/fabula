@@ -32,6 +32,19 @@ pub fn compile_pattern(ast: &PatternAst) -> Result<Pattern<String, MemValue>, Pa
         // Collect new bindings from this stage's clause targets
         for clause in &stage.clauses {
             if let ClauseTarget::Bind(ref var) = clause.target {
+                if var == &anchor {
+                    return Err(ParseError {
+                        line: 0,
+                        column: 0,
+                        span: (0, 0),
+                        message: format!(
+                            "binding '-> ?{}' collides with stage anchor '{}'. \
+                             This silently constrains ?{} to self-loops only. \
+                             Use a different variable name.",
+                            var, anchor, var
+                        ),
+                    });
+                }
                 bound_vars.insert(var.clone());
             }
         }

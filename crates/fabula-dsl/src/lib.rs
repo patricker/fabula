@@ -528,6 +528,32 @@ mod tests {
     }
 
     #[test]
+    fn error_binding_collides_with_anchor() {
+        let dsl = r#"
+            pattern test {
+                stage e1 {
+                    e1.actor -> ?e1
+                }
+            }
+        "#;
+        let err = parse_pattern(dsl).unwrap_err();
+        assert!(err.message.contains("collides with stage anchor"), "error: {}", err.message);
+    }
+
+    #[test]
+    fn binding_different_name_from_anchor_ok() {
+        let dsl = r#"
+            pattern test {
+                stage e1 {
+                    e1.actor -> ?protagonist
+                }
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        assert_eq!(pattern.stages[0].clauses.len(), 1);
+    }
+
+    #[test]
     fn roundtrip_two_betrayals_with_var_source() {
         let pattern_dsl = r#"
             pattern two_impulsive_betrayals {

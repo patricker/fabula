@@ -114,7 +114,7 @@ are well-defined.
 **Files**: `fabula-dsl/src/compiler.rs` (validation), optionally `fabula/src/builder.rs`
 **Effort**: Small
 
-### 1.3 Stage anchor / variable name collision warning
+### 1.3 ~~Stage anchor / variable name collision~~ (DONE)
 If a `-> ?var` binding produces a name identical to the enclosing stage
 anchor, the engine silently constrains `?var` to equal the anchor node
 (only self-loops match). This is almost never intended.
