@@ -595,7 +595,60 @@ fn dedup_events_match_pms() {
 }
 
 // ===========================================================================
-// 5c. Metric temporal constraints
+// 5c. Partial match age tracking
+// ===========================================================================
+
+#[test]
+fn pm_created_at_set_on_initiation() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    engine.register(PatternBuilder::new("two_stage")
+        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("enter".into())))
+        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("leave".into())))
+        .build());
+
+    g.add_str("ev1", "eventType", "enter", 42);
+    g.set_time(42);
+    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
+        &MemValue::Str("enter".into()), &Interval::open(42));
+
+    let pms = engine.active_matches_for("two_stage");
+    assert_eq!(pms.len(), 1);
+    assert_eq!(pms[0].created_at, 42, "created_at should be the initiating edge's timestamp");
+}
+
+#[test]
+fn pm_created_at_inherited_on_advance() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    engine.register(PatternBuilder::new("three_stage")
+        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("enter".into())))
+        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("greet".into())))
+        .stage("e3", |s| s.edge("e3", "eventType".into(), MemValue::Str("leave".into())))
+        .build());
+
+    // Stage 1 at t=10
+    g.add_str("ev1", "eventType", "enter", 10);
+    g.set_time(10);
+    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
+        &MemValue::Str("enter".into()), &Interval::open(10));
+
+    // Stage 2 at t=50 — PM advances but created_at stays 10
+    g.add_str("ev2", "eventType", "greet", 50);
+    g.set_time(50);
+    engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(),
+        &MemValue::Str("greet".into()), &Interval::open(50));
+
+    let active = engine.active_matches_for("three_stage");
+    // Original PM (waiting for stage 2) + advanced PM (waiting for stage 3)
+    assert_eq!(active.len(), 2);
+    let advanced = active.iter().find(|pm| pm.next_stage == 2).unwrap();
+    assert_eq!(advanced.created_at, 10,
+        "advanced PM should inherit parent's created_at, not the advancing edge's timestamp");
+}
+
+// ===========================================================================
+// 5d. Metric temporal constraints
 // ===========================================================================
 
 #[test]

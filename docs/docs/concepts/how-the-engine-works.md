@@ -63,7 +63,7 @@ By running negation first, the partial match is killed before advancement sees i
 
 Each partial match has a unique ID, a set of bindings, a set of anchor intervals, and a state (Active, Complete, or Dead). The engine stores all partial matches in a flat list.
 
-When a partial match advances, the engine does not modify it in place. It creates a new partial match with incremented bindings and a new ID. The original stays Active.
+When a partial match advances, the engine does not modify it in place. It creates a new partial match with incremented bindings and a new ID. The original stays Active. The new PM inherits the parent's `created_at` timestamp — this records when the match thread was first initiated, not when the latest stage matched. Consumers can use `pm.created_at` to determine how long a partial match has been waiting.
 
 ### Deduplication
 

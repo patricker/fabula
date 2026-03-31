@@ -81,6 +81,8 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
     pub state: MatchState,
     /// Unique id for tracking.
     pub id: usize,
+    /// Timestamp when this partial match was first initiated.
+    pub created_at: T,
 }
 
 /// State of a partial match.
@@ -326,6 +328,7 @@ where
                         let pm = PartialMatch {
                             pattern_idx: pat_idx,
                             bindings: bindings.clone(),
+                            created_at: interval.start.clone(),
                             intervals,
                             next_stage: next,
                             state: if is_last_stage { MatchState::Complete } else { MatchState::Active },
@@ -399,6 +402,7 @@ where
                     let new_pm = PartialMatch {
                         pattern_idx: pm.pattern_idx,
                         bindings: merged_bindings.clone(),
+                        created_at: pm.created_at.clone(),
                         intervals: merged_intervals,
                         next_stage: next,
                         state: if is_complete { MatchState::Complete } else { MatchState::Active },

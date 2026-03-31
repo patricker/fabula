@@ -253,6 +253,7 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
 | `next_stage` | `usize` | Index of the next stage to match (0-indexed). |
 | `state` | `MatchState` | Current state of this partial match. |
 | `id` | `usize` | Unique identifier for tracking. |
+| `created_at` | `T` | Timestamp when this partial match was first initiated. Set from the initiating edge's interval start in Phase 2; inherited from the parent on fork in Phase 3. Only meaningful in incremental mode. |
 
 ### Trait implementations
 

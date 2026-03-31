@@ -183,16 +183,15 @@ Their temporal reasoning is purely qualitative ordering.
 **Tests**: Golden tests for metric constraints, boundary conditions
 **Effort**: Medium
 
-### 1.6 Plant/payoff tracking
-Partial matches ARE narrative plants. Add metadata:
-- `created_at: T` — when the partial match was initiated
-- `age(now)` — ticks since creation
-- Classification: `plant` (partial) vs `payoff` (complete)
-- `stale_plants(threshold)` → list of plants older than threshold
+### 1.6 ~~Partial match age tracking~~ (DONE)
+`created_at: T` field on `PartialMatch`. Set from the initiating edge's
+interval start in Phase 2; inherited from parent on fork in Phase 3.
+The engine doesn't interpret age — consumers inspect `pm.created_at`
+via `partial_matches()` or `active_matches_for()` and apply their own
+classification (stale plants, urgent payoffs, etc.).
 
-**Files**: `fabula/src/engine.rs` (PartialMatch struct + new query methods)
-**Tests**: Staleness detection tests
-**Effort**: Small
+**Files**: `fabula/src/engine.rs`
+**Tests**: Initiation timestamp + inheritance on advance
 
 ---
 
@@ -384,7 +383,21 @@ Document and example the pattern for MCTS timeline forking:
 **Files**: Example in docs + `SiftEngine::clone_state()` method
 **Effort**: Small
 
-### 5.5 Character appraisal patterns
+### 5.5 Plant/payoff tracking
+Application-level plant/payoff classification built on partial match age
+(from 1.6) and pattern registration (from 5.2). The GM classifies active
+PMs as "plants" (setup waiting for payoff) and completed PMs as "payoffs"
+(setup resolved). Cross-pattern plant/payoff pairs (Pattern A plants,
+Pattern B pays off) require pattern composition (Phase 3).
+
+- Explicit plant/payoff pair registration via pattern metadata
+- Stale-plant alerts ("this Chekhov's gun has waited 50 ticks")
+- Cross-pattern resolution tracking (requires shared variable bindings)
+
+**Depends on**: 1.6 (age tracking), 5.2 (pattern registration), 3.1 (composition for cross-pattern)
+**Effort**: Medium
+
+### 5.6 Character appraisal patterns
 Sifting-based emotional appraisal from GM architecture:
 - Event → relevance check (does event affect character's goals?)
 - Misbelief arc monitoring (has contradicting evidence appeared?)
@@ -393,7 +406,7 @@ Sifting-based emotional appraisal from GM architecture:
 **Depends on**: 5.1 (Paracausality adapter)
 **Effort**: Medium
 
-### 5.6 Knowledge propagation patterns
+### 5.7 Knowledge propagation patterns
 Track what characters know and when they learn it:
 - "A witnessed X, B doesn't know yet"
 - "C heard about X through D (gossip chain)"
@@ -403,7 +416,7 @@ Track what characters know and when they learn it:
 **Depends on**: 5.1 (Paracausality adapter)
 **Effort**: Medium-high
 
-### 5.7 Event causality tracing
+### 5.8 Event causality tracing
 Path-finding over temporal graph to trace causal chains:
 - "This betrayal traces back to THAT institutional failure 20 ticks ago"
 - Causal chain cleanliness scoring for quality function
@@ -439,11 +452,11 @@ Maps to Chomsky-like hierarchy for narrative pattern grammars.
 
 | Phase | Theme | Key Deliverables |
 |-------|-------|------------------|
-| **1** | Polish & Parity | Dotted lvar, dedup, metric temporal, plant/payoff |
+| **1** | Polish & Parity | Variable distinction, negation validation, dedup, metric temporal, age tracking |
 | **2** | Benchmarking | Criterion harness, WASM benchmarks, memory profiling, indexing |
 | **3** | Composition | Pattern algebra, DSL compose syntax, surprise scoring |
 | **4** | Pattern Library | Propp functions, MICE threads, emotional arcs, kernel/satellite |
-| **5** | Stack Integration | Paracausality adapter, registry, deltas, MCTS, appraisal, gossip |
+| **5** | Stack Integration | Paracausality adapter, registry, deltas, MCTS, plant/payoff, appraisal, gossip |
 | **6** | Research | Formal semantics, scalability paper, expressiveness hierarchy |
 
 ---

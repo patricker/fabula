@@ -214,6 +214,7 @@ struct PartialMatchJson {
     next_stage: usize,
     state: String,
     bindings: HashMap<String, String>,
+    created_at: i64,
 }
 
 /// Evaluate a pattern incrementally, replaying graph edges by timestamp.
@@ -354,6 +355,7 @@ pub fn evaluate_incremental(pattern_dsl: &str, graph_dsl: &str) -> JsValue {
                     .iter()
                     .map(|(k, v)| (k.clone(), format!("{:?}", v)))
                     .collect(),
+                created_at: pm.created_at,
             })
             .collect();
 
