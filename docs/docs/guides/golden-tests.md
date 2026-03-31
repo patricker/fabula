@@ -153,4 +153,4 @@ The golden test suite has three layers:
 
 3. **`golden_tests!` macro** (`tests/golden.rs`) -- stamps out `#[test]` functions for every (scenario, adapter) pair. Uses the `paste` crate to generate unique test names like `mem__batch_hospitality_matches`.
 
-Currently the suite has 50+ scenarios covering batch evaluation, incremental matching, negation windows, value constraints, temporal ordering, Allen relations, gap analysis, multi-pattern interaction, and batch/incremental consistency.
+The suite covers batch evaluation, incremental matching, negation windows, value constraints, temporal ordering, Allen relations, gap analysis, multi-pattern interaction, and batch/incremental consistency.
