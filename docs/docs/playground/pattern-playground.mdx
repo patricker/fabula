@@ -23,7 +23,7 @@ pattern name {
     ?variable.prop = "value"        // follow bound variable (requires ?)
     alice.label = "value"           // literal node name (no ?)
     eventVar.label < 0.5            // value constraint
-    ! eventVar.label = "forbidden"  // negated clause
+    ! eventVar.label = "forbidden"  // negated clause (literals only)
   }
   unless between e1 e2 { ... }     // negation window
   unless after e1 { ... }          // open-ended negation

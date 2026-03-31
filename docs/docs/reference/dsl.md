@@ -58,7 +58,9 @@ stage e1 {
 | `source.label > 10` | Value constraint (Gt) | `.edge_constrained(source, label, Gt(10))` |
 | `source.label <= 100` | Value constraint (Lte) | `.edge_constrained(source, label, Lte(100))` |
 | `source.label >= 0` | Value constraint (Gte) | `.edge_constrained(source, label, Gte(0))` |
-| `! source.label = "value"` | Negated clause | `.not_edge(source, label, value)` |
+| `! source.label = "value"` | Negated clause (literals/refs only) | `.not_edge(source, label, value)` |
+
+Negation (`!`) works with literal values (`= "value"`, `= 42`, `= true`) and node references (`-> node`). It is **not** supported with value constraints (`<`, `>`, `<=`, `>=`) or variable bindings (`-> ?var`) — rewrite as the inverse constraint instead (e.g., `! e.x < 0.5` becomes `e.x >= 0.5`).
 
 ### Negation Windows
 

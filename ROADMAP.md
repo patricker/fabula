@@ -15,7 +15,7 @@ baseline before adding complexity.
 
 Small, high-value improvements that complete the core library.
 
-### 1.1 Strict variable/literal distinction in DSL (correctness fix)
+### 1.1 ~~Strict variable/literal distinction in DSL~~ (DONE — b06551a)
 
 **Problem**: The DSL currently treats bare identifiers in source position
 ambiguously. When you write `char.trait = "impulsive"`, the engine checks
@@ -101,7 +101,7 @@ semantics now. The compiler can validate:
 **Effort**: Small-medium (parser change is small; updating all DSL strings
 and adding validation is the bulk)
 
-### 1.2 Negated constraint validation
+### 1.2 ~~Negated constraint validation~~ (DONE)
 The builder API has no `not_edge_constrained()` method, but the DSL parser
 accepts `! e.loyalty < 0.5` without error. The negation flag is silently
 ignored at compile time — the constraint compiles as positive.

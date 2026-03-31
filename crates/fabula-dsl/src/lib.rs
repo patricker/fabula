@@ -499,6 +499,35 @@ mod tests {
     }
 
     #[test]
+    fn error_negated_constraint() {
+        let dsl = r#"
+            pattern test {
+                stage e {
+                    e.eventType = "loyalty_check"
+                    ! e.loyalty < 0.5
+                }
+            }
+        "#;
+        let err = parse_pattern(dsl).unwrap_err();
+        assert!(err.message.contains("negated constraints"), "error: {}", err.message);
+        assert!(err.message.contains("inverse"), "should suggest inverse: {}", err.message);
+    }
+
+    #[test]
+    fn error_negated_binding() {
+        let dsl = r#"
+            pattern test {
+                stage e {
+                    e.eventType = "check"
+                    ! e.actor -> ?char
+                }
+            }
+        "#;
+        let err = parse_pattern(dsl).unwrap_err();
+        assert!(err.message.contains("negated bindings"), "error: {}", err.message);
+    }
+
+    #[test]
     fn roundtrip_two_betrayals_with_var_source() {
         let pattern_dsl = r#"
             pattern two_impulsive_betrayals {

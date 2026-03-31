@@ -94,6 +94,37 @@ fn validate_clause_sources(
                 ),
             });
         }
+        // Negation (!) is only valid with literal values and node references.
+        // Constraints and bindings cannot be negated.
+        if clause.negated {
+            match &clause.target {
+                ClauseTarget::Constraint(..) => {
+                    return Err(ParseError {
+                        line: 0,
+                        column: 0,
+                        span: (0, 0),
+                        message: format!(
+                            "negated constraints ('! {}.{} < value') are not supported. \
+                             Rewrite as the inverse constraint \
+                             (e.g., '! x.v < 0.5' becomes 'x.v >= 0.5').",
+                            clause.source, clause.label
+                        ),
+                    });
+                }
+                ClauseTarget::Bind(var) => {
+                    return Err(ParseError {
+                        line: 0,
+                        column: 0,
+                        span: (0, 0),
+                        message: format!(
+                            "negated bindings ('! {}.{} -> ?{}') are not supported.",
+                            clause.source, clause.label, var
+                        ),
+                    });
+                }
+                _ => {} // Literals and NodeRefs can be negated
+            }
+        }
         // Bind target for subsequent clauses
         if let ClauseTarget::Bind(ref var) = clause.target {
             scope.insert(var.clone());
