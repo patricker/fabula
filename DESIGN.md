@@ -365,7 +365,7 @@ A character acts against their own values, then gets criticized by an opponent. 
 | Text DSL (Winnow syntax → Pattern) | Done | `fabula-dsl` crate: lexer + parser + compiler. |
 | Strict variable/literal distinction | Done | `?var.label` for bound variables, `name.label` for literals. Compile-time scope validation catches unbound `?var` references. |
 | Statistical surprise scoring | Low | From "Select the Unexpected" (Kreminski, ICIDS 2022) |
-| Partial match deduplication | Low | First-stage PMs can duplicate on repeated matching edges |
+| Partial match deduplication | Done | Fingerprint-based dedup in `on_edge_added` Phase 2/3. Deterministic canonical-string fingerprint of `(pattern_idx, next_stage, bindings, intervals)`. |
 
 ### Resolved (this session)
 

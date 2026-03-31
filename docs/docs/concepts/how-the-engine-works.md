@@ -63,7 +63,15 @@ By running negation first, the partial match is killed before advancement sees i
 
 Each partial match has a unique ID, a set of bindings, a set of anchor intervals, and a state (Active, Complete, or Dead). The engine stores all partial matches in a flat list.
 
-When a partial match advances, the engine does not modify it in place. It creates a new partial match with incremented bindings and a new ID. The original stays Active. This means the number of partial matches grows over time, especially for patterns with early stages that match many events.
+When a partial match advances, the engine does not modify it in place. It creates a new partial match with incremented bindings and a new ID. The original stays Active.
+
+### Deduplication
+
+The engine automatically deduplicates partial matches. Before creating any new PM in Phase 2 or Phase 3, it computes a deterministic fingerprint from `(pattern_idx, next_stage, bindings, intervals)`. If an identical PM already exists in the pool, the duplicate is silently skipped — no PM is created and no event is emitted. This prevents unbounded accumulation when duplicate edges exist in the graph or when the same edge triggers multiple identical match paths.
+
+Two PMs with the same bindings but **different intervals** (different timestamps) are distinct temporal threads and are both kept.
+
+### Memory management
 
 Complete partial matches accumulate until you drain them. Dead partial matches are removed at the end of each `on_edge_added` call.
 

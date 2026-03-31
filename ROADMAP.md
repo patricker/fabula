@@ -131,7 +131,7 @@ the current stage anchor.
 **Files**: `fabula-dsl/src/compiler.rs`
 **Effort**: Small
 
-### 1.4 Partial match deduplication
+### 1.4 ~~Partial match deduplication~~ (DONE)
 First-stage PMs accumulate unboundedly on repeated matching edges (documented
 in `edge_cases.rs`). Add fingerprint-based dedup: `(pattern_idx, next_stage,
 bindings_hash)`.

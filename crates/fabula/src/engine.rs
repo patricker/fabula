@@ -18,8 +18,8 @@
 use crate::datasource::{DataSource, ValueConstraint};
 use crate::interval::Interval;
 use crate::pattern::*;
-use std::collections::HashMap;
-use std::fmt::Debug;
+use std::collections::{HashMap, HashSet};
+use std::fmt::{Debug, Write};
 
 /// Bindings + intervals pair used internally during evaluation.
 type MatchCandidate<N, V, T> = (HashMap<String, BoundValue<N, V>>, HashMap<String, Interval<T>>);
@@ -222,6 +222,32 @@ where
         completed
     }
 
+    /// Compute a deterministic fingerprint for partial match deduplication.
+    /// Two PMs with the same fingerprint have identical
+    /// (pattern_idx, next_stage, bindings, intervals).
+    fn pm_fingerprint(
+        pattern_idx: usize,
+        next_stage: usize,
+        bindings: &HashMap<String, BoundValue<DS::N, DS::V>>,
+        intervals: &HashMap<String, Interval<DS::T>>,
+    ) -> String {
+        let mut binding_keys: Vec<&String> = bindings.keys().collect();
+        binding_keys.sort();
+        let mut interval_keys: Vec<&String> = intervals.keys().collect();
+        interval_keys.sort();
+
+        let mut fp = String::with_capacity(128);
+        write!(fp, "{}:{}:", pattern_idx, next_stage).unwrap();
+        for k in &binding_keys {
+            write!(fp, "{}={:?},", k, bindings[*k]).unwrap();
+        }
+        fp.push('|');
+        for k in &interval_keys {
+            write!(fp, "{}={:?},", k, intervals[*k]).unwrap();
+        }
+        fp
+    }
+
     /// Batch evaluation: find all complete matches in the current graph state.
     pub fn evaluate(&self, ds: &DS) -> Vec<Match<DS::N, DS::V>> {
         let mut results = Vec::new();
@@ -242,6 +268,16 @@ where
         interval: &Interval<DS::T>,
     ) -> Vec<SiftEvent<DS::N, DS::V>> {
         let mut events = Vec::new();
+
+        // Build dedup set from ALL existing PMs (Active, Complete, AND Dead).
+        // Dead PMs stay in `seen` to prevent re-creation of a just-negated PM
+        // within the same on_edge_added call.
+        let mut seen: HashSet<String> = HashSet::new();
+        for pm in &self.partial_matches {
+            seen.insert(Self::pm_fingerprint(
+                pm.pattern_idx, pm.next_stage, &pm.bindings, &pm.intervals,
+            ));
+        }
 
         // Phase 1: Check negation windows on existing partial matches.
         for pm in &mut self.partial_matches {
@@ -277,6 +313,12 @@ where
                         if negation_blocks {
                             continue; // Negation prevents this match
                         }
+                        let next = if is_last_stage { pattern.stages.len() } else { 1 };
+                        // Dedup: skip if identical PM already exists
+                        let fp = Self::pm_fingerprint(pat_idx, next, &bindings, &intervals);
+                        if !seen.insert(fp) {
+                            continue;
+                        }
                         let id = self.next_match_id;
                         self.next_match_id += 1;
 
@@ -284,7 +326,7 @@ where
                             pattern_idx: pat_idx,
                             bindings: bindings.clone(),
                             intervals,
-                            next_stage: if is_last_stage { pattern.stages.len() } else { 1 },
+                            next_stage: next,
                             state: if is_last_stage { MatchState::Complete } else { MatchState::Active },
                             id,
                         };
@@ -332,13 +374,20 @@ where
 
                     let next = stage_idx + 1;
                     let is_complete = next >= pattern.stages.len();
-                    let id = self.next_match_id;
-                    self.next_match_id += 1;
 
                     let mut merged_bindings = pm.bindings.clone();
                     merged_bindings.extend(new_bindings);
                     let mut merged_intervals = pm.intervals.clone();
                     merged_intervals.extend(new_intervals);
+
+                    // Dedup: skip if identical PM already exists
+                    let fp = Self::pm_fingerprint(pm.pattern_idx, next, &merged_bindings, &merged_intervals);
+                    if !seen.insert(fp) {
+                        continue;
+                    }
+
+                    let id = self.next_match_id;
+                    self.next_match_id += 1;
 
                     let new_pm = PartialMatch {
                         pattern_idx: pm.pattern_idx,
