@@ -119,7 +119,44 @@ impl Parser {
         let left = self.expect_ident()?;
         let relation = self.expect_ident()?;
         let right = self.expect_ident()?;
-        Ok(TemporalAst { left, relation, right })
+
+        // Optional: gap min..max
+        let (gap_min, gap_max) = if matches!(self.peek().kind, TokenKind::Ident(ref s) if s == "gap") {
+            self.advance();
+            self.parse_gap_range()?
+        } else {
+            (None, None)
+        };
+
+        Ok(TemporalAst { left, relation, right, gap_min, gap_max })
+    }
+
+    fn parse_gap_range(&mut self) -> Result<(Option<f64>, Option<f64>), ParseError> {
+        // Syntax: 3..10, ..10, 3..
+        if self.check(TokenKind::DotDot) {
+            // ..max (no min)
+            self.advance();
+            let max = self.expect_number()?;
+            Ok((None, Some(max)))
+        } else if matches!(self.peek().kind, TokenKind::Number(_)) {
+            let first = self.expect_number()?;
+            if self.check(TokenKind::DotDot) {
+                self.advance();
+                // min.. or min..max
+                if matches!(self.peek().kind, TokenKind::Number(_)) {
+                    let second = self.expect_number()?;
+                    Ok((Some(first), Some(second)))
+                } else {
+                    // min.. (no max)
+                    Ok((Some(first), None))
+                }
+            } else {
+                // Single number = exact gap (min == max)
+                Ok((Some(first), Some(first)))
+            }
+        } else {
+            Err(self.error("expected gap range (e.g., '3..10', '..10', '3..')"))
+        }
     }
 
     fn parse_clause(&mut self) -> Result<ClauseAst, ParseError> {

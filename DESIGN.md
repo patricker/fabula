@@ -345,6 +345,7 @@ A character acts against their own values, then gets criticized by an opponent. 
 
 ### Done
 - Allen interval algebra with all 13 relations (generic over time type)
+- Metric temporal constraints (STN-style gap bounds on Allen relations via `gap min..max`)
 - DataSource trait (generic over N, L, V, T)
 - MemGraph reference implementation
 - Pattern types (Stage, Clause, Target, TemporalConstraint, Negation)
@@ -402,4 +403,7 @@ A character acts against their own values, then gets criticized by an opponent. 
 - Kreminski, M., et al. (2022). **Authoring for Story Sifters.** [Paper](https://mkremins.github.io/publications/AuthoringSifters_TAP.pdf)
 - Kreminski, M., et al. (2025). **Stories from the Bottom Up: Composable Story Sifting Patterns.** FDG 2025.
 - Allen, J.F. (1983). **Maintaining Knowledge about Temporal Intervals.** CACM 26(11).
+- Dechter, R., Meiri, I., Pearl, J. (1991). **Temporal Constraint Networks.** AI 49(1-3), 61-95.
+- Meiri, I. (1996). **Combining Qualitative and Quantitative Constraints in Temporal Reasoning.** AI 87(1-2), 343-385.
+- Drakengren, T., Jonsson, P. (1997). **Eight Maximal Tractable Subclasses of Allen's Algebra with Metric Time.** JAIR 7, 25-45.
 - TABGP (2023). **Temporal Graph Pattern Matching via Timed Automata.** VLDB Journal. [Code](https://github.com/amirpouya/TABGP)

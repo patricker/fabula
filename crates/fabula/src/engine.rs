@@ -167,6 +167,7 @@ impl<DS: DataSource> SiftEngine<DS>
 where
     DS::N: PartialEq,
     DS::V: PartialEq,
+    DS::T: std::ops::Sub<Output = DS::T> + crate::interval::NumericTime,
 {
     /// Create a new empty engine.
     pub fn new() -> Self {
@@ -388,6 +389,12 @@ where
 
                     let id = self.next_match_id;
                     self.next_match_id += 1;
+
+                    // Check explicit temporal constraints (including metric gap)
+                    // when the pattern would complete
+                    if is_complete && !self.check_temporal(pattern, &merged_intervals) {
+                        continue;
+                    }
 
                     let new_pm = PartialMatch {
                         pattern_idx: pm.pattern_idx,
@@ -693,6 +700,18 @@ where
                     Some(rel) if rel == tc.relation => {}
                     None if tc.relation.is_before_or_meets() && left.start < right.start => {}
                     _ => return false,
+                }
+                // Metric gap check (STN-style bounded difference)
+                if let Some(ref gap_bound) = tc.gap {
+                    if let Some(gap_val) = left.gap_for_relation(right, tc.relation) {
+                        if let Some(min) = gap_bound.min {
+                            if gap_val < min { return false; }
+                        }
+                        if let Some(max) = gap_bound.max {
+                            if gap_val > max { return false; }
+                        }
+                    }
+                    // Open-ended interval → can't compute gap → skip metric check
                 }
             }
         }
@@ -1049,6 +1068,7 @@ impl<DS: DataSource> Default for SiftEngine<DS>
 where
     DS::N: PartialEq,
     DS::V: PartialEq,
+    DS::T: std::ops::Sub<Output = DS::T> + crate::interval::NumericTime,
 {
     fn default() -> Self {
         Self::new()

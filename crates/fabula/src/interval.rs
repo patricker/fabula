@@ -4,6 +4,17 @@
 //! plus a generic `Interval` type with open-ended support.
 
 use std::fmt;
+use std::ops::Sub;
+
+/// Conversion trait for time types to f64 (for metric gap comparison).
+pub trait NumericTime {
+    fn as_f64(&self) -> f64;
+}
+
+impl NumericTime for i64 { fn as_f64(&self) -> f64 { *self as f64 } }
+impl NumericTime for i32 { fn as_f64(&self) -> f64 { *self as f64 } }
+impl NumericTime for f64 { fn as_f64(&self) -> f64 { *self } }
+impl NumericTime for f32 { fn as_f64(&self) -> f64 { *self as f64 } }
 
 /// A time interval `[start, end)`. If `end` is `None`, the interval is open-ended
 /// (still active / ongoing).
@@ -107,6 +118,58 @@ impl<T: Ord + Clone> Interval<T> {
             None => true,
         };
         start_ok && end_ok
+    }
+}
+
+impl<T: Ord + Clone + Sub<Output = T> + NumericTime> Interval<T> {
+    /// Compute the gap distance for a given Allen relation.
+    ///
+    /// Each Allen relation has a natural "gap" derived from endpoint decomposition
+    /// (Meiri 1996). Returns `None` if the computation requires an endpoint that
+    /// is missing (open-ended interval).
+    pub fn gap_for_relation(&self, other: &Interval<T>, relation: AllenRelation) -> Option<f64> {
+        use AllenRelation::*;
+        match relation {
+            Before => {
+                let a_end = self.end.as_ref()?;
+                Some((other.start.clone() - a_end.clone()).as_f64())
+            }
+            After => {
+                let b_end = other.end.as_ref()?;
+                Some((self.start.clone() - b_end.clone()).as_f64())
+            }
+            Meets | MetBy | Equals => Some(0.0),
+            Overlaps => {
+                let a_end = self.end.as_ref()?;
+                Some((a_end.clone() - other.start.clone()).as_f64())
+            }
+            OverlappedBy => {
+                let b_end = other.end.as_ref()?;
+                Some((b_end.clone() - self.start.clone()).as_f64())
+            }
+            During => {
+                Some((self.start.clone() - other.start.clone()).as_f64())
+            }
+            Contains => {
+                Some((other.start.clone() - self.start.clone()).as_f64())
+            }
+            Starts => {
+                let a_end = self.end.as_ref()?;
+                let b_end = other.end.as_ref()?;
+                Some((b_end.clone() - a_end.clone()).as_f64())
+            }
+            StartedBy => {
+                let a_end = self.end.as_ref()?;
+                let b_end = other.end.as_ref()?;
+                Some((a_end.clone() - b_end.clone()).as_f64())
+            }
+            Finishes => {
+                Some((self.start.clone() - other.start.clone()).as_f64())
+            }
+            FinishedBy => {
+                Some((other.start.clone() - self.start.clone()).as_f64())
+            }
+        }
     }
 }
 

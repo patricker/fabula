@@ -73,12 +73,16 @@ Negation (`!`) works with literal values (`= "value"`, `= 42`, `= true`) and nod
 ### Temporal Constraints
 
 ```
-temporal e1 before e2
-temporal e1 meets e2
-temporal e1 overlaps e2
+temporal e1 before e2                   // qualitative only
+temporal e1 before e2 gap 3..10         // gap in [3, 10]
+temporal e1 before e2 gap ..10          // gap in [0, 10]
+temporal e1 before e2 gap 3..           // gap in [3, infinity)
+temporal e1 during e2 gap 5..50         // start margin in [5, 50]
 ```
 
 All 13 Allen relations are supported: `before`, `after`, `meets`, `met_by`, `overlaps`, `overlapped_by`, `during`, `contains`, `starts`, `started_by`, `finishes`, `finished_by`, `equals`.
+
+The optional `gap` keyword adds a metric bound (STN-style bounded difference constraint). The meaning of "gap" depends on the Allen relation — for `before` it's the separation between end(A) and start(B); for `during` it's the start margin; for `overlaps` it's the overlap duration. See the [Temporal Model](/docs/concepts/temporal-model) for details.
 
 ## Graph Syntax
 

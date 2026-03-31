@@ -104,6 +104,10 @@ pub struct TemporalAst {
     pub left: String,
     pub relation: String,
     pub right: String,
+    /// Optional metric gap lower bound.
+    pub gap_min: Option<f64>,
+    /// Optional metric gap upper bound.
+    pub gap_max: Option<f64>,
 }
 
 /// A graph declaration.

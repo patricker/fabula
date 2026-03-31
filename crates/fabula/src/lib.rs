@@ -50,6 +50,6 @@ pub mod prelude {
         BoundValue, GapAnalysis, Match, MatchState, PartialMatch, SiftEngine, SiftEvent,
         StageAnalysis, StageStatus, ClauseAnalysis,
     };
-    pub use crate::interval::{AllenRelation, Interval};
-    pub use crate::pattern::{Clause, Negation, Pattern, Stage, Target, TemporalConstraint, Var};
+    pub use crate::interval::{AllenRelation, Interval, NumericTime};
+    pub use crate::pattern::{Clause, MetricGap, Negation, Pattern, Stage, Target, TemporalConstraint, Var};
 }

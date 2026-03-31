@@ -595,6 +595,121 @@ fn dedup_events_match_pms() {
 }
 
 // ===========================================================================
+// 5c. Metric temporal constraints
+// ===========================================================================
+
+#[test]
+fn metric_before_gap_in_range() {
+    // Two stages matched via builder API with bounded intervals.
+    // e1=[1,4), e2=[8,12). Before gap = 8-4 = 4. Bound [3,10] → match.
+    use fabula::pattern::MetricGap;
+    let mut g = MemGraph::new();
+    g.add_edge_bounded("ev1", "eventType", MemValue::Str("crisis".into()), 1, 4);
+    g.add_edge_bounded("ev2", "eventType", MemValue::Str("betrayal".into()), 8, 12);
+    g.set_time(3); // scan at t=3 to find ev1
+
+    let pattern = PatternBuilder::new("test")
+        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("crisis".into())))
+        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into())))
+        .temporal_with_gap("e1", AllenRelation::Before, "e2",
+            MetricGap { min: Some(3.0), max: Some(10.0) })
+        .build();
+
+    // Use incremental: add edges at their respective times
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+
+    g.set_time(3);
+    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
+        &MemValue::Str("crisis".into()), &Interval::new(1, 4));
+    g.set_time(10);
+    let events = engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(),
+        &MemValue::Str("betrayal".into()), &Interval::new(8, 12));
+
+    let completed = events.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).count();
+    assert_eq!(completed, 1, "gap=4 within [3,10] → match");
+}
+
+#[test]
+fn metric_before_gap_too_far() {
+    use fabula::pattern::MetricGap;
+    let mut g = MemGraph::new();
+    g.add_edge_bounded("ev1", "eventType", MemValue::Str("crisis".into()), 1, 4);
+    g.add_edge_bounded("ev2", "eventType", MemValue::Str("betrayal".into()), 20, 25);
+
+    let pattern = PatternBuilder::new("test")
+        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("crisis".into())))
+        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into())))
+        .temporal_with_gap("e1", AllenRelation::Before, "e2",
+            MetricGap { min: Some(3.0), max: Some(10.0) })
+        .build();
+
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    g.set_time(3);
+    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
+        &MemValue::Str("crisis".into()), &Interval::new(1, 4));
+    g.set_time(22);
+    let events = engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(),
+        &MemValue::Str("betrayal".into()), &Interval::new(20, 25));
+
+    let completed = events.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).count();
+    assert_eq!(completed, 0, "gap=16 exceeds max=10 → no match");
+}
+
+#[test]
+fn metric_before_gap_too_close() {
+    use fabula::pattern::MetricGap;
+    let mut g = MemGraph::new();
+    g.add_edge_bounded("ev1", "eventType", MemValue::Str("crisis".into()), 1, 4);
+    g.add_edge_bounded("ev2", "eventType", MemValue::Str("betrayal".into()), 5, 8);
+
+    let pattern = PatternBuilder::new("test")
+        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("crisis".into())))
+        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into())))
+        .temporal_with_gap("e1", AllenRelation::Before, "e2",
+            MetricGap { min: Some(3.0), max: Some(10.0) })
+        .build();
+
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    g.set_time(3);
+    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
+        &MemValue::Str("crisis".into()), &Interval::new(1, 4));
+    g.set_time(6);
+    let events = engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(),
+        &MemValue::Str("betrayal".into()), &Interval::new(5, 8));
+
+    let completed = events.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).count();
+    assert_eq!(completed, 0, "gap=1 below min=3 → no match");
+}
+
+#[test]
+fn metric_open_ended_skips_gap_check() {
+    // Open-ended intervals: Allen relation falls back to start comparison.
+    // gap_for_relation returns None → metric check skipped → match allowed.
+    use fabula::pattern::MetricGap;
+    let mut g = MemGraph::new();
+    g.add_str("ev1", "eventType", "crisis", 1);
+    g.add_str("ev2", "eventType", "betrayal", 100);
+    g.set_time(100);
+
+    let pattern = PatternBuilder::new("test")
+        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("crisis".into())))
+        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into())))
+        .temporal_with_gap("e1", AllenRelation::Before, "e2",
+            MetricGap { min: Some(3.0), max: Some(10.0) })
+        .build();
+
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    // Open-ended intervals: gap can't be computed (no end point).
+    // Metric check skipped. Allen Before fallback (start comparison) passes.
+    assert_eq!(engine.evaluate(&g).len(), 1,
+        "open-ended intervals: metric check skipped, Allen fallback passes");
+}
+
+// ===========================================================================
 // 6. Type edge cases
 // ===========================================================================
 

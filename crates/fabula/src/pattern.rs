@@ -50,6 +50,16 @@ pub struct Clause<L, V> {
     pub negated: bool,
 }
 
+/// Optional metric bound on the gap distance for a temporal constraint.
+/// The "gap" meaning depends on the Allen relation (see `Interval::gap_for_relation`).
+#[derive(Debug, Clone)]
+pub struct MetricGap {
+    /// Minimum gap distance. `None` = no lower bound.
+    pub min: Option<f64>,
+    /// Maximum gap distance. `None` = no upper bound.
+    pub max: Option<f64>,
+}
+
 /// A temporal ordering constraint between two event variables.
 #[derive(Debug, Clone)]
 pub struct TemporalConstraint {
@@ -59,6 +69,8 @@ pub struct TemporalConstraint {
     pub relation: AllenRelation,
     /// The variable whose interval should come second.
     pub right: Var,
+    /// Optional metric bound on the gap distance (STN-style).
+    pub gap: Option<MetricGap>,
 }
 
 /// A negation window — a set of clauses that must NOT match between two events.

@@ -554,6 +554,131 @@ mod tests {
     }
 
     #[test]
+    fn parse_temporal_with_gap_range() {
+        let dsl = r#"
+            pattern test {
+                stage e1 { e1.eventType = "start" }
+                stage e2 { e2.eventType = "end" }
+                temporal e1 before e2 gap 3..10
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        assert_eq!(pattern.temporal.len(), 1);
+        let tc = &pattern.temporal[0];
+        let gap = tc.gap.as_ref().expect("should have gap");
+        assert_eq!(gap.min, Some(3.0));
+        assert_eq!(gap.max, Some(10.0));
+    }
+
+    #[test]
+    fn parse_temporal_gap_max_only() {
+        let dsl = r#"
+            pattern test {
+                stage e1 { e1.eventType = "start" }
+                stage e2 { e2.eventType = "end" }
+                temporal e1 before e2 gap ..10
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        let gap = pattern.temporal[0].gap.as_ref().unwrap();
+        assert_eq!(gap.min, None);
+        assert_eq!(gap.max, Some(10.0));
+    }
+
+    #[test]
+    fn parse_temporal_gap_min_only() {
+        let dsl = r#"
+            pattern test {
+                stage e1 { e1.eventType = "start" }
+                stage e2 { e2.eventType = "end" }
+                temporal e1 before e2 gap 3..
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        let gap = pattern.temporal[0].gap.as_ref().unwrap();
+        assert_eq!(gap.min, Some(3.0));
+        assert_eq!(gap.max, None);
+    }
+
+    #[test]
+    fn parse_temporal_no_gap_backwards_compat() {
+        let dsl = r#"
+            pattern test {
+                stage e1 { e1.eventType = "start" }
+                stage e2 { e2.eventType = "end" }
+                temporal e1 before e2
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        assert!(pattern.temporal[0].gap.is_none());
+    }
+
+    #[test]
+    fn roundtrip_metric_gap_compiles() {
+        // DSL round-trip: gap bounds parse and compile into Pattern
+        let dsl = r#"
+            pattern test {
+                stage e1 { e1.eventType = "crisis" }
+                stage e2 { e2.eventType = "betrayal" }
+                temporal e1 before e2 gap 3..10
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        let gap = pattern.temporal[0].gap.as_ref().unwrap();
+        assert_eq!(gap.min, Some(3.0));
+        assert_eq!(gap.max, Some(10.0));
+    }
+
+    #[test]
+    fn roundtrip_metric_during_gap() {
+        // During + gap: overlapping intervals where gap = start margin
+        let dsl = r#"
+            pattern test {
+                stage e_outer { e_outer.eventType = "siege" }
+                stage e_inner { e_inner.eventType = "sortie" }
+                temporal e_inner during e_outer gap 2..50
+            }
+        "#;
+        let graph_dsl = r#"
+            graph {
+                @1..100 e_outer.eventType = "siege"
+                @3..5 e_inner.eventType = "sortie"
+                now = 4
+            }
+        "#;
+        // During: gap = start(inner) - start(outer) = 3 - 1 = 2, in [2, 50] ✓
+        let pattern = parse_pattern(dsl).unwrap();
+        let graph = parse_graph(graph_dsl).unwrap();
+        let mut engine = SiftEngine::new();
+        engine.register(pattern);
+        assert_eq!(engine.evaluate(&graph).len(), 1, "during gap=2 within [2,50]");
+    }
+
+    #[test]
+    fn roundtrip_metric_during_gap_too_small() {
+        let dsl = r#"
+            pattern test {
+                stage e_outer { e_outer.eventType = "siege" }
+                stage e_inner { e_inner.eventType = "sortie" }
+                temporal e_inner during e_outer gap 5..50
+            }
+        "#;
+        let graph_dsl = r#"
+            graph {
+                @1..100 e_outer.eventType = "siege"
+                @3..5 e_inner.eventType = "sortie"
+                now = 4
+            }
+        "#;
+        // During: gap = 3 - 1 = 2, but min is 5 → fails
+        let pattern = parse_pattern(dsl).unwrap();
+        let graph = parse_graph(graph_dsl).unwrap();
+        let mut engine = SiftEngine::new();
+        engine.register(pattern);
+        assert_eq!(engine.evaluate(&graph).len(), 0, "during gap=2 below min=5");
+    }
+
+    #[test]
     fn roundtrip_two_betrayals_with_var_source() {
         let pattern_dsl = r#"
             pattern two_impulsive_betrayals {

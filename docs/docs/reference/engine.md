@@ -27,7 +27,7 @@ engine.register(
 
 | Parameter | Bounds | Description |
 |-----------|--------|-------------|
-| `DS` | `DataSource` (with `DS::N: PartialEq`, `DS::V: PartialEq`) | The backing graph store. |
+| `DS` | `DataSource` (with `DS::N: PartialEq`, `DS::V: PartialEq`, `DS::T: Sub<Output=T> + NumericTime`) | The backing graph store. `NumericTime` enables metric gap computation for temporal constraints. Built-in for `i64`, `i32`, `f64`, `f32`. |
 
 ### Methods
 

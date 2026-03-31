@@ -62,6 +62,24 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             left: Var::new(left),
             relation,
             right: Var::new(right),
+            gap: None,
+        });
+        self
+    }
+
+    /// Add a temporal constraint with a metric gap bound (STN-style).
+    pub fn temporal_with_gap(
+        mut self,
+        left: impl Into<String>,
+        relation: AllenRelation,
+        right: impl Into<String>,
+        gap: MetricGap,
+    ) -> Self {
+        self.temporal.push(TemporalConstraint {
+            left: Var::new(left),
+            relation,
+            right: Var::new(right),
+            gap: Some(gap),
         });
         self
     }

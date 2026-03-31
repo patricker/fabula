@@ -140,19 +140,48 @@ bindings_hash)`.
 **Tests**: Edge case test asserting bounded PM pool size
 **Effort**: Small
 
-### 1.5 Metric temporal constraints
-Allen relations are qualitative (before, during, overlaps). Add quantitative
-constraints: "within N ticks", "at least M ticks apart".
+### 1.5 ~~Metric temporal constraints (STN-based)~~ (DONE)
 
+Allen relations are qualitative (before, during, overlaps). This adds
+**quantitative bounded difference constraints** on interval endpoints,
+following the **Simple Temporal Network (STN)** formalism (Dechter, Meiri,
+Pearl 1991). Meiri (1996) is the canonical reference for combining
+qualitative Allen relations with quantitative metric constraints.
+
+The key insight: each Allen relation decomposes into difference constraints
+between the four endpoints `(start(A), end(A), start(B), end(B))`. Metric
+constraints add numeric bounds to those differences.
+
+**Standard form** (from STN literature):
 ```
-// DSL syntax
-temporal e1 before e2 within 10
-temporal e1 before e2 min_gap 5
+start(B) - end(A) in [min, max]    // gap between A's end and B's start
+end(A) - start(A) in [min, max]    // duration of A
 ```
 
-**Files**: `fabula/src/pattern.rs`, `fabula/src/engine.rs`, `fabula-dsl/`
-**Tests**: Golden tests for metric constraints
-**Effort**: Small
+**DSL syntax**:
+```
+temporal e1 before e2 gap 3..10     // gap in [3, 10]
+temporal e1 before e2 within 10     // shorthand: gap [0, 10]
+temporal e1 before e2 min_gap 3     // shorthand: gap [3, infinity)
+```
+
+**Scope**: This extends fabula's existing Allen relation support with
+optional metric bounds. NOT a full STN solver (no Floyd-Warshall network
+propagation). Just per-constraint bounds checked during pattern evaluation.
+A full STN solver would be Phase 5+ (stack integration with Paracausality).
+
+**Goes beyond Felt/Winnow**: Neither has any metric temporal features.
+Their temporal reasoning is purely qualitative ordering.
+
+**References**:
+- Dechter, Meiri, Pearl (1991). "Temporal Constraint Networks." AI 49(1-3)
+- Meiri (1996). "Combining Qualitative and Quantitative Constraints." AI 87(1-2)
+- Drakengren & Jonsson (1997). "Eight Maximal Tractable Subclasses of Allen's Algebra with Metric Time." JAIR 7
+
+**Files**: `fabula/src/pattern.rs` (MetricBound type), `fabula/src/engine.rs`
+(check bounds during temporal validation), `fabula-dsl/` (parse `gap`/`within`/`min_gap`)
+**Tests**: Golden tests for metric constraints, boundary conditions
+**Effort**: Medium
 
 ### 1.6 Plant/payoff tracking
 Partial matches ARE narrative plants. Add metadata:

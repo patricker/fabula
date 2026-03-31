@@ -80,7 +80,19 @@ pub fn compile_pattern(ast: &PatternAst) -> Result<Pattern<String, MemValue>, Pa
             span: (0, 0),
             message: msg,
         })?;
-        builder = builder.temporal(&temp.left, relation, &temp.right);
+        if temp.gap_min.is_some() || temp.gap_max.is_some() {
+            builder = builder.temporal_with_gap(
+                &temp.left,
+                relation,
+                &temp.right,
+                fabula::pattern::MetricGap {
+                    min: temp.gap_min,
+                    max: temp.gap_max,
+                },
+            );
+        } else {
+            builder = builder.temporal(&temp.left, relation, &temp.right);
+        }
     }
 
     Ok(builder.build())
