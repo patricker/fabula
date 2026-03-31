@@ -1,145 +1,141 @@
 /**
- * THEME: The Manuscript — Illuminated Codex
+ * THEME: Codex — Illuminated Manuscript in Purple Ink
  *
- * "Fabula" is Latin for story. This theme channels medieval manuscripts,
- * illuminated texts, and the scribe's workshop. Patterns are incantations
- * written on vellum; matches are revelations inscribed in gold.
+ * Manuscript's typography and texture (Cinzel Decorative, Crimson Pro,
+ * parchment grain, illuminated dropcaps, decorative rules) recast in
+ * Diagrammatica's purple palette. The scribe's workshop, but the ink
+ * is royal purple and the accents are amethyst and gold.
  */
 
 @import url('https://fonts.googleapis.com/css2?family=Cinzel+Decorative:wght@400;700;900&family=Cinzel:wght@400;500;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,500;0,600;0,700;1,300;1,400;1,500&family=JetBrains+Mono:wght@400;500;600&display=swap');
 
 /* ============================================================
-   LIGHT MODE — Parchment
+   LIGHT MODE — Parchment with Purple Ink
    ============================================================ */
 :root {
-  /* Infima overrides */
   --ifm-font-family-base: 'Crimson Pro', 'Georgia', serif;
   --ifm-font-family-monospace: 'JetBrains Mono', 'Consolas', monospace;
   --ifm-heading-font-family: 'Cinzel', serif;
   --ifm-font-size-base: 17px;
   --ifm-line-height-base: 1.7;
 
-  --ifm-color-primary: #6b2027;
-  --ifm-color-primary-dark: #5e1c22;
-  --ifm-color-primary-darker: #581a20;
-  --ifm-color-primary-darkest: #48151a;
-  --ifm-color-primary-light: #78242c;
-  --ifm-color-primary-lighter: #7e262e;
-  --ifm-color-primary-lightest: #8e2b35;
+  --ifm-color-primary: #4a2d6e;
+  --ifm-color-primary-dark: #412862;
+  --ifm-color-primary-darker: #3d255c;
+  --ifm-color-primary-darkest: #321e4c;
+  --ifm-color-primary-light: #53327a;
+  --ifm-color-primary-lighter: #57357f;
+  --ifm-color-primary-lightest: #643d91;
 
-  --ifm-background-color: #f4ede4;
-  --ifm-background-surface-color: #efe7db;
-  --ifm-font-color-base: #2d1f14;
-  --ifm-font-color-secondary: #5a4638;
+  --ifm-background-color: #f4f0ec;
+  --ifm-background-surface-color: #efe9e3;
+  --ifm-font-color-base: #2e1f3d;
+  --ifm-font-color-secondary: #5a4868;
 
-  --ifm-color-emphasis-0: #f8f3ec;
-  --ifm-color-emphasis-100: #efe7db;
-  --ifm-color-emphasis-200: #ddd1c1;
-  --ifm-color-emphasis-300: #c4b39e;
-  --ifm-color-emphasis-400: #a8937a;
-  --ifm-color-emphasis-500: #8a7460;
-  --ifm-color-emphasis-600: #6b5848;
-  --ifm-color-emphasis-700: #4d3d31;
-  --ifm-color-emphasis-800: #362a20;
-  --ifm-color-emphasis-900: #2d1f14;
+  --ifm-color-emphasis-0: #f8f4f0;
+  --ifm-color-emphasis-100: #efe9e3;
+  --ifm-color-emphasis-200: #ddd4cc;
+  --ifm-color-emphasis-300: #c4b8ae;
+  --ifm-color-emphasis-400: #a89890;
+  --ifm-color-emphasis-500: #8a7878;
+  --ifm-color-emphasis-600: #6b5860;
+  --ifm-color-emphasis-700: #4d3c48;
+  --ifm-color-emphasis-800: #362830;
+  --ifm-color-emphasis-900: #2e1f3d;
 
   --ifm-color-success: #4a7c3f;
   --ifm-color-success-darkest: #2f5227;
   --ifm-color-success-contrast-background: #e8f0e4;
-  --ifm-color-info: #3a6b8c;
-  --ifm-color-info-darkest: #254a63;
-  --ifm-color-info-contrast-background: #e4eef4;
+  --ifm-color-info: #6a3daa;
+  --ifm-color-info-darkest: #5528a0;
+  --ifm-color-info-contrast-background: #f0e8fc;
   --ifm-color-warning: #b8860b;
   --ifm-color-warning-darkest: #7a5a07;
   --ifm-color-warning-contrast-background: #f5ecd4;
-  --ifm-color-danger: #c0392b;
-  --ifm-color-danger-darkest: #8b2920;
-  --ifm-color-danger-contrast-background: #f5e0dd;
+  --ifm-color-danger: #a0283c;
+  --ifm-color-danger-darkest: #7a1e2e;
+  --ifm-color-danger-contrast-background: #f5e0e4;
 
-  --ifm-navbar-background-color: #efe7db;
-  --ifm-navbar-shadow: 0 1px 0 0 #c4b39e;
-  --ifm-footer-background-color: #2d1f14;
-  --ifm-footer-color: #ddd1c1;
-  --ifm-footer-link-color: #c49b2c;
+  --ifm-navbar-background-color: #efe9e3;
+  --ifm-navbar-shadow: 0 1px 0 0 #c4b8ae;
+  --ifm-footer-background-color: #2e1f3d;
+  --ifm-footer-color: #ddd4cc;
+  --ifm-footer-link-color: #c9a84c;
 
   --ifm-code-font-size: 90%;
-  --ifm-code-background: rgba(107, 32, 39, 0.06);
+  --ifm-code-background: rgba(74, 45, 110, 0.05);
   --ifm-code-border-radius: 3px;
 
   --ifm-border-radius: 3px;
 
-  --docusaurus-highlighted-code-line-bg: rgba(196, 155, 44, 0.15);
+  --docusaurus-highlighted-code-line-bg: rgba(201, 168, 76, 0.12);
 
   /* Fabula component tokens */
-  --fabula-editor-bg: #f8f3ec;
-  --fabula-editor-text: #2d1f14;
-  --fabula-editor-caret: #6b2027;
+  --fabula-editor-bg: #f8f4f0;
+  --fabula-editor-text: #2e1f3d;
+  --fabula-editor-caret: #4a2d6e;
 
-  --fabula-hl-keyword: #6b2027;
+  --fabula-hl-keyword: #4a2d6e;
   --fabula-hl-string: #4a7c3f;
-  --fabula-hl-number: #3a6b8c;
-  --fabula-hl-variable: #c49b2c;
-  --fabula-hl-comment: #a8937a;
-  --fabula-hl-operator: #5a4638;
+  --fabula-hl-number: #6a3daa;
+  --fabula-hl-variable: #c9a84c;
+  --fabula-hl-comment: #a89890;
+  --fabula-hl-operator: #5a4868;
 }
 
 /* ============================================================
-   DARK MODE — Midnight Scriptorium
+   DARK MODE — Midnight Scriptorium in Amethyst
    ============================================================ */
 [data-theme='dark'] {
-  --ifm-color-primary: #c49b2c;
-  --ifm-color-primary-dark: #b08b27;
-  --ifm-color-primary-darker: #a68325;
-  --ifm-color-primary-darkest: #896c1f;
-  --ifm-color-primary-light: #cda83f;
-  --ifm-color-primary-lighter: #d0ad48;
-  --ifm-color-primary-lightest: #d9bc64;
+  --ifm-color-primary: #c9a84c;
+  --ifm-color-primary-dark: #b89840;
+  --ifm-color-primary-darker: #ae8f3c;
+  --ifm-color-primary-darkest: #907632;
+  --ifm-color-primary-light: #d0b35e;
+  --ifm-color-primary-lighter: #d3b866;
+  --ifm-color-primary-lightest: #dcc67e;
 
-  --ifm-background-color: #0f1626;
-  --ifm-background-surface-color: #161e30;
-  --ifm-font-color-base: #ddd1c1;
-  --ifm-font-color-secondary: #a8937a;
+  --ifm-background-color: #140e22;
+  --ifm-background-surface-color: #1a1230;
+  --ifm-font-color-base: #ddd4cc;
+  --ifm-font-color-secondary: #a89890;
 
-  --ifm-color-emphasis-0: #131b2b;
-  --ifm-color-emphasis-100: #1a2338;
-  --ifm-color-emphasis-200: #253046;
-  --ifm-color-emphasis-300: #354258;
-  --ifm-color-emphasis-400: #506074;
-  --ifm-color-emphasis-500: #7a8a9a;
-  --ifm-color-emphasis-600: #9aabb8;
-  --ifm-color-emphasis-700: #b8c4ce;
-  --ifm-color-emphasis-800: #d0d8df;
-  --ifm-color-emphasis-900: #e8edf0;
+  --ifm-color-emphasis-0: #170f28;
+  --ifm-color-emphasis-100: #1e1535;
+  --ifm-color-emphasis-200: #2a1e48;
+  --ifm-color-emphasis-300: #3a2c5e;
+  --ifm-color-emphasis-400: #544478;
+  --ifm-color-emphasis-500: #7a6898;
+  --ifm-color-emphasis-600: #9a88b0;
+  --ifm-color-emphasis-700: #b8a8c8;
+  --ifm-color-emphasis-800: #d0c4d8;
+  --ifm-color-emphasis-900: #e8e0ee;
 
   --ifm-color-success: #6bab5e;
-  --ifm-color-success-contrast-background: rgba(107, 171, 94, 0.12);
-  --ifm-color-danger: #e07a6e;
-  --ifm-color-danger-contrast-background: rgba(224, 122, 110, 0.12);
+  --ifm-color-success-contrast-background: rgba(107, 171, 94, 0.1);
+  --ifm-color-danger: #d06878;
+  --ifm-color-danger-contrast-background: rgba(208, 104, 120, 0.1);
 
-  --ifm-navbar-background-color: #0f1626;
-  --ifm-footer-background-color: #0a0f1a;
+  --ifm-navbar-background-color: #140e22;
+  --ifm-footer-background-color: #0e0918;
 
-  --ifm-code-background: rgba(196, 155, 44, 0.08);
+  --ifm-code-background: rgba(201, 168, 76, 0.06);
 
-  --fabula-editor-bg: #131b2b;
-  --fabula-editor-text: #ddd1c1;
-  --fabula-editor-caret: #c49b2c;
+  --fabula-editor-bg: #170f28;
+  --fabula-editor-text: #ddd4cc;
+  --fabula-editor-caret: #c9a84c;
 
-  --fabula-hl-keyword: #c49b2c;
+  --fabula-hl-keyword: #c9a84c;
   --fabula-hl-string-dark: #6bab5e;
-  --fabula-hl-number-dark: #7aaed4;
-  --fabula-hl-variable-dark: #e0a64a;
-  --fabula-hl-comment: #506074;
-  --fabula-hl-operator: #9aabb8;
+  --fabula-hl-number-dark: #b794f4;
+  --fabula-hl-variable-dark: #dcc67e;
+  --fabula-hl-comment: #3a2c5e;
+  --fabula-hl-operator: #9a88b0;
 }
 
 /* ============================================================
    GLOBAL TEXTURE — Parchment Grain
    ============================================================ */
-body {
-  position: relative;
-}
-
 body::before {
   content: '';
   position: fixed;
@@ -207,7 +203,7 @@ body::before {
 }
 
 /* ============================================================
-   FOOTER — Dark Leather
+   FOOTER — Dark Velvet
    ============================================================ */
 .footer {
   font-family: 'Crimson Pro', serif;
@@ -330,4 +326,16 @@ code {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--ifm-color-emphasis-500);
+}
+
+/* ============================================================
+   SELECTION
+   ============================================================ */
+::selection {
+  background: rgba(74, 45, 110, 0.15);
+  color: inherit;
+}
+
+[data-theme='dark'] ::selection {
+  background: rgba(201, 168, 76, 0.2);
 }

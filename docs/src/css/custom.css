@@ -1,11 +1,5 @@
 /**
- * Fabula Documentation Theme
- *
- * Switch themes by changing the import below:
- *   ./themes/manuscript.css     — Illuminated Codex (warm serif, parchment)
- *   ./themes/oscilloscope.css   — Signal & Noise (phosphor green, dark-only)
- *   ./themes/feltboard.css      — Soft Material / Craft (warm, tactile, rounded)
- *   ./themes/nexus.css          — Dark Technical / Neon Graph (glassmorphism, dark-only)
- *   ./themes/diagrammatica.css  — Technical Illustration / Blueprint (elegant serif, grid)
+ * Fabula Documentation Theme — Codex
+ * Illuminated manuscript typography in purple ink with gold accents.
  */
-@import './themes/feltboard.css';
+@import './themes/codex.css';

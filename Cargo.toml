@@ -12,6 +12,6 @@ members = [
 
 [workspace.package]
 edition = "2021"
-license = "Apache-2.0"
+license = "MIT"
 description = "Incremental pattern matching over temporal graphs"
 keywords = ["graph", "pattern-matching", "temporal", "sifting", "narrative"]
