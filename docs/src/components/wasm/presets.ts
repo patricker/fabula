@@ -131,7 +131,7 @@ export const PRESET_GROUPS: PresetGroup[] = [
   stage e1 {
     e1.eventType = "betray"
     e1.actor -> ?char
-    char.trait = "impulsive"
+    ?char.trait = "impulsive"
   }
   stage e2 {
     e2.eventType = "betray"
@@ -158,7 +158,7 @@ export const PRESET_GROUPS: PresetGroup[] = [
   stage e1 {
     e1.eventType = "betray"
     e1.actor -> ?char
-    char.trait = "impulsive"
+    ?char.trait = "impulsive"
   }
   stage e2 {
     e2.eventType = "betray"

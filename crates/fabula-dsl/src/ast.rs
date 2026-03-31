@@ -23,11 +23,22 @@ pub struct StageAst {
     pub clauses: Vec<ClauseAst>,
 }
 
+/// Whether a clause source is a variable reference or a literal node name.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SourceKind {
+    /// `?var` — references a previously bound variable or the stage anchor.
+    Var,
+    /// `name` — a literal graph node name (or stage anchor, or negation scan root).
+    Literal,
+}
+
 /// A single clause in a stage or negation body.
 #[derive(Debug, Clone)]
 pub struct ClauseAst {
-    /// The source node variable.
+    /// The source node identifier (without `?` prefix).
     pub source: String,
+    /// Whether the source is a `?var` reference or a literal node name.
+    pub source_kind: SourceKind,
     /// The edge label.
     pub label: String,
     /// What the clause matches against.

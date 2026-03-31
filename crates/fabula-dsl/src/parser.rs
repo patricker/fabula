@@ -131,6 +131,18 @@ impl Parser {
             false
         };
 
+        // Check for ?var source (variable reference) vs bare literal
+        let source_kind = if self.check(TokenKind::Question) {
+            self.advance();
+            // Must be followed by an identifier (the variable name)
+            if !matches!(self.peek().kind, TokenKind::Ident(_)) {
+                return Err(self.error("expected variable name after '?'"));
+            }
+            SourceKind::Var
+        } else {
+            SourceKind::Literal
+        };
+
         let source = self.expect_ident()?;
         self.expect(TokenKind::Dot)?;
         let label = self.expect_ident_or_string()?;
@@ -169,7 +181,7 @@ impl Parser {
             return Err(self.error("expected '=', '->', '<', '>', '<=', or '>='"));
         };
 
-        Ok(ClauseAst { source, label, target, negated })
+        Ok(ClauseAst { source, source_kind, label, target, negated })
     }
 
     fn parse_literal_target(&mut self) -> Result<ClauseTarget, ParseError> {

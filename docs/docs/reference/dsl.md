@@ -22,11 +22,34 @@ pattern <name> {
 }
 ```
 
+### Sources
+
+The left side of the dot identifies which node to query edges from. There are three kinds:
+
+| Syntax | Meaning | Example |
+|--------|---------|---------|
+| `e1.label` | **Stage anchor** — the node this stage matches against | `e1.eventType = "enter"` inside `stage e1 { ... }` |
+| `alice.label` | **Literal node** — a specific named node in the graph | `alice.trait = "impulsive"` |
+| `?char.label` | **Bound variable** — must have been bound by `-> ?char` earlier | `?char.trait = "impulsive"` after `e1.actor -> ?char` |
+
+Stage anchors do not need `?` — they are implicitly variables within their stage. Bare identifiers that are not the stage anchor are treated as literal node names. Use `?` to reference a bound variable.
+
+Using `?` on an unbound variable is a compile error:
+
+```
+stage e1 {
+  e1.eventType = "betray"
+  ?char.trait = "impulsive"  // ERROR: ?char not yet bound
+}
+```
+
 ### Clauses
 
 | Syntax | Meaning | Builder equivalent |
 |--------|---------|-------------------|
-| `source.label = "value"` | Literal string match | `.edge(source, label, Str(value))` |
+| `e1.label = "value"` | Literal string match (stage anchor) | `.edge("e1", label, Str(value))` |
+| `?char.label = "value"` | Match on bound variable | `.edge("char", label, Str(value))` |
+| `alice.label = "value"` | Match on literal node | `.edge("alice", label, Str(value))` |
 | `source.label = 42` | Literal number match | `.edge(source, label, Num(42.0))` |
 | `source.label = true` | Literal boolean match | `.edge(source, label, Bool(true))` |
 | `source.label -> ?var` | Bind target to variable | `.edge_bind(source, label, var)` |
@@ -131,5 +154,29 @@ graph {
   now = 10
 }
 ```
+
+### Variable source example
+
+This pattern uses `?char` to check a property on a bound variable:
+
+```
+pattern two_impulsive_betrayals {
+  stage e1 {
+    e1.eventType = "betray"
+    e1.actor -> ?char           // bind ?char
+    ?char.trait = "impulsive"   // follow ?char, check its trait
+  }
+  stage e2 {
+    e2.eventType = "betray"
+    e2.actor -> ?char           // same character betrays again
+  }
+  unless {
+    mid.eventType = "reconcile"
+    mid.actor -> ?char          // mid is a scan root (no ?), ?char is a target binding
+  }
+}
+```
+
+Note that `mid` in the negation block has no `?` — it is a scan root (the engine searches for any node matching the clauses). But `?char` on the right side of `->` references the bound variable from the parent pattern.
 
 Try this in the [Pattern Playground](/docs/playground/pattern-playground).

@@ -18,8 +18,10 @@ Write a pattern in the left editor and a graph in the right editor. The engine e
 ```
 pattern name {
   stage eventVar {
-    eventVar.label = "value"        // literal match
+    eventVar.label = "value"        // literal match (stage anchor)
     eventVar.label -> ?variable     // bind to variable
+    ?variable.prop = "value"        // follow bound variable (requires ?)
+    alice.label = "value"           // literal node name (no ?)
     eventVar.label < 0.5            // value constraint
     ! eventVar.label = "forbidden"  // negated clause
   }

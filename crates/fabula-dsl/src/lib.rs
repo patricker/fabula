@@ -371,4 +371,163 @@ mod tests {
         let graph = parse_graph(dsl).unwrap();
         assert_eq!(graph.edge_count(), 2);
     }
+
+    // ---- Variable/literal source distinction tests ----
+
+    #[test]
+    fn parse_var_source() {
+        let dsl = r#"
+            pattern test {
+                stage e1 {
+                    e1.eventType = "betray"
+                    e1.actor -> ?char
+                    ?char.trait = "impulsive"
+                }
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        assert_eq!(pattern.stages[0].clauses.len(), 3);
+    }
+
+    #[test]
+    fn error_unbound_var_source() {
+        let dsl = r#"
+            pattern test {
+                stage e1 {
+                    e1.eventType = "betray"
+                    ?char.trait = "impulsive"
+                }
+            }
+        "#;
+        let err = parse_pattern(dsl).unwrap_err();
+        assert!(err.message.contains("?char"), "error should mention ?char: {}", err.message);
+        assert!(err.message.contains("not yet bound"), "error should say 'not yet bound': {}", err.message);
+    }
+
+    #[test]
+    fn bare_source_is_literal() {
+        let dsl = r#"
+            pattern test {
+                stage e1 {
+                    e1.eventType = "check"
+                    alice.trait = "impulsive"
+                }
+            }
+        "#;
+        // "alice" is a literal node name — no error
+        let pattern = parse_pattern(dsl).unwrap();
+        assert_eq!(pattern.stages[0].clauses.len(), 2);
+    }
+
+    #[test]
+    fn var_from_prior_stage() {
+        let dsl = r#"
+            pattern test {
+                stage e1 {
+                    e1.actor -> ?char
+                }
+                stage e2 {
+                    e2.eventType = "betray"
+                    ?char.trait = "impulsive"
+                }
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        assert_eq!(pattern.stages.len(), 2);
+        assert_eq!(pattern.stages[1].clauses.len(), 2);
+    }
+
+    #[test]
+    fn var_from_earlier_clause_same_stage() {
+        let dsl = r#"
+            pattern test {
+                stage e1 {
+                    e1.actor -> ?char
+                    ?char.trait = "impulsive"
+                    e1.eventType = "betray"
+                }
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        assert_eq!(pattern.stages[0].clauses.len(), 3);
+    }
+
+    #[test]
+    fn negation_var_target_references_parent() {
+        let dsl = r#"
+            pattern test {
+                stage e1 {
+                    e1.actor -> ?char
+                    e1.eventType = "betray"
+                }
+                unless after e1 {
+                    mid.eventType = "reconcile"
+                    mid.actor -> ?char
+                }
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        assert_eq!(pattern.negations.len(), 1);
+    }
+
+    #[test]
+    fn negated_var_source() {
+        let dsl = r#"
+            pattern test {
+                stage e1 {
+                    e1.actor -> ?char
+                    ! ?char.trait = "cowardly"
+                }
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        assert_eq!(pattern.stages[0].clauses.len(), 2);
+        assert!(pattern.stages[0].clauses[1].negated);
+    }
+
+    #[test]
+    fn error_question_without_ident() {
+        let dsl = r#"
+            pattern test {
+                stage e1 {
+                    ?.trait = "impulsive"
+                }
+            }
+        "#;
+        let err = parse_pattern(dsl).unwrap_err();
+        assert!(err.message.contains("variable name after '?'"), "error: {}", err.message);
+    }
+
+    #[test]
+    fn roundtrip_two_betrayals_with_var_source() {
+        let pattern_dsl = r#"
+            pattern two_impulsive_betrayals {
+                stage e1 {
+                    e1.eventType = "betray"
+                    e1.actor -> ?char
+                    ?char.trait = "impulsive"
+                }
+                stage e2 {
+                    e2.eventType = "betray"
+                    e2.actor -> ?char
+                }
+            }
+        "#;
+        let graph_dsl = r#"
+            graph {
+                @0 alice.trait = "impulsive"
+                @1 e1.eventType = "betray"
+                @1 e1.actor -> alice
+                @3 e2.eventType = "betray"
+                @3 e2.actor -> alice
+                now = 10
+            }
+        "#;
+        let pattern = parse_pattern(pattern_dsl).unwrap();
+        let graph = parse_graph(graph_dsl).unwrap();
+        let mut engine = SiftEngine::new();
+        engine.register(pattern);
+        let matches = engine.evaluate(&graph);
+        assert_eq!(matches.len(), 1, "two betrayals by impulsive alice should match");
+    }
 }

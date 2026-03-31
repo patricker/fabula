@@ -362,8 +362,8 @@ A character acts against their own values, then gets criticized by an opponent. 
 
 | Feature | Priority | Notes |
 |---|---|---|
-| Text DSL (Winnow syntax → Pattern) | High | Parser + compiler. Builder API exists as alternative. |
-| Dotted lvar access (`?host.value`) | Medium | Winnow's property access syntax. Currently requires explicit clause. |
+| Text DSL (Winnow syntax → Pattern) | Done | `fabula-dsl` crate: lexer + parser + compiler. |
+| Strict variable/literal distinction | Done | `?var.label` for bound variables, `name.label` for literals. Compile-time scope validation catches unbound `?var` references. |
 | Statistical surprise scoring | Low | From "Select the Unexpected" (Kreminski, ICIDS 2022) |
 | Partial match deduplication | Low | First-stage PMs can duplicate on repeated matching edges |
 
