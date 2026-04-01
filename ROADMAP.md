@@ -212,9 +212,6 @@ that it is.
 ```rust
 pub struct EngineStats {
     pub total_on_edge_added: u64,
-    pub total_evaluate: u64,
-    pub total_scan_calls: u64,
-    pub total_edges_from_calls: u64,
     pub total_fingerprints: u64,
     pub total_negation_checks: u64,
     pub peak_active_pms: usize,
@@ -226,16 +223,47 @@ pub struct EngineStats {
 **Files**: `fabula/src/engine.rs`
 **Effort**: Small
 
-### 2.2 Profile with flamegraph
-Before writing benchmark harness, run `cargo flamegraph` on a GM-profile
-workload (30 patterns, 5K edges, 200 ticks of incremental). Identify
-actual hotspots vs assumed hotspots. One-time investigation, not a crate.
+### 2.2 ~~Profiling & Benchmark harness~~ (DONE — merged 2.2 + 2.4)
 
-**Known suspect**: PM fingerprint rebuilds `HashSet<String>` from ALL
-active PMs on every `on_edge_added` call. O(active_pms) string allocations
-before any matching starts. Likely dominates for large PM pools.
+Merged profiling investigation with permanent benchmark harness into a
+single `fabula-bench` crate. Pluggable data source via `--adapter` CLI arg
+(petgraph, memgraph; Paracausality later via feature flag).
 
-**Effort**: Small (hours, not days)
+**Crate structure**:
+- `src/workload.rs` — `WorkloadConfig`, pattern generators (5 categories × 6),
+  graph builder, `IsolatedWorkload` (for divan), `GmWorkload` (for profiling)
+- `src/bin/profile.rs` — 200-tick GM workload, per-tick CSV, optional dhat
+- `benches/engine.rs` — divan parameterized benchmarks (cold + warm start)
+
+**Profiling findings** (200-tick GM workload, 30 patterns, ~3K edges):
+
+| Metric | petgraph | memgraph |
+|--------|----------|----------|
+| Total time | 494ms | 724ms |
+| Avg per `on_edge_added` | 164 us | 240 us |
+| Peak active PMs | 350 | 350 |
+| Total fingerprints | 656K | 656K |
+
+**Key finding**: Per-tick cost grows linearly with active PM count.
+Tick 1 = 80us, tick 200 = 2.7ms. The `HashSet<String>` fingerprint
+rebuild is the dominant cost — 656K string allocations across 3K edges.
+
+**Benchmark results** (divan, cold-start):
+
+| Benchmark | petgraph | memgraph |
+|-----------|----------|----------|
+| 10 edges/tick (cold) | 841 us | 1.5 ms |
+| 10 edges/tick (warm, 20 ticks PM accumulation) | ~3 ms | 36 ms |
+| Negation 0% → 100% | 679 → 817 us | 1.1 → 1.8 ms |
+| Pattern count 1 → 100 | 109 → 832 us | 108 us → 1.1 ms |
+| Batch 1K edges | 414 ms | 2.7 s |
+
+**Confirmed hotspots** (for 2.3):
+1. PM fingerprint `HashSet<String>` rebuild — O(active_pms) string allocs per call
+2. Binding HashMap clones in Phase 3 happen BEFORE dedup check
+3. Batch mode cross-product is O(E²) — impractical at scale
+
+**Files**: `crates/fabula-bench/`
 
 ### 2.3 Fingerprint optimization
 Replace String-based `pm_fingerprint` with hash-based dedup:
@@ -243,41 +271,22 @@ Replace String-based `pm_fingerprint` with hash-based dedup:
 - `seen` set becomes `HashSet<u64>` (zero allocation per call)
 - Eliminates O(active_pms) string formatting per `on_edge_added`
 
-This is a correctness-preserving perf fix, not a feature. Must happen
-before benchmarks so we measure the real baseline, not a known-bad path.
+This is a correctness-preserving perf fix, not a feature. Benchmark
+before/after using `fabula-bench` warm-start benchmarks.
 
 **Files**: `fabula/src/engine.rs` (PartialMatch + on_edge_added)
 **Tests**: Existing dedup tests must still pass
 **Effort**: Small-medium
 
-### 2.4 Benchmark harness (`fabula-bench` crate)
-Separate workspace crate (required for cross-adapter comparison). Uses
-divan (lighter than Criterion, better for parameterized sweeps).
-
-**GM-profile benchmarks** (the actual workload):
-- **Per-tick latency**: 30 patterns, 5K edges, vary edges-per-tick (1, 10, 50)
-- **PM pool growth**: 200 ticks incremental, track PM count per tick
-- **Negation overhead**: 30 patterns (half with negation) vs 30 (none)
-
-**Scaling benchmarks** (stress tests):
-- **Pattern count**: 1, 10, 30, 100 registered patterns
-- **Edge count**: 100, 1K, 5K, 10K edges
-- **Stage complexity**: 1-stage vs 3-stage vs 10-stage
-- **Incremental vs batch**: same graph, both modes
-
-**Adapter comparison**: same scenario on MemGraph, petgraph, grafeo.
-
-**Files**: New `crates/fabula-bench/`
-**Deps**: `divan`, `fabula`, `fabula-memory`, `fabula-petgraph`, `fabula-grafeo`
-**Effort**: Medium
-
-### 2.5 Label indexing optimization (conditional)
-Only if 2.4 benchmarks show MemGraph `scan()` is the bottleneck. Add
-`HashMap<String, Vec<usize>>` label index to MemGraph for O(k) scan
-(k = edges with that label) instead of O(n).
+### 2.4 Label indexing optimization (conditional)
+Only if 2.3 doesn't close the gap. Benchmarks show MemGraph is 1.5-2x
+slower than petgraph due to O(n) scan. For incremental mode the gap is
+modest; for batch mode MemGraph is unusable at 1K+ edges. Label indexing
+would help batch mode but fingerprint optimization (2.3) is the bigger win
+for incremental.
 
 **Files**: `fabula-memory/src/lib.rs`
-**Gated on**: 2.4 benchmark data showing scan dominates
+**Gated on**: 2.3 results
 **Effort**: Small-medium
 
 ### Deferred from Phase 2
@@ -503,7 +512,7 @@ Maps to Chomsky-like hierarchy for narrative pattern grammars.
 | Phase | Theme | Key Deliverables |
 |-------|-------|------------------|
 | **1** | Polish & Parity | Variable distinction, negation validation, dedup, metric temporal, age tracking |
-| **2** | Benchmarking | Stats counters, profiling, fingerprint optimization, divan harness, conditional label indexing |
+| **2** | Benchmarking | Stats counters, profiling + divan harness, fingerprint optimization, conditional label indexing |
 | **3** | Composition | Pattern algebra, DSL compose syntax, surprise scoring |
 | **4** | Pattern Library | Propp functions, MICE threads, emotional arcs, kernel/satellite |
 | **5** | Stack Integration | Paracausality adapter, registry, deltas, MCTS, plant/payoff, appraisal, gossip |

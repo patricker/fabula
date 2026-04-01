@@ -8,6 +8,7 @@ members = [
     "crates/fabula-test-suite",
     "crates/fabula-dsl",
     "crates/fabula-wasm",
+    "crates/fabula-bench",
 ]
 
 [workspace.package]
