@@ -7,6 +7,10 @@ use std::fmt;
 use std::ops::Sub;
 
 /// Conversion trait for time types to f64 (for metric gap comparison).
+///
+/// Built-in for `i64`, `i32`, `f64`, `f32`. For custom time newtypes,
+/// implement this trait directly or use a feature-gated impl in the
+/// type's owning crate.
 pub trait NumericTime {
     fn as_f64(&self) -> f64;
 }
