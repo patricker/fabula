@@ -265,18 +265,26 @@ rebuild is the dominant cost — 656K string allocations across 3K edges.
 
 **Files**: `crates/fabula-bench/`
 
-### 2.3 Fingerprint optimization
-Replace String-based `pm_fingerprint` with hash-based dedup:
-- Compute fingerprint hash once at PM creation, store as field
-- `seen` set becomes `HashSet<u64>` (zero allocation per call)
-- Eliminates O(active_pms) string formatting per `on_edge_added`
+### 2.3 ~~Fingerprint optimization~~ (DONE)
+Replaced String-based `pm_fingerprint` with hash-based dedup:
+- `Hash` bound added to `DataSource::V` and `DataSource::T`
+- `BoundValue`, `MemValue`, `PetValue`, `GrafeoValue` all implement `Hash`
+- `compute_fingerprint()` uses order-independent XOR of per-entry hashes
+- `fingerprint: u64` stored on `PartialMatch`, computed once at creation
+- `seen` set is `HashSet<u64>` — zero-allocation rebuild from stored hashes
 
-This is a correctness-preserving perf fix, not a feature. Benchmark
-before/after using `fabula-bench` warm-start benchmarks.
+**Before/after** (warm petgraph, 10 edges/tick, 20-tick PM accumulation):
 
-**Files**: `fabula/src/engine.rs` (PartialMatch + on_edge_added)
-**Tests**: Existing dedup tests must still pass
-**Effort**: Small-medium
+| Metric | Before (String) | After (u64) | Speedup |
+|--------|-----------------|-------------|---------|
+| warm petgraph/10 | 21.8 ms | **3.1 ms** | **7.0x** |
+| warm memgraph/10 | 35.3 ms | 16.1 ms | 2.2x |
+| Profile total (200 ticks) | 494 ms | **85 ms** | **5.8x** |
+| Avg per on_edge_added | 164 us | **28 us** | **5.9x** |
+
+Petgraph now well within 16ms frame budget at GM scale.
+
+**Files**: `fabula/src/{engine,datasource}.rs`, all three adapter crates
 
 ### 2.4 Label indexing optimization (conditional)
 Only if 2.3 doesn't close the gap. Benchmarks show MemGraph is 1.5-2x

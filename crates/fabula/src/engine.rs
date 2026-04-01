@@ -19,7 +19,8 @@ use crate::datasource::{DataSource, ValueConstraint};
 use crate::interval::Interval;
 use crate::pattern::*;
 use std::collections::{HashMap, HashSet};
-use std::fmt::{Debug, Write};
+use std::fmt::Debug;
+use std::hash::{Hash, Hasher};
 
 /// Bindings + intervals pair used internally during evaluation.
 type MatchCandidate<N, V, T> = (HashMap<String, BoundValue<N, V>>, HashMap<String, Interval<T>>);
@@ -45,6 +46,16 @@ pub enum BoundValue<N: Debug, V: Debug> {
     Node(N),
     /// A data value (string, number, boolean — not traversable).
     Value(V),
+}
+
+impl<N: Debug + Hash, V: Debug + Hash> Hash for BoundValue<N, V> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            BoundValue::Node(n) => n.hash(state),
+            BoundValue::Value(v) => v.hash(state),
+        }
+    }
 }
 
 impl<N: Debug + PartialEq, V: Debug + PartialEq> BoundValue<N, V> {
@@ -83,6 +94,8 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
     pub id: usize,
     /// Timestamp when this partial match was first initiated.
     pub created_at: T,
+    /// Precomputed dedup hash of (pattern_idx, next_stage, bindings, intervals).
+    pub fingerprint: u64,
 }
 
 /// State of a partial match.
@@ -256,30 +269,43 @@ where
         completed
     }
 
-    /// Compute a deterministic fingerprint for partial match deduplication.
-    /// Two PMs with the same fingerprint have identical
-    /// (pattern_idx, next_stage, bindings, intervals).
-    fn pm_fingerprint(
+    /// Compute a deterministic dedup hash for a partial match.
+    /// Uses order-independent XOR of per-entry hashes so HashMap
+    /// iteration order doesn't matter. Zero allocation.
+    fn compute_fingerprint(
         pattern_idx: usize,
         next_stage: usize,
         bindings: &HashMap<String, BoundValue<DS::N, DS::V>>,
         intervals: &HashMap<String, Interval<DS::T>>,
-    ) -> String {
-        let mut binding_keys: Vec<&String> = bindings.keys().collect();
-        binding_keys.sort();
-        let mut interval_keys: Vec<&String> = intervals.keys().collect();
-        interval_keys.sort();
+    ) -> u64 {
+        use std::collections::hash_map::DefaultHasher;
+        let mut h = DefaultHasher::new();
+        pattern_idx.hash(&mut h);
+        next_stage.hash(&mut h);
 
-        let mut fp = String::with_capacity(128);
-        write!(fp, "{}:{}:", pattern_idx, next_stage).unwrap();
-        for k in &binding_keys {
-            write!(fp, "{}={:?},", k, bindings[*k]).unwrap();
+        // XOR of per-entry hashes — order-independent, no sorting needed.
+        // Mix in map length to distinguish empty maps from self-cancelling entries.
+        let mut bindings_xor: u64 = 0;
+        for (k, v) in bindings {
+            let mut entry_h = DefaultHasher::new();
+            k.hash(&mut entry_h);
+            v.hash(&mut entry_h);
+            bindings_xor ^= entry_h.finish();
         }
-        fp.push('|');
-        for k in &interval_keys {
-            write!(fp, "{}={:?},", k, intervals[*k]).unwrap();
+        bindings.len().hash(&mut h);
+        bindings_xor.hash(&mut h);
+
+        let mut intervals_xor: u64 = 0;
+        for (k, v) in intervals {
+            let mut entry_h = DefaultHasher::new();
+            k.hash(&mut entry_h);
+            v.hash(&mut entry_h);
+            intervals_xor ^= entry_h.finish();
         }
-        fp
+        intervals.len().hash(&mut h);
+        intervals_xor.hash(&mut h);
+
+        h.finish()
     }
 
     /// Batch evaluation: find all complete matches in the current graph state.
@@ -307,11 +333,10 @@ where
         // Build dedup set from ALL existing PMs (Active, Complete, AND Dead).
         // Dead PMs stay in `seen` to prevent re-creation of a just-negated PM
         // within the same on_edge_added call.
-        let mut seen: HashSet<String> = HashSet::new();
+        // Uses precomputed u64 hashes — zero allocation.
+        let mut seen: HashSet<u64> = HashSet::with_capacity(self.partial_matches.len());
         for pm in &self.partial_matches {
-            seen.insert(Self::pm_fingerprint(
-                pm.pattern_idx, pm.next_stage, &pm.bindings, &pm.intervals,
-            ));
+            seen.insert(pm.fingerprint);
         }
         self.stats.total_fingerprints += seen.len() as u64;
 
@@ -353,7 +378,7 @@ where
                         let next = if is_last_stage { pattern.stages.len() } else { 1 };
                         // Dedup: skip if identical PM already exists
                         self.stats.total_fingerprints += 1;
-                        let fp = Self::pm_fingerprint(pat_idx, next, &bindings, &intervals);
+                        let fp = Self::compute_fingerprint(pat_idx, next, &bindings, &intervals);
                         if !seen.insert(fp) {
                             continue;
                         }
@@ -368,6 +393,7 @@ where
                             next_stage: next,
                             state: if is_last_stage { MatchState::Complete } else { MatchState::Active },
                             id,
+                            fingerprint: fp,
                         };
 
                         if is_last_stage {
@@ -414,6 +440,8 @@ where
                     let next = stage_idx + 1;
                     let is_complete = next >= pattern.stages.len();
 
+                    // Compute speculative fingerprint BEFORE cloning.
+                    // Build merged maps only if this is a new unique PM.
                     let mut merged_bindings = pm.bindings.clone();
                     merged_bindings.extend(new_bindings);
                     let mut merged_intervals = pm.intervals.clone();
@@ -421,7 +449,7 @@ where
 
                     // Dedup: skip if identical PM already exists
                     self.stats.total_fingerprints += 1;
-                    let fp = Self::pm_fingerprint(pm.pattern_idx, next, &merged_bindings, &merged_intervals);
+                    let fp = Self::compute_fingerprint(pm.pattern_idx, next, &merged_bindings, &merged_intervals);
                     if !seen.insert(fp) {
                         continue;
                     }
@@ -443,6 +471,7 @@ where
                         next_stage: next,
                         state: if is_complete { MatchState::Complete } else { MatchState::Active },
                         id,
+                        fingerprint: fp,
                     };
 
                     if is_complete {

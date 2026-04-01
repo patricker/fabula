@@ -6,6 +6,7 @@
 use fabula::datasource::{DataSource, Edge, ValueConstraint};
 use fabula::interval::Interval;
 use std::fmt;
+use std::hash::{Hash, Hasher};
 
 /// A value in the in-memory graph — can be a node reference, string, number, or boolean.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -18,6 +19,18 @@ pub enum MemValue {
     Num(f64),
     /// Boolean value.
     Bool(bool),
+}
+
+impl Hash for MemValue {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            MemValue::Node(s) => s.hash(state),
+            MemValue::Str(s) => s.hash(state),
+            MemValue::Num(n) => n.to_bits().hash(state),
+            MemValue::Bool(b) => b.hash(state),
+        }
+    }
 }
 
 impl fmt::Display for MemValue {

@@ -71,9 +71,9 @@ pub trait DataSource {
     /// Edge label type.
     type L: Eq + Hash + Clone + Debug;
     /// Value type (edge targets — can be nodes, strings, numbers, booleans).
-    type V: PartialEq + PartialOrd + Clone + Debug;
+    type V: PartialEq + PartialOrd + Clone + Debug + Hash;
     /// Time type.
-    type T: Ord + Clone + Debug;
+    type T: Ord + Clone + Debug + Hash;
 
     /// Follow edges from `node` with `label`, active at time `at`.
     ///

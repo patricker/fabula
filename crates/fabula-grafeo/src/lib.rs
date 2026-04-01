@@ -10,6 +10,7 @@ use fabula::interval::Interval;
 use grafeo::{GrafeoDB, NodeId, Value as GValue};
 use grafeo_core::Edge as GEdge;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 
 /// A value in the Grafeo adapter.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
@@ -22,6 +23,18 @@ pub enum GrafeoValue {
     Num(f64),
     /// Boolean value.
     Bool(bool),
+}
+
+impl Hash for GrafeoValue {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            GrafeoValue::Node(s) => s.hash(state),
+            GrafeoValue::Str(s) => s.hash(state),
+            GrafeoValue::Num(n) => n.to_bits().hash(state),
+            GrafeoValue::Bool(b) => b.hash(state),
+        }
+    }
 }
 
 impl GrafeoValue {

@@ -9,7 +9,7 @@ use petgraph::stable_graph::{NodeIndex, StableGraph};
 use petgraph::Direction;
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::hash::Hash;
+use std::hash::{Hash, Hasher};
 
 /// A temporal edge weight — bundles a label, value, and validity interval
 /// onto a petgraph edge.
@@ -125,6 +125,18 @@ pub enum PetValue<N: Debug + Clone + PartialOrd> {
     Bool(bool),
 }
 
+impl<N: Debug + Clone + PartialOrd + Hash> Hash for PetValue<N> {
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        std::mem::discriminant(self).hash(state);
+        match self {
+            PetValue::Node(n) => n.hash(state),
+            PetValue::Str(s) => s.hash(state),
+            PetValue::Num(n) => n.to_bits().hash(state),
+            PetValue::Bool(b) => b.hash(state),
+        }
+    }
+}
+
 impl<N: Debug + Clone + PartialOrd> From<NodeRef<N>> for PetValue<N> {
     fn from(r: NodeRef<N>) -> Self {
         PetValue::Node(r.0)
@@ -135,7 +147,7 @@ impl<N, L, T> DataSource for PetTemporalGraph<N, L, PetValue<N>, T>
 where
     N: Eq + Hash + Clone + Debug + PartialOrd,
     L: Eq + Hash + Clone + Debug,
-    T: Ord + Clone + Debug,
+    T: Ord + Clone + Debug + Hash,
 {
     type N = N;
     type L = L;

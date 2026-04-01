@@ -27,7 +27,7 @@ engine.register(
 
 | Parameter | Bounds | Description |
 |-----------|--------|-------------|
-| `DS` | `DataSource` (with `DS::N: PartialEq`, `DS::V: PartialEq`, `DS::T: Sub<Output=T> + NumericTime`) | The backing graph store. `NumericTime` enables metric gap computation for temporal constraints. Built-in for `i64`, `i32`, `f64`, `f32`. |
+| `DS` | `DataSource` (with `DS::N: PartialEq`, `DS::V: PartialEq + Hash`, `DS::T: Sub<Output=T> + NumericTime + Hash`) | The backing graph store. `NumericTime` enables metric gap computation for temporal constraints. Built-in for `i64`, `i32`, `f64`, `f32`. `Hash` is required for fingerprint-based deduplication. |
 
 ### Methods
 
@@ -242,6 +242,8 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
     pub next_stage: usize,
     pub state: MatchState,
     pub id: usize,
+    pub created_at: T,
+    pub fingerprint: u64,
 }
 ```
 
@@ -254,6 +256,7 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
 | `state` | `MatchState` | Current state of this partial match. |
 | `id` | `usize` | Unique identifier for tracking. |
 | `created_at` | `T` | Timestamp when this partial match was first initiated. Set from the initiating edge's interval start in Phase 2; inherited from the parent on fork in Phase 3. Only meaningful in incremental mode. |
+| `fingerprint` | `u64` | Precomputed dedup hash of `(pattern_idx, next_stage, bindings, intervals)`. Computed once at creation using order-independent XOR hashing. Used by the engine's `seen` set to prevent duplicate partial matches. |
 
 ### Trait implementations
 
