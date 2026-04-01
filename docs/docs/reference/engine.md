@@ -285,6 +285,23 @@ pub enum MatchState {
 
 ---
 
+## `EngineStats`
+
+Cumulative operation counters for performance analysis. Incremented during `on_edge_added()`. Read with `engine.stats()`, reset with `engine.reset_stats()`.
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `total_on_edge_added` | `u64` | Number of `on_edge_added()` calls. |
+| `total_fingerprints` | `u64` | Fingerprint work: initial dedup set builds + per-candidate checks. |
+| `total_negation_checks` | `u64` | Negation checks attempted (once per active PM per call). |
+| `peak_active_pms` | `usize` | High-water mark of active partial matches. |
+
+### Trait implementations
+
+`Debug`, `Clone`, `Default`.
+
+---
+
 ## `SiftEvent<N, V>`
 
 Events emitted by incremental matching via `on_edge_added`.

@@ -200,42 +200,92 @@ classification (stale plants, urgent payoffs, etc.).
 Establish measurement infrastructure before adding complexity. No published
 performance analysis of story sifting exists — fabula can be first.
 
-### 2.1 Benchmark harness (`fabula-bench` crate)
-Criterion-based benchmarks measuring:
-- **Pattern count scaling**: 1, 10, 50, 100, 500 registered patterns
-- **Event stream scaling**: 100, 1K, 10K, 100K edges
-- **Match complexity**: 1-stage vs 3-stage vs 10-stage patterns
-- **Negation overhead**: patterns with 0, 1, 5 negation windows
-- **Incremental vs batch**: same graph, `evaluate()` vs replay via `on_edge_added()`
-- **Adapter comparison**: MemGraph vs petgraph vs grafeo
+Reordered based on deep planning review: stats first (to explain benchmarks),
+then profile (to find real hotspots), fix known issues, then benchmark the
+fixed code. WASM benchmarks and label indexing deferred — premature without data.
 
-Output: Criterion HTML reports + CSV for tracking regressions.
+### 2.1 ~~Engine stats counters~~ (DONE)
+Live operation counters incremented during matching. O(1) to read — no
+iteration over PMs. These explain *why* a benchmark is slow, not just
+that it is.
 
-**Files**: New `crates/fabula-bench/` crate
-**Deps**: `criterion`, `fabula`, `fabula-memory`, `fabula-petgraph`
-**Effort**: Medium
+```rust
+pub struct EngineStats {
+    pub total_on_edge_added: u64,
+    pub total_evaluate: u64,
+    pub total_scan_calls: u64,
+    pub total_edges_from_calls: u64,
+    pub total_fingerprints: u64,
+    pub total_negation_checks: u64,
+    pub peak_active_pms: usize,
+}
+```
 
-### 2.2 WASM benchmark page
-Add a "Benchmarks" page to the docs site that runs timing benchmarks in the
-browser via WASM. Users can see real performance numbers on their hardware.
-
-**Files**: New WASM function `run_benchmarks()`, new docs page
-**Effort**: Small (after 2.1 exists)
-
-### 2.3 Memory profiling
-Track partial match pool size, peak bindings count, and edge scan counts.
-Add `engine.stats()` returning `EngineStats { patterns, active_pms, complete_pms, dead_pms, total_evaluations, total_scans }`.
+`engine.stats()` returns reference. `engine.reset_stats()` zeroes counters.
 
 **Files**: `fabula/src/engine.rs`
 **Effort**: Small
 
-### 2.4 Label indexing optimization
-Currently all adapters do linear scans. Add optional label→edge indices to
-MemGraph for O(1) label lookup instead of O(n) scan.
+### 2.2 Profile with flamegraph
+Before writing benchmark harness, run `cargo flamegraph` on a GM-profile
+workload (30 patterns, 5K edges, 200 ticks of incremental). Identify
+actual hotspots vs assumed hotspots. One-time investigation, not a crate.
+
+**Known suspect**: PM fingerprint rebuilds `HashSet<String>` from ALL
+active PMs on every `on_edge_added` call. O(active_pms) string allocations
+before any matching starts. Likely dominates for large PM pools.
+
+**Effort**: Small (hours, not days)
+
+### 2.3 Fingerprint optimization
+Replace String-based `pm_fingerprint` with hash-based dedup:
+- Compute fingerprint hash once at PM creation, store as field
+- `seen` set becomes `HashSet<u64>` (zero allocation per call)
+- Eliminates O(active_pms) string formatting per `on_edge_added`
+
+This is a correctness-preserving perf fix, not a feature. Must happen
+before benchmarks so we measure the real baseline, not a known-bad path.
+
+**Files**: `fabula/src/engine.rs` (PartialMatch + on_edge_added)
+**Tests**: Existing dedup tests must still pass
+**Effort**: Small-medium
+
+### 2.4 Benchmark harness (`fabula-bench` crate)
+Separate workspace crate (required for cross-adapter comparison). Uses
+divan (lighter than Criterion, better for parameterized sweeps).
+
+**GM-profile benchmarks** (the actual workload):
+- **Per-tick latency**: 30 patterns, 5K edges, vary edges-per-tick (1, 10, 50)
+- **PM pool growth**: 200 ticks incremental, track PM count per tick
+- **Negation overhead**: 30 patterns (half with negation) vs 30 (none)
+
+**Scaling benchmarks** (stress tests):
+- **Pattern count**: 1, 10, 30, 100 registered patterns
+- **Edge count**: 100, 1K, 5K, 10K edges
+- **Stage complexity**: 1-stage vs 3-stage vs 10-stage
+- **Incremental vs batch**: same graph, both modes
+
+**Adapter comparison**: same scenario on MemGraph, petgraph, grafeo.
+
+**Files**: New `crates/fabula-bench/`
+**Deps**: `divan`, `fabula`, `fabula-memory`, `fabula-petgraph`, `fabula-grafeo`
+**Effort**: Medium
+
+### 2.5 Label indexing optimization (conditional)
+Only if 2.4 benchmarks show MemGraph `scan()` is the bottleneck. Add
+`HashMap<String, Vec<usize>>` label index to MemGraph for O(k) scan
+(k = edges with that label) instead of O(n).
 
 **Files**: `fabula-memory/src/lib.rs`
-**Benchmarks**: Before/after comparison from 2.1
+**Gated on**: 2.4 benchmark data showing scan dominates
 **Effort**: Small-medium
+
+### Deferred from Phase 2
+
+**WASM benchmark page**: Browser benchmarks are noisy (JIT, GC, V8 tiers)
+and measure serde JSON overhead, not engine performance. Move to Phase 4+
+when there's a pattern library to demo. Use `performance.now()` inside
+WASM to exclude serialization when eventually built.
 
 ---
 
@@ -453,7 +503,7 @@ Maps to Chomsky-like hierarchy for narrative pattern grammars.
 | Phase | Theme | Key Deliverables |
 |-------|-------|------------------|
 | **1** | Polish & Parity | Variable distinction, negation validation, dedup, metric temporal, age tracking |
-| **2** | Benchmarking | Criterion harness, WASM benchmarks, memory profiling, indexing |
+| **2** | Benchmarking | Stats counters, profiling, fingerprint optimization, divan harness, conditional label indexing |
 | **3** | Composition | Pattern algebra, DSL compose syntax, surprise scoring |
 | **4** | Pattern Library | Propp functions, MICE threads, emotional arcs, kernel/satellite |
 | **5** | Stack Integration | Paracausality adapter, registry, deltas, MCTS, plant/payoff, appraisal, gossip |

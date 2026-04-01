@@ -595,7 +595,109 @@ fn dedup_events_match_pms() {
 }
 
 // ===========================================================================
-// 5c. Partial match age tracking
+// 5c. Engine stats counters
+// ===========================================================================
+
+#[test]
+fn stats_on_edge_added_counter() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    engine.register(PatternBuilder::new("test")
+        .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("enter".into())))
+        .build());
+
+    assert_eq!(engine.stats().total_on_edge_added, 0);
+
+    g.add_str("ev1", "eventType", "enter", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
+        &MemValue::Str("enter".into()), &Interval::open(1));
+
+    assert_eq!(engine.stats().total_on_edge_added, 1);
+
+    g.add_str("ev2", "eventType", "enter", 2);
+    g.set_time(2);
+    engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(),
+        &MemValue::Str("enter".into()), &Interval::open(2));
+
+    assert_eq!(engine.stats().total_on_edge_added, 2);
+}
+
+#[test]
+fn stats_fingerprints_and_negation() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    engine.register(PatternBuilder::new("test")
+        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("enter".into()))
+            .edge_bind("e1", "actor".into(), "person"))
+        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("leave".into()))
+            .edge_bind("e2", "actor".into(), "person"))
+        .unless_between("e1", "e2", |neg| {
+            neg.edge("mid", "eventType".into(), MemValue::Str("cancel".into()))
+                .edge_bind("mid", "actor".into(), "person")
+        })
+        .build());
+
+    g.add_str("ev1", "eventType", "enter", 1);
+    g.add_ref("ev1", "actor", "alice", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
+        &MemValue::Str("enter".into()), &Interval::open(1));
+
+    assert!(engine.stats().total_fingerprints > 0, "should compute fingerprints");
+
+    // Second edge triggers negation check on the active PM
+    g.add_str("ev2", "eventType", "cancel", 2);
+    g.add_ref("ev2", "actor", "alice", 2);
+    g.set_time(2);
+    engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(),
+        &MemValue::Str("cancel".into()), &Interval::open(2));
+
+    assert!(engine.stats().total_negation_checks > 0, "should check negations");
+}
+
+#[test]
+fn stats_peak_active_pms() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    engine.register(PatternBuilder::new("test")
+        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("enter".into())))
+        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("leave".into())))
+        .build());
+
+    for t in 1..=5i64 {
+        let name = format!("ev{}", t);
+        g.add_str(&name, "eventType", "enter", t);
+        g.set_time(t);
+        engine.on_edge_added(&g, &name, &"eventType".into(),
+            &MemValue::Str("enter".into()), &Interval::open(t));
+    }
+
+    assert_eq!(engine.stats().peak_active_pms, 5,
+        "peak should be 5 after adding 5 matching first-stage edges");
+}
+
+#[test]
+fn stats_reset() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    engine.register(PatternBuilder::new("test")
+        .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("enter".into())))
+        .build());
+
+    g.add_str("ev1", "eventType", "enter", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
+        &MemValue::Str("enter".into()), &Interval::open(1));
+
+    assert!(engine.stats().total_on_edge_added > 0);
+    engine.reset_stats();
+    assert_eq!(engine.stats().total_on_edge_added, 0);
+    assert_eq!(engine.stats().peak_active_pms, 0);
+}
+
+// ===========================================================================
+// 5d. Partial match age tracking
 // ===========================================================================
 
 #[test]

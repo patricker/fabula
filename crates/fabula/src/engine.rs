@@ -155,6 +155,25 @@ pub struct ClauseAnalysis {
 }
 
 // ---------------------------------------------------------------------------
+// Engine stats
+// ---------------------------------------------------------------------------
+
+/// Cumulative operation counters for performance analysis.
+/// Incremented during `evaluate()` and `on_edge_added()`.
+/// Reset with `engine.reset_stats()`.
+#[derive(Debug, Clone, Default)]
+pub struct EngineStats {
+    /// Number of `on_edge_added()` (incremental) calls.
+    pub total_on_edge_added: u64,
+    /// Fingerprint work: initial dedup set builds + per-candidate checks.
+    pub total_fingerprints: u64,
+    /// Negation checks attempted (once per active PM per `on_edge_added`).
+    pub total_negation_checks: u64,
+    /// High-water mark of active partial matches.
+    pub peak_active_pms: usize,
+}
+
+// ---------------------------------------------------------------------------
 // The engine
 // ---------------------------------------------------------------------------
 
@@ -163,6 +182,7 @@ pub struct SiftEngine<DS: DataSource> {
     patterns: Vec<Pattern<DS::L, DS::V>>,
     partial_matches: Vec<PartialMatch<DS::N, DS::V, DS::T>>,
     next_match_id: usize,
+    stats: EngineStats,
 }
 
 impl<DS: DataSource> SiftEngine<DS>
@@ -177,6 +197,7 @@ where
             patterns: Vec::new(),
             partial_matches: Vec::new(),
             next_match_id: 0,
+            stats: EngineStats::default(),
         }
     }
 
@@ -209,6 +230,16 @@ where
     }
 
     /// Drain completed matches, removing them from internal storage.
+    /// Cumulative operation counters.
+    pub fn stats(&self) -> &EngineStats {
+        &self.stats
+    }
+
+    /// Reset all counters to zero.
+    pub fn reset_stats(&mut self) {
+        self.stats = EngineStats::default();
+    }
+
     pub fn drain_completed(&mut self) -> Vec<Match<DS::N, DS::V>> {
         let mut completed = Vec::new();
         self.partial_matches.retain(|pm| {
@@ -270,6 +301,7 @@ where
         value: &DS::V,
         interval: &Interval<DS::T>,
     ) -> Vec<SiftEvent<DS::N, DS::V>> {
+        self.stats.total_on_edge_added += 1;
         let mut events = Vec::new();
 
         // Build dedup set from ALL existing PMs (Active, Complete, AND Dead).
@@ -281,6 +313,7 @@ where
                 pm.pattern_idx, pm.next_stage, &pm.bindings, &pm.intervals,
             ));
         }
+        self.stats.total_fingerprints += seen.len() as u64;
 
         // Phase 1: Check negation windows on existing partial matches.
         for pm in &mut self.partial_matches {
@@ -288,6 +321,7 @@ where
                 continue;
             }
             let pattern = &self.patterns[pm.pattern_idx];
+            self.stats.total_negation_checks += 1;
             if let Some(neg_label) =
                 Self::check_negation_kill(ds, pattern, pm, source, label, value, interval)
             {
@@ -318,6 +352,7 @@ where
                         }
                         let next = if is_last_stage { pattern.stages.len() } else { 1 };
                         // Dedup: skip if identical PM already exists
+                        self.stats.total_fingerprints += 1;
                         let fp = Self::pm_fingerprint(pat_idx, next, &bindings, &intervals);
                         if !seen.insert(fp) {
                             continue;
@@ -385,6 +420,7 @@ where
                     merged_intervals.extend(new_intervals);
 
                     // Dedup: skip if identical PM already exists
+                    self.stats.total_fingerprints += 1;
                     let fp = Self::pm_fingerprint(pm.pattern_idx, next, &merged_bindings, &merged_intervals);
                     if !seen.insert(fp) {
                         continue;
@@ -430,6 +466,14 @@ where
         self.partial_matches.extend(new_matches);
         self.partial_matches.extend(advanced);
         self.partial_matches.retain(|pm| pm.state != MatchState::Dead);
+
+        // Track peak active PM count
+        let active_count = self.partial_matches.iter()
+            .filter(|pm| pm.state == MatchState::Active)
+            .count();
+        if active_count > self.stats.peak_active_pms {
+            self.stats.peak_active_pms = active_count;
+        }
 
         events
     }
