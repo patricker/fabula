@@ -40,14 +40,26 @@ pub mod error;
 pub mod lexer;
 pub mod parser;
 
+use ast::DocumentItem;
 use error::ParseError;
 use fabula::pattern::Pattern;
 use fabula_memory::{MemGraph, MemValue};
+use std::collections::HashMap;
 
-/// Result of parsing a document with both patterns and graphs.
+/// Result of parsing a document with patterns, graphs, and compose directives.
 pub struct ParsedDocument {
+    /// All compiled patterns (both directly declared and composed).
     pub patterns: Vec<Pattern<String, MemValue>>,
     pub graphs: Vec<MemGraph>,
+}
+
+impl std::fmt::Debug for ParsedDocument {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ParsedDocument")
+            .field("patterns", &self.patterns.len())
+            .field("graphs", &self.graphs.len())
+            .finish()
+    }
 }
 
 /// Parse a pattern DSL string into a compiled `Pattern`.
@@ -64,17 +76,44 @@ pub fn parse_graph(input: &str) -> Result<MemGraph, ParseError> {
     Ok(compiler::compile_graph(&ast))
 }
 
-/// Parse a document containing any combination of pattern and graph declarations.
+/// Parse a document containing any combination of pattern, graph, and compose declarations.
+///
+/// Items are processed in declaration order. Compose directives can reference
+/// any pattern or compose result defined before them (no forward references).
 pub fn parse_document(input: &str) -> Result<ParsedDocument, ParseError> {
     let tokens = lexer::Lexer::new(input).tokenize()?;
     let doc = parser::Parser::new(tokens).parse_document()?;
 
     let mut patterns = Vec::new();
-    for pat_ast in &doc.patterns {
-        patterns.push(compiler::compile_pattern(pat_ast)?);
-    }
+    let mut graphs = Vec::new();
+    let mut named: HashMap<String, Pattern<String, MemValue>> = HashMap::new();
 
-    let graphs: Vec<MemGraph> = doc.graphs.iter().map(compiler::compile_graph).collect();
+    for item in &doc.items {
+        match item {
+            DocumentItem::Pattern(ast) => {
+                let pat = compiler::compile_pattern(ast)?;
+                named.insert(ast.name.clone(), pat.clone());
+                patterns.push(pat);
+            }
+            DocumentItem::Graph(ast) => {
+                graphs.push(compiler::compile_graph(ast));
+            }
+            DocumentItem::Compose(ast) => {
+                let composed = compiler::compile_compose(ast, &named)?;
+                for p in &composed {
+                    named.insert(p.name.clone(), p.clone());
+                }
+                // For sequence/repeat (single result), the compose name
+                // is the pattern name. For choice (multiple results), also
+                // insert the group name pointing to the first alternative
+                // so chained composes can reference it.
+                if composed.len() > 1 && !named.contains_key(&ast.name) {
+                    named.insert(ast.name.clone(), composed[0].clone());
+                }
+                patterns.extend(composed);
+            }
+        }
+    }
 
     Ok(ParsedDocument { patterns, graphs })
 }
@@ -709,5 +748,158 @@ mod tests {
         engine.register(pattern);
         let matches = engine.evaluate(&graph);
         assert_eq!(matches.len(), 1, "two betrayals by impulsive alice should match");
+    }
+
+    // ---- Compose DSL tests ----
+
+    #[test]
+    fn parse_compose_sequence() {
+        let dsl = r#"
+            pattern setup {
+                stage e1 { e1.eventType = "promise"  e1.actor -> ?char }
+            }
+            pattern payoff {
+                stage e2 { e2.eventType = "fulfill"  e2.actor -> ?char }
+            }
+            compose promise_kept = setup >> payoff sharing(char)
+        "#;
+        let doc = parse_document(dsl).unwrap();
+        // setup, payoff, and composed promise_kept
+        assert_eq!(doc.patterns.len(), 3);
+        let composed = &doc.patterns[2];
+        assert_eq!(composed.name, "promise_kept");
+        assert_eq!(composed.stages.len(), 2);
+    }
+
+    #[test]
+    fn parse_compose_choice() {
+        let dsl = r#"
+            pattern war { stage e { e.eventType = "war" } }
+            pattern famine { stage e { e.eventType = "famine" } }
+            pattern plague { stage e { e.eventType = "plague" } }
+            compose crisis = war | famine | plague
+        "#;
+        let doc = parse_document(dsl).unwrap();
+        // 3 originals + 3 choice alternatives = 6
+        assert_eq!(doc.patterns.len(), 6);
+        // Choice patterns have group set
+        assert_eq!(doc.patterns[3].group, Some("crisis".to_string()));
+        assert_eq!(doc.patterns[4].group, Some("crisis".to_string()));
+        assert_eq!(doc.patterns[5].group, Some("crisis".to_string()));
+    }
+
+    #[test]
+    fn parse_compose_repeat() {
+        let dsl = r#"
+            pattern offense {
+                stage e { e.eventType = "offense"  e.actor -> ?offender }
+            }
+            compose three_strikes = offense * 3 sharing(offender)
+        "#;
+        let doc = parse_document(dsl).unwrap();
+        assert_eq!(doc.patterns.len(), 2); // offense + three_strikes
+        let composed = &doc.patterns[1];
+        assert_eq!(composed.name, "three_strikes");
+        assert_eq!(composed.stages.len(), 3);
+    }
+
+    #[test]
+    fn compose_sequence_roundtrip_evaluation() {
+        let dsl = r#"
+            pattern setup {
+                stage e1 { e1.eventType = "promise"  e1.actor -> ?char }
+            }
+            pattern payoff {
+                stage e2 { e2.eventType = "fulfill"  e2.actor -> ?char }
+            }
+            compose promise_kept = setup >> payoff sharing(char)
+        "#;
+        let graph_dsl = r#"
+            graph {
+                @1 ev1.eventType = "promise"
+                @1 ev1.actor -> alice
+                @5 ev2.eventType = "fulfill"
+                @5 ev2.actor -> alice
+                now = 10
+            }
+        "#;
+        let doc = parse_document(dsl).unwrap();
+        let graph = parse_graph(graph_dsl).unwrap();
+        let mut engine = SiftEngine::new();
+        for p in doc.patterns {
+            engine.register(p);
+        }
+        let matches = engine.evaluate(&graph);
+        // setup matches, payoff matches, composed promise_kept matches
+        let composed_matches: Vec<_> = matches.iter().filter(|m| m.pattern == "promise_kept").collect();
+        assert_eq!(composed_matches.len(), 1, "composed sequence should match");
+    }
+
+    #[test]
+    fn compose_chain_of_composes() {
+        let dsl = r#"
+            pattern a { stage e1 { e1.eventType = "start" } }
+            pattern b { stage e2 { e2.eventType = "middle" } }
+            pattern c { stage e3 { e3.eventType = "end" } }
+            compose ab = a >> b
+            compose abc = ab >> c
+        "#;
+        let doc = parse_document(dsl).unwrap();
+        // a, b, c, ab (2 stages), abc (3 stages)
+        assert_eq!(doc.patterns.len(), 5);
+        let abc = doc.patterns.iter().find(|p| p.name == "abc").unwrap();
+        assert_eq!(abc.stages.len(), 3);
+    }
+
+    #[test]
+    fn compose_error_forward_reference() {
+        let dsl = r#"
+            compose arc = setup >> payoff
+            pattern setup { stage e { e.eventType = "a" } }
+            pattern payoff { stage e { e.eventType = "b" } }
+        "#;
+        let err = parse_document(dsl).unwrap_err();
+        assert!(err.message.contains("not been defined yet"), "error: {}", err.message);
+    }
+
+    #[test]
+    fn compose_keyword_as_pattern_name() {
+        // "compose" and "sharing" should work as identifiers
+        let dsl = r#"
+            pattern compose {
+                stage e { e.eventType = "meta" }
+            }
+        "#;
+        let pattern = parse_pattern(dsl).unwrap();
+        assert_eq!(pattern.name, "compose");
+    }
+
+    #[test]
+    fn compose_choice_referenceable() {
+        // A choice group name should be usable by subsequent composes
+        let dsl = r#"
+            pattern war { stage e { e.eventType = "war" } }
+            pattern famine { stage e { e.eventType = "famine" } }
+            compose crisis = war | famine
+            pattern recovery { stage e2 { e2.eventType = "recovery" } }
+            compose arc = crisis >> recovery
+        "#;
+        let doc = parse_document(dsl).unwrap();
+        let arc = doc.patterns.iter().find(|p| p.name == "arc").unwrap();
+        assert_eq!(arc.stages.len(), 2);
+    }
+
+    #[test]
+    fn compose_no_sharing_clause() {
+        let dsl = r#"
+            pattern a { stage e1 { e1.eventType = "x" } }
+            pattern b { stage e2 { e2.eventType = "y" } }
+            compose ab = a >> b
+        "#;
+        let doc = parse_document(dsl).unwrap();
+        let composed = doc.patterns.iter().find(|p| p.name == "ab").unwrap();
+        // Without sharing, anchors should be prefixed
+        assert_eq!(composed.stages[0].anchor.0, "a_e1");
+        assert_eq!(composed.stages[1].anchor.0, "b_e2");
     }
 }

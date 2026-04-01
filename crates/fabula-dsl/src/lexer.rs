@@ -16,6 +16,8 @@ pub enum TokenKind {
     Temporal,
     True,
     False,
+    Compose,   // compose
+    Sharing,   // sharing
 
     // Symbols
     LBrace,    // {
@@ -31,6 +33,12 @@ pub enum TokenKind {
     At,        // @
     DotDot,    // ..
     Question,  // ?
+    GtGt,      // >>
+    Pipe,      // |
+    Star,      // *
+    LParen,    // (
+    RParen,    // )
+    Comma,     // ,
 
     // Literals
     Ident(String),
@@ -144,6 +152,26 @@ impl<'a> Lexer<'a> {
                 self.advance();
                 Ok(Token { kind: TokenKind::Question, line, column: col, offset: start, len: 1 })
             }
+            b'|' => {
+                self.advance();
+                Ok(Token { kind: TokenKind::Pipe, line, column: col, offset: start, len: 1 })
+            }
+            b'*' => {
+                self.advance();
+                Ok(Token { kind: TokenKind::Star, line, column: col, offset: start, len: 1 })
+            }
+            b'(' => {
+                self.advance();
+                Ok(Token { kind: TokenKind::LParen, line, column: col, offset: start, len: 1 })
+            }
+            b')' => {
+                self.advance();
+                Ok(Token { kind: TokenKind::RParen, line, column: col, offset: start, len: 1 })
+            }
+            b',' => {
+                self.advance();
+                Ok(Token { kind: TokenKind::Comma, line, column: col, offset: start, len: 1 })
+            }
             b'!' => {
                 self.advance();
                 Ok(Token { kind: TokenKind::Bang, line, column: col, offset: start, len: 1 })
@@ -193,6 +221,9 @@ impl<'a> Lexer<'a> {
                 if self.pos < self.bytes.len() && self.bytes[self.pos] == b'=' {
                     self.advance();
                     Ok(Token { kind: TokenKind::Gte, line, column: col, offset: start, len: 2 })
+                } else if self.pos < self.bytes.len() && self.bytes[self.pos] == b'>' {
+                    self.advance();
+                    Ok(Token { kind: TokenKind::GtGt, line, column: col, offset: start, len: 2 })
                 } else {
                     Ok(Token { kind: TokenKind::Gt, line, column: col, offset: start, len: 1 })
                 }
@@ -286,6 +317,8 @@ impl<'a> Lexer<'a> {
             "temporal" => TokenKind::Temporal,
             "true" => TokenKind::True,
             "false" => TokenKind::False,
+            "compose" => TokenKind::Compose,
+            "sharing" => TokenKind::Sharing,
             _ => TokenKind::Ident(word.to_string()),
         };
         Ok(Token {

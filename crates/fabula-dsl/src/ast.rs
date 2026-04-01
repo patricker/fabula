@@ -1,10 +1,64 @@
 //! Abstract syntax tree types for the fabula DSL.
 
-/// Top-level document — can contain patterns and/or graph declarations.
+/// Top-level document — contains patterns, graphs, and compose directives
+/// in declaration order (needed for name resolution).
 #[derive(Debug, Clone)]
 pub struct Document {
-    pub patterns: Vec<PatternAst>,
-    pub graphs: Vec<GraphAst>,
+    pub items: Vec<DocumentItem>,
+}
+
+impl Document {
+    /// All pattern ASTs in declaration order.
+    pub fn patterns(&self) -> Vec<&PatternAst> {
+        self.items.iter().filter_map(|i| match i {
+            DocumentItem::Pattern(p) => Some(p),
+            _ => None,
+        }).collect()
+    }
+
+    /// All graph ASTs in declaration order.
+    pub fn graphs(&self) -> Vec<&GraphAst> {
+        self.items.iter().filter_map(|i| match i {
+            DocumentItem::Graph(g) => Some(g),
+            _ => None,
+        }).collect()
+    }
+}
+
+/// A single item in a document.
+#[derive(Debug, Clone)]
+pub enum DocumentItem {
+    Pattern(PatternAst),
+    Graph(GraphAst),
+    Compose(ComposeAst),
+}
+
+/// A compose directive — builds a pattern from named sub-patterns.
+#[derive(Debug, Clone)]
+pub struct ComposeAst {
+    pub name: String,
+    pub body: ComposeBody,
+}
+
+/// The body of a compose directive.
+#[derive(Debug, Clone)]
+pub enum ComposeBody {
+    /// `A >> B sharing(x, y)`
+    Sequence {
+        left: String,
+        right: String,
+        shared: Vec<String>,
+    },
+    /// `A | B | C` (exclusive choice)
+    Choice {
+        alternatives: Vec<String>,
+    },
+    /// `A * 3 sharing(x, y)`
+    Repeat {
+        pattern: String,
+        count: usize,
+        shared: Vec<String>,
+    },
 }
 
 /// A pattern declaration.

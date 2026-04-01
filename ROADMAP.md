@@ -312,38 +312,49 @@ The research insight: "The framework is data." Narrative structure (Propp,
 MICE, Save-the-Cat) should be expressible as composable pattern data, not
 code. This phase builds the algebra that enables it.
 
-### 3.1 Pattern composition operators
-New combinators that build complex patterns from simpler ones:
+### 3.1 ~~Pattern composition operators~~ (DONE)
+Three operators that produce regular `Pattern` structs — the engine handles
+them without modification (except group-based mutual exclusion for choice):
 
 ```rust
-// Sequence: A then B (A's payoff feeds B's plant)
-let arc = compose::sequence("full_betrayal", &betrayal_setup, &betrayal_payoff);
-
-// Choice: A or B (first to complete wins)
-let crisis = compose::choice("crisis", &[&war_crisis, &famine_crisis, &plague_crisis]);
-
-// Repetition: A happens N times
-let escalation = compose::repeat("three_strikes", &offense_pattern, 3);
+let arc = compose::sequence("arc", &setup, &payoff, &["char"]);
+let crises = compose::choice("crisis", &[&war, &famine, &plague], true);
+let escalation = compose::repeat("three_strikes", &offense, 3, &["offender"]);
 ```
 
-**Files**: New `fabula/src/compose.rs` module
-**Tests**: Composed pattern evaluation in golden tests
-**Effort**: Medium
+- `rename_vars()` core utility handles all variable locations
+- `group: Option<String>` on Pattern for exclusive choice
+- Engine kills sibling PMs on group completion (~15 lines)
+- 7 golden tests × 3 adapters = 21 tests
 
-### 3.2 Pattern references in DSL
-DSL syntax for referencing and composing named patterns:
+**Files**: `fabula/src/compose.rs`, `pattern.rs`, `engine.rs`
+
+### 3.2 ~~DSL compose syntax~~ (DONE)
+DSL syntax for composing named patterns:
 
 ```
-pattern betrayal_setup { ... }
-pattern betrayal_payoff { ... }
+pattern setup { stage e1 { e1.eventType = "promise"  e1.actor -> ?char } }
+pattern payoff { stage e2 { e2.eventType = "fulfill"  e2.actor -> ?char } }
 
-compose full_betrayal = betrayal_setup >> betrayal_payoff
-compose crisis = war_crisis | famine_crisis | plague_crisis
-compose escalation = offense_pattern * 3
+compose promise_kept = setup >> payoff sharing(char)
+compose crisis = war | famine | plague
+compose three_strikes = offense * 3 sharing(offender)
 ```
 
-**Files**: `fabula-dsl/` (new AST nodes, parser rules, compiler)
-**Effort**: Medium
+- `>>` sequence, `|` exclusive choice, `* N` repeat
+- `sharing(var, ...)` declares cross-pattern variable bindings
+- No forward references (define before compose)
+- Compose chains work: `compose ab = a >> b` then `compose abc = ab >> c`
+- `Document` now uses ordered `Vec<DocumentItem>` for name resolution
+
+**Deferred to future iterations**:
+- Nested expressions: `(A >> B) | C` — use named intermediates instead
+- Non-exclusive choice syntax — register patterns separately
+- Implicit sharing by name — use explicit `sharing(...)` clause
+- `private` pattern modifier — all patterns appear in output
+
+**Files**: `fabula-dsl/src/{ast,lexer,parser,compiler,lib}.rs`
+**Tests**: 7 new DSL tests (parse, compile, roundtrip, chaining, error)
 
 ### 3.3 Statistical surprise scoring
 Track pattern match frequency. Score matches by how unexpected they are

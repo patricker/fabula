@@ -3,11 +3,12 @@
 use crate::ast::*;
 use crate::error::ParseError;
 use fabula::builder::{NegationBuilder, PatternBuilder, StageBuilder};
+use fabula::compose;
 use fabula::datasource::ValueConstraint;
 use fabula::interval::AllenRelation;
 use fabula::pattern::Pattern;
 use fabula_memory::{MemGraph, MemValue};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// Compile a pattern AST into a fabula `Pattern<String, MemValue>`.
 ///
@@ -271,6 +272,47 @@ fn parse_allen_relation(s: &str) -> Result<AllenRelation, String> {
         "finished_by" => Ok(AllenRelation::FinishedBy),
         "equals" => Ok(AllenRelation::Equals),
         _ => Err(format!("unknown Allen relation '{}'. Expected one of: before, after, meets, met_by, overlaps, overlapped_by, during, contains, starts, started_by, finishes, finished_by, equals", s)),
+    }
+}
+
+/// Compile a compose directive, resolving pattern names against already-compiled patterns.
+/// Returns one or more patterns (choice returns multiple).
+pub fn compile_compose(
+    ast: &ComposeAst,
+    known: &HashMap<String, Pattern<String, MemValue>>,
+) -> Result<Vec<Pattern<String, MemValue>>, ParseError> {
+    let resolve = |name: &str| -> Result<&Pattern<String, MemValue>, ParseError> {
+        known.get(name).ok_or_else(|| ParseError {
+            line: 0,
+            column: 0,
+            span: (0, 0),
+            message: format!(
+                "compose '{}' references pattern '{}' which has not been defined yet. \
+                 Define it before the compose directive.",
+                ast.name, name
+            ),
+        })
+    };
+
+    match &ast.body {
+        ComposeBody::Sequence { left, right, shared } => {
+            let a = resolve(left)?;
+            let b = resolve(right)?;
+            let shared_refs: Vec<&str> = shared.iter().map(|s| s.as_str()).collect();
+            Ok(vec![compose::sequence(&ast.name, a, b, &shared_refs)])
+        }
+        ComposeBody::Choice { alternatives } => {
+            let pats: Result<Vec<&Pattern<String, MemValue>>, ParseError> =
+                alternatives.iter().map(|name| resolve(name)).collect();
+            let pats = pats?;
+            let pat_refs: Vec<&Pattern<String, MemValue>> = pats.into_iter().collect();
+            Ok(compose::choice(&ast.name, &pat_refs, true))
+        }
+        ComposeBody::Repeat { pattern, count, shared } => {
+            let p = resolve(pattern)?;
+            let shared_refs: Vec<&str> = shared.iter().map(|s| s.as_str()).collect();
+            Ok(vec![compose::repeat(&ast.name, p, *count, &shared_refs)])
+        }
     }
 }
 

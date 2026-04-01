@@ -15,20 +15,20 @@ impl Parser {
         Self { tokens, pos: 0 }
     }
 
-    /// Parse a complete document (one or more pattern/graph declarations).
+    /// Parse a complete document (patterns, graphs, and compose directives).
     pub fn parse_document(&mut self) -> Result<Document, ParseError> {
-        let mut patterns = Vec::new();
-        let mut graphs = Vec::new();
+        let mut items = Vec::new();
 
         while !self.at_eof() {
             match &self.peek().kind {
-                TokenKind::Pattern => patterns.push(self.parse_pattern()?),
-                TokenKind::Graph => graphs.push(self.parse_graph()?),
-                _ => return Err(self.error("expected 'pattern' or 'graph'")),
+                TokenKind::Pattern => items.push(DocumentItem::Pattern(self.parse_pattern()?)),
+                TokenKind::Graph => items.push(DocumentItem::Graph(self.parse_graph()?)),
+                TokenKind::Compose => items.push(DocumentItem::Compose(self.parse_compose()?)),
+                _ => return Err(self.error("expected 'pattern', 'graph', or 'compose'")),
             }
         }
 
-        Ok(Document { patterns, graphs })
+        Ok(Document { items })
     }
 
     /// Parse a single pattern declaration.
@@ -157,6 +157,61 @@ impl Parser {
         } else {
             Err(self.error("expected gap range (e.g., '3..10', '..10', '3..')"))
         }
+    }
+
+    // ---- Compose parsing ----
+
+    fn parse_compose(&mut self) -> Result<ComposeAst, ParseError> {
+        self.expect(TokenKind::Compose)?;
+        let name = self.expect_ident()?;
+        self.expect(TokenKind::Eq)?;
+
+        // First operand is always a pattern name
+        let first = self.expect_ident()?;
+
+        // Determine operator: >> (sequence), | (choice), * (repeat)
+        let body = if self.check(TokenKind::GtGt) {
+            // Sequence: first >> second sharing(...)
+            self.advance();
+            let second = self.expect_ident()?;
+            let shared = self.parse_sharing_clause()?;
+            ComposeBody::Sequence { left: first, right: second, shared }
+        } else if self.check(TokenKind::Pipe) {
+            // Choice: first | second | third ...
+            let mut alternatives = vec![first];
+            while self.check(TokenKind::Pipe) {
+                self.advance();
+                alternatives.push(self.expect_ident()?);
+            }
+            ComposeBody::Choice { alternatives }
+        } else if self.check(TokenKind::Star) {
+            // Repeat: first * count sharing(...)
+            self.advance();
+            let count = self.expect_number()? as usize;
+            let shared = self.parse_sharing_clause()?;
+            ComposeBody::Repeat { pattern: first, count, shared }
+        } else {
+            return Err(self.error("expected '>>' (sequence), '|' (choice), or '*' (repeat)"));
+        };
+
+        Ok(ComposeAst { name, body })
+    }
+
+    fn parse_sharing_clause(&mut self) -> Result<Vec<String>, ParseError> {
+        if !self.check(TokenKind::Sharing) {
+            return Ok(Vec::new());
+        }
+        self.advance(); // consume 'sharing'
+        self.expect(TokenKind::LParen)?;
+
+        let mut vars = vec![self.expect_ident()?];
+        while self.check(TokenKind::Comma) {
+            self.advance();
+            vars.push(self.expect_ident()?);
+        }
+
+        self.expect(TokenKind::RParen)?;
+        Ok(vars)
     }
 
     fn parse_clause(&mut self) -> Result<ClauseAst, ParseError> {
@@ -392,9 +447,11 @@ impl Parser {
                     unreachable!()
                 }
             }
-            // Allow Allen relation keywords as identifiers in certain positions
+            // Allow keywords as identifiers in certain positions
             TokenKind::Between => { self.advance(); Ok("between".to_string()) }
             TokenKind::After => { self.advance(); Ok("after".to_string()) }
+            TokenKind::Compose => { self.advance(); Ok("compose".to_string()) }
+            TokenKind::Sharing => { self.advance(); Ok("sharing".to_string()) }
             _ => Err(self.error("expected identifier")),
         }
     }
