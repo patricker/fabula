@@ -416,6 +416,15 @@ narrative completeness checking.
 
 ---
 
+### 5.0 ~~Paracausality core prerequisites~~ (DONE — in Paracausality repo)
+Pre-launch core changes to enable the fabula adapter:
+- `T`: added `Hash`, `Sub<Output=T>`, `Add<Output=T>`
+- `Value`: added `Hash` (f64 via `to_bits()`) and `PartialOrd`
+- Sync `Store` trait: 3 new methods (`active_objective_for_entity_pred`,
+  `all_objective_for_entity`, `all_objective_for_predicate`)
+- `InMemoryStore`: proper implementations (not just time-filter workarounds)
+- `StoreEvent::InsertAssertion`: added `subject: EntityId` + `object: Value`
+
 ## Phase 5 — Stack Integration
 
 Connect fabula to the worldbuilding stack. These items require Paracausality
