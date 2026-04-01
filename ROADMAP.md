@@ -430,16 +430,15 @@ Pre-launch core changes to enable the fabula adapter:
 Connect fabula to the worldbuilding stack. These items require Paracausality
 and WorldKernel.
 
-### 5.1 Paracausality adapter (`fabula-paracausality` crate)
-Implement `DataSource` for Paracausality's assertion store:
-- `EntityId` → node
-- Predicate `u32` → edge label
-- `Value` → edge value
-- `Interval` → temporal validity
+### 5.1 ~~Paracausality adapter~~ (DONE — in Paracausality repo)
+`paracausality-fabula-adapter` crate in Paracausality workspace.
+`ParaDataSource<S: Store>` implements `DataSource` with:
+- `N=EntityId`, `L=u32`, `V=Value`, `T=T` — no wrapper types
+- Feature-gated `NumericTime` impl via `paracausality-core/fabula`
+- 10 unit tests + SiftEngine integration test
+- `From<T> for f64` on Paracausality's T for general numeric conversion
 
-**Files**: New `crates/fabula-paracausality/`
-**Deps**: `paracausality` crate
-**Effort**: Medium (~200 LOC, mirrors existing adapters)
+**Files**: `Paracausality/crates/fabula-adapter/`
 
 ### 5.2 Pattern registration engine
 Named pattern groups with lifecycle management:
