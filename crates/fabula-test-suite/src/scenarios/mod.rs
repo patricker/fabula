@@ -19,6 +19,7 @@ mod two_betrayals;
 mod winnow_replay;
 mod allen_temporal;
 mod consistency;
+mod composition;
 
 pub use hospitality::*;
 pub use romantic_arc::*;
@@ -32,3 +33,4 @@ pub use two_betrayals::*;
 pub use winnow_replay::*;
 pub use allen_temporal::*;
 pub use consistency::*;
+pub use composition::*;

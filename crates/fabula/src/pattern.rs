@@ -103,6 +103,10 @@ pub struct Pattern<L, V> {
     pub temporal: Vec<TemporalConstraint>,
     /// Negation windows — clauses that must NOT match between events.
     pub negations: Vec<Negation<L, V>>,
+    /// Optional mutual-exclusion group. When a pattern with a group completes,
+    /// all other active partial matches in the same group are killed.
+    /// Used by `compose::choice()` with `exclusive: true`.
+    pub group: Option<String>,
 }
 
 /// A stage is a group of clauses anchored to a single event/node variable.

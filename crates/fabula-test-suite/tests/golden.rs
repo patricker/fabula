@@ -142,4 +142,13 @@ golden_tests! {
     batch_incremental_multi_match_consistency,
     drain_completed_idempotent,
     drain_completed_interleaved,
+
+    // --- Composition ---
+    batch_sequence_shared_binding,
+    batch_sequence_different_actors_no_match,
+    batch_sequence_with_negation,
+    incremental_choice_exclusive,
+    incremental_choice_exclusive_multistage,
+    batch_repeat_shared_binding,
+    batch_repeat_different_actors_no_match,
 }

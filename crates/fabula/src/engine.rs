@@ -494,6 +494,34 @@ where
 
         self.partial_matches.extend(new_matches);
         self.partial_matches.extend(advanced);
+
+        // Exclusive choice groups: when a pattern with a group completes,
+        // kill all other active PMs in the same group.
+        let completed_groups: Vec<String> = events
+            .iter()
+            .filter_map(|e| {
+                if let SiftEvent::Completed { pattern, .. } = e {
+                    self.patterns.iter()
+                        .find(|p| p.name == *pattern)
+                        .and_then(|p| p.group.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+        if !completed_groups.is_empty() {
+            for pm in &mut self.partial_matches {
+                if pm.state != MatchState::Active {
+                    continue;
+                }
+                if let Some(ref g) = self.patterns[pm.pattern_idx].group {
+                    if completed_groups.contains(g) {
+                        pm.state = MatchState::Dead;
+                    }
+                }
+            }
+        }
+
         self.partial_matches.retain(|pm| pm.state != MatchState::Dead);
 
         // Track peak active PM count

@@ -148,6 +148,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             stages: self.stages,
             temporal: self.temporal,
             negations: self.negations,
+            group: None,
         }
     }
 }

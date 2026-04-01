@@ -41,6 +41,7 @@ pub mod datasource;
 pub mod pattern;
 pub mod builder;
 pub mod engine;
+pub mod compose;
 
 /// Convenience re-exports for common usage.
 pub mod prelude {
