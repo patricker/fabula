@@ -356,22 +356,48 @@ compose three_strikes = offense * 3 sharing(offender)
 **Files**: `fabula-dsl/src/{ast,lexer,parser,compiler,lib}.rs`
 **Tests**: 7 new DSL tests (parse, compile, roundtrip, chaining, error)
 
-### 3.3 Statistical surprise scoring
-Track pattern match frequency. Score matches by how unexpected they are
-relative to baseline frequency. From "Select the Unexpected" (Kreminski,
-ICIDS 2022).
+### 3.3a ~~Pattern-level surprise scoring~~ (DONE)
+Standalone `SurpriseScorer` in `scoring.rs` — operates as post-processing,
+no engine modification. Shannon surprise: `-log₂(observed / baseline)` with
+Laplace smoothing for zero-observation cases.
 
 ```rust
-engine.register_with_baseline(pattern, expected_frequency);
+let mut scorer = SurpriseScorer::new();
+scorer.set_baseline(0, 0.1); // expect 10% match rate
 // After evaluation:
-for m in engine.scored_matches(&graph) {
-    println!("{}: surprise={:.2}", m.pattern, m.surprise_score);
-}
+let matches = engine.evaluate(&graph);
+scorer.observe(&matches, engine.patterns());
+let scored = scorer.score(&matches, engine.patterns());
+// scored[i].surprise — higher = more unexpected
 ```
 
-**Files**: `fabula/src/engine.rs` (frequency tracker + scoring)
-**Tests**: Surprise scoring tests
-**Effort**: Medium
+- `ScoredMatch` type (no changes to `Match` or `SiftEvent`)
+- `observe()` for batch, `observe_events()` + `tick()` for incremental
+- Laplace smoothing handles never-matched patterns gracefully
+- 9 unit tests covering rare/common/never-matched/negative surprise
+
+**Files**: `fabula/src/scoring.rs`, `lib.rs` prelude
+
+### 3.3b Property-level surprise scoring (StU) — planned
+Kreminski's "Select the Unexpected" (ICIDS 2022) scores individual matches
+by the mean empirical frequency of their *properties* — character traits,
+event types, relationships present in the bindings. Two matches of the same
+pattern score differently if one involves rare entities.
+
+Requires:
+- Property extractor: `fn(match, graph) -> Vec<String>` that inspects
+  bindings and queries the DataSource for entity attributes
+- Per-property frequency table across all matches of a pattern
+- Score = mean of per-property frequencies (lower = more surprising)
+- DataSource access (the scorer needs to query the graph)
+
+This is a significant extension that depends on a defined "property
+vocabulary" for the domain. Deferred until the GM integration (Phase 5)
+defines what properties matter.
+
+**Reference**: Kreminski, Dickinson, Wardrip-Fruin, Mateas. "Select the
+Unexpected: A Statistical Heuristic for Story Sifting." ICIDS 2022.
+**Effort**: Medium-high
 
 ---
 

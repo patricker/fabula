@@ -42,6 +42,7 @@ pub mod pattern;
 pub mod builder;
 pub mod engine;
 pub mod compose;
+pub mod scoring;
 
 /// Convenience re-exports for common usage.
 pub mod prelude {
@@ -53,4 +54,5 @@ pub mod prelude {
     };
     pub use crate::interval::{AllenRelation, Interval, NumericTime};
     pub use crate::pattern::{Clause, MetricGap, Negation, Pattern, Stage, Target, TemporalConstraint, Var};
+    pub use crate::scoring::{ScoredMatch, SurpriseScorer};
 }
