@@ -436,15 +436,20 @@ where
             .filter(|pm| pm.state == MatchState::Active)
             .count();
 
-        let delta = TickDelta {
-            advanced: self.tick_advanced.drain().collect(),
-            completed: self.tick_completed.drain().collect(),
-            negated: self.tick_negated.drain().collect(),
+        let mut advanced: Vec<String> = self.tick_advanced.drain().collect();
+        let mut completed: Vec<String> = self.tick_completed.drain().collect();
+        let mut negated: Vec<String> = self.tick_negated.drain().collect();
+        advanced.sort();
+        completed.sort();
+        negated.sort();
+
+        TickDelta {
+            advanced,
+            completed,
+            negated,
             stalled,
             active_pm_count,
-        };
-
-        delta
+        }
     }
 
     /// Current tick counter.
