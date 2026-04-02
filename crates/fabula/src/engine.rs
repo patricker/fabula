@@ -186,6 +186,23 @@ pub struct EngineStats {
     pub peak_active_pms: usize,
 }
 
+/// Per-pattern lifecycle metrics. Returned by [`SiftEngine::pattern_metrics`].
+#[derive(Debug, Clone, Default)]
+pub struct PatternMetrics {
+    /// Whether the pattern is enabled for matching.
+    pub enabled: bool,
+    /// Last tick at which any PM for this pattern advanced or completed.
+    pub last_advanced_tick: u64,
+    /// Total completions (cumulative).
+    pub completion_count: u64,
+    /// Total stage advancements (cumulative).
+    pub advancement_count: u64,
+    /// Total negation kills (cumulative).
+    pub negation_count: u64,
+    /// Number of currently active partial matches.
+    pub active_pm_count: usize,
+}
+
 // ---------------------------------------------------------------------------
 // The engine
 // ---------------------------------------------------------------------------
@@ -196,6 +213,13 @@ pub struct SiftEngine<DS: DataSource> {
     partial_matches: Vec<PartialMatch<DS::N, DS::V, DS::T>>,
     next_match_id: usize,
     stats: EngineStats,
+    // Per-pattern lifecycle state
+    enabled: Vec<bool>,
+    last_advanced_tick: Vec<u64>,
+    completion_count: Vec<u64>,
+    advancement_count: Vec<u64>,
+    negation_count: Vec<u64>,
+    tick_counter: u64,
 }
 
 impl<DS: DataSource> SiftEngine<DS>
@@ -211,6 +235,12 @@ where
             partial_matches: Vec::new(),
             next_match_id: 0,
             stats: EngineStats::default(),
+            enabled: Vec::new(),
+            last_advanced_tick: Vec::new(),
+            completion_count: Vec::new(),
+            advancement_count: Vec::new(),
+            negation_count: Vec::new(),
+            tick_counter: 0,
         }
     }
 
@@ -218,6 +248,11 @@ where
     pub fn register(&mut self, pattern: Pattern<DS::L, DS::V>) -> usize {
         let idx = self.patterns.len();
         self.patterns.push(pattern);
+        self.enabled.push(true);
+        self.last_advanced_tick.push(0);
+        self.completion_count.push(0);
+        self.advancement_count.push(0);
+        self.negation_count.push(0);
         idx
     }
 
@@ -251,6 +286,80 @@ where
     /// Reset all counters to zero.
     pub fn reset_stats(&mut self) {
         self.stats = EngineStats::default();
+    }
+
+    // -----------------------------------------------------------------------
+    // Pattern lifecycle
+    // -----------------------------------------------------------------------
+
+    /// Enable or disable a pattern. Disabled patterns are skipped during
+    /// `evaluate()` and `on_edge_added()`. When disabling, all active PMs
+    /// for the pattern are killed (Rete convention: stale PMs become invalid).
+    pub fn set_pattern_enabled(&mut self, idx: usize, enabled: bool) {
+        if idx < self.enabled.len() {
+            self.enabled[idx] = enabled;
+            if !enabled {
+                // Kill all active PMs for this pattern
+                for pm in &mut self.partial_matches {
+                    if pm.pattern_idx == idx && pm.state == MatchState::Active {
+                        pm.state = MatchState::Dead;
+                    }
+                }
+                self.partial_matches.retain(|pm| pm.state != MatchState::Dead);
+            }
+        }
+    }
+
+    /// Check if a pattern is enabled.
+    pub fn is_pattern_enabled(&self, idx: usize) -> bool {
+        self.enabled.get(idx).copied().unwrap_or(false)
+    }
+
+    /// Soft-delete a pattern. Disables it and kills all its PMs.
+    /// The pattern stays in the Vec (index stability) but will never match again.
+    pub fn deregister(&mut self, idx: usize) {
+        self.set_pattern_enabled(idx, false);
+    }
+
+    /// Advance the tick counter. Call once per simulation step.
+    /// Used for staleness detection.
+    pub fn tick(&mut self) {
+        self.tick_counter += 1;
+    }
+
+    /// Current tick counter.
+    pub fn current_tick(&self) -> u64 {
+        self.tick_counter
+    }
+
+    /// Per-pattern lifecycle metrics.
+    pub fn pattern_metrics(&self, idx: usize) -> Option<PatternMetrics> {
+        if idx >= self.patterns.len() {
+            return None;
+        }
+        let active_pm_count = self.partial_matches.iter()
+            .filter(|pm| pm.pattern_idx == idx && pm.state == MatchState::Active)
+            .count();
+        Some(PatternMetrics {
+            enabled: self.enabled[idx],
+            last_advanced_tick: self.last_advanced_tick[idx],
+            completion_count: self.completion_count[idx],
+            advancement_count: self.advancement_count[idx],
+            negation_count: self.negation_count[idx],
+            active_pm_count,
+        })
+    }
+
+    /// Find patterns that have not advanced for at least `threshold` ticks
+    /// but still have active partial matches (stale plants).
+    pub fn stale_patterns(&self, threshold: u64) -> Vec<usize> {
+        (0..self.patterns.len())
+            .filter(|&idx| {
+                self.enabled[idx]
+                    && self.tick_counter.saturating_sub(self.last_advanced_tick[idx]) >= threshold
+                    && self.partial_matches.iter().any(|pm| pm.pattern_idx == idx && pm.state == MatchState::Active)
+            })
+            .collect()
     }
 
     pub fn drain_completed(&mut self) -> Vec<Match<DS::N, DS::V>> {
@@ -312,7 +421,8 @@ where
     pub fn evaluate(&self, ds: &DS) -> Vec<Match<DS::N, DS::V>> {
         let mut results = Vec::new();
         let now = ds.now();
-        for pattern in &self.patterns {
+        for (idx, pattern) in self.patterns.iter().enumerate() {
+            if !self.enabled[idx] { continue; }
             results.extend(self.evaluate_pattern(ds, pattern, &now));
         }
         results
@@ -363,6 +473,7 @@ where
         // Phase 2: Try to initiate new partial matches (match first stage).
         let mut new_matches = Vec::new();
         for (pat_idx, pattern) in self.patterns.iter().enumerate() {
+            if !self.enabled[pat_idx] { continue; }
             if let Some(first_stage) = pattern.stages.first() {
                 if let Some(match_results) =
                     Self::try_match_stage(ds, first_stage, source, label, value, interval, &HashMap::new())
@@ -421,6 +532,7 @@ where
             if pm.state != MatchState::Active {
                 continue;
             }
+            if !self.enabled[pm.pattern_idx] { continue; }
             let pattern = &self.patterns[pm.pattern_idx];
             let stage_idx = pm.next_stage;
             if stage_idx >= pattern.stages.len() {
@@ -494,6 +606,29 @@ where
 
         self.partial_matches.extend(new_matches);
         self.partial_matches.extend(advanced);
+
+        // Update per-pattern lifecycle metrics from events.
+        for event in &events {
+            match event {
+                SiftEvent::Advanced { pattern, .. } => {
+                    if let Some(idx) = self.patterns.iter().position(|p| p.name == *pattern) {
+                        self.advancement_count[idx] += 1;
+                        self.last_advanced_tick[idx] = self.tick_counter;
+                    }
+                }
+                SiftEvent::Completed { pattern, .. } => {
+                    if let Some(idx) = self.patterns.iter().position(|p| p.name == *pattern) {
+                        self.completion_count[idx] += 1;
+                        self.last_advanced_tick[idx] = self.tick_counter;
+                    }
+                }
+                SiftEvent::Negated { pattern, .. } => {
+                    if let Some(idx) = self.patterns.iter().position(|p| p.name == *pattern) {
+                        self.negation_count[idx] += 1;
+                    }
+                }
+            }
+        }
 
         // Exclusive choice groups: when a pattern with a group completes,
         // kill all other active PMs in the same group.

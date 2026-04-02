@@ -677,6 +677,190 @@ fn stats_peak_active_pms() {
         "peak should be 5 after adding 5 matching first-stage edges");
 }
 
+// ===========================================================================
+// Pattern lifecycle (Phase 5.2)
+// ===========================================================================
+
+#[test]
+fn disable_pattern_skips_matching() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    let idx = engine.register(
+        PatternBuilder::new("test")
+            .stage("e", |s| s.edge("e", "type".into(), MemValue::Str("x".into())))
+            .build(),
+    );
+
+    g.add_str("ev1", "type", "x", 1);
+    g.set_time(1);
+    let events = engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("x".into()), &Interval::open(1));
+    assert!(!events.is_empty(), "enabled pattern should match");
+
+    engine.set_pattern_enabled(idx, false);
+
+    g.add_str("ev2", "type", "x", 2);
+    g.set_time(2);
+    let events = engine.on_edge_added(&g, &"ev2".into(), &"type".into(),
+        &MemValue::Str("x".into()), &Interval::open(2));
+    assert!(events.is_empty(), "disabled pattern should not match");
+}
+
+#[test]
+fn disable_kills_active_pms() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    let idx = engine.register(
+        PatternBuilder::new("two_stage")
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("start".into())))
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("end".into())))
+            .build(),
+    );
+
+    // Initiate a PM
+    g.add_str("ev1", "type", "start", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("start".into()), &Interval::open(1));
+    assert_eq!(
+        engine.partial_matches().iter().filter(|pm| pm.state == MatchState::Active).count(),
+        1, "should have 1 active PM"
+    );
+
+    // Disable kills the PM
+    engine.set_pattern_enabled(idx, false);
+    assert_eq!(
+        engine.partial_matches().iter().filter(|pm| pm.state == MatchState::Active).count(),
+        0, "disabling should kill active PMs"
+    );
+}
+
+#[test]
+fn reenable_allows_new_matches() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    let idx = engine.register(
+        PatternBuilder::new("test")
+            .stage("e", |s| s.edge("e", "type".into(), MemValue::Str("x".into())))
+            .build(),
+    );
+
+    engine.set_pattern_enabled(idx, false);
+
+    g.add_str("ev1", "type", "x", 1);
+    g.set_time(1);
+    let events = engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("x".into()), &Interval::open(1));
+    assert!(events.is_empty(), "disabled → no match");
+
+    engine.set_pattern_enabled(idx, true);
+
+    g.add_str("ev2", "type", "x", 2);
+    g.set_time(2);
+    let events = engine.on_edge_added(&g, &"ev2".into(), &"type".into(),
+        &MemValue::Str("x".into()), &Interval::open(2));
+    assert!(!events.is_empty(), "re-enabled → should match");
+}
+
+#[test]
+fn pattern_metrics_track_events() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    let idx = engine.register(
+        PatternBuilder::new("test")
+            .stage("e", |s| s.edge("e", "type".into(), MemValue::Str("x".into())))
+            .build(),
+    );
+
+    engine.tick();
+    g.add_str("ev1", "type", "x", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("x".into()), &Interval::open(1));
+
+    let metrics = engine.pattern_metrics(idx).unwrap();
+    assert_eq!(metrics.completion_count, 1);
+    assert_eq!(metrics.last_advanced_tick, 1);
+    assert!(metrics.enabled);
+}
+
+#[test]
+fn stale_patterns_detected() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("stale")
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("start".into())))
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("end".into())))
+            .build(),
+    );
+
+    // Initiate a PM at tick 1
+    engine.tick();
+    g.add_str("ev1", "type", "start", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("start".into()), &Interval::open(1));
+
+    // Advance 100 ticks without completing
+    for _ in 0..100 {
+        engine.tick();
+    }
+
+    let stale = engine.stale_patterns(50);
+    assert_eq!(stale.len(), 1, "pattern should be stale after 100 ticks without advancement");
+    assert_eq!(stale[0], 0);
+}
+
+#[test]
+fn deregister_soft_deletes() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    let idx = engine.register(
+        PatternBuilder::new("ephemeral")
+            .stage("e", |s| s.edge("e", "type".into(), MemValue::Str("x".into())))
+            .build(),
+    );
+
+    engine.deregister(idx);
+    assert!(!engine.is_pattern_enabled(idx));
+
+    // Pattern still in the list (index stable) but won't match
+    assert_eq!(engine.patterns().len(), 1);
+    g.add_str("ev1", "type", "x", 1);
+    g.set_time(1);
+    let events = engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("x".into()), &Interval::open(1));
+    assert!(events.is_empty());
+}
+
+#[test]
+fn evaluate_skips_disabled() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    let idx = engine.register(
+        PatternBuilder::new("batch_test")
+            .stage("e", |s| s.edge("e", "type".into(), MemValue::Str("x".into())))
+            .build(),
+    );
+
+    g.add_str("ev1", "type", "x", 1);
+    g.set_time(10);
+
+    assert_eq!(engine.evaluate(&g).len(), 1, "enabled → 1 match");
+    engine.set_pattern_enabled(idx, false);
+    assert_eq!(engine.evaluate(&g).len(), 0, "disabled → 0 matches");
+    engine.set_pattern_enabled(idx, true);
+    assert_eq!(engine.evaluate(&g).len(), 1, "re-enabled → 1 match");
+}
+
 #[test]
 fn stats_reset() {
     let mut g = MemGraph::new();
