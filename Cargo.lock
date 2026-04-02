@@ -324,6 +324,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "fabula-narratives"
+version = "0.1.0"
+dependencies = [
+ "fabula",
+]
+
+[[package]]
 name = "fabula-petgraph"
 version = "0.1.0"
 dependencies = [

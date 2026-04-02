@@ -9,7 +9,7 @@
 //! updated each tick. JSD is symmetric and bounded in [0, 1] (when using
 //! log base 2), making it directly comparable across ticks.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// Detects narrative pivots via event distribution shift (JSD).
 ///
@@ -56,6 +56,10 @@ impl PivotDetector {
     /// save current as previous, clear accumulators.
     ///
     /// Returns the JSD value in [0, 1]. First tick returns 0.0 (no previous).
+    ///
+    /// Empty ticks (no events pushed) return 0.0 and leave the previous
+    /// distribution unchanged — the next non-empty tick compares against the
+    /// last non-empty tick's distribution.
     pub fn end_tick(&mut self) -> f64 {
         if self.current_total == 0 {
             // Empty tick — no events, no pivot
@@ -90,8 +94,10 @@ impl PivotDetector {
     }
 
     /// Average pivot magnitude over the last N ticks.
+    ///
+    /// Returns 0.0 if the history is empty or window is 0.
     pub fn average_pivot(&self, window: usize) -> f64 {
-        if self.history.is_empty() {
+        if self.history.is_empty() || window == 0 {
             return 0.0;
         }
         let start = self.history.len().saturating_sub(window);
@@ -117,10 +123,7 @@ impl PivotDetector {
 /// JSD(P || Q) = 0.5 * KL(P || M) + 0.5 * KL(Q || M), where M = (P + Q) / 2.
 /// Uses log base 2, so result is in [0, 1].
 fn jensen_shannon_divergence(p: &HashMap<String, f64>, q: &HashMap<String, f64>) -> f64 {
-    // Collect all keys from both distributions
-    let mut all_keys: Vec<&String> = p.keys().chain(q.keys()).collect();
-    all_keys.sort();
-    all_keys.dedup();
+    let all_keys: HashSet<&String> = p.keys().chain(q.keys()).collect();
 
     let mut jsd = 0.0;
     for key in all_keys {
@@ -138,7 +141,8 @@ fn jensen_shannon_divergence(p: &HashMap<String, f64>, q: &HashMap<String, f64>)
         }
     }
 
-    jsd
+    // Clamp: floating-point rounding can produce tiny negative values
+    jsd.max(0.0)
 }
 
 #[cfg(test)]
@@ -199,6 +203,16 @@ mod tests {
             p.end_tick();
         }
         assert!(p.average_pivot(5) < 0.01, "stable events should have low average pivot");
+    }
+
+    #[test]
+    fn average_pivot_zero_window_returns_zero() {
+        let mut p = PivotDetector::new();
+        p.push("test");
+        p.end_tick();
+        // window=0 should return 0.0, not NaN
+        let avg = p.average_pivot(0);
+        assert_eq!(avg, 0.0);
     }
 
     #[test]

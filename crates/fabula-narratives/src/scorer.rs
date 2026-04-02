@@ -19,6 +19,7 @@
 //! | Surprise | SurpriseScorer | How unexpected was this? |
 
 use crate::tension::Trajectory;
+use fabula::engine::{TickDelta, PlantStatus};
 
 /// Configurable weights for each scoring signal.
 #[derive(Debug, Clone)]
@@ -101,10 +102,10 @@ pub struct NarrativeScore {
 pub struct ScoreBreakdown {
     pub progress: f64,
     pub completion: f64,
-    pub stall: f64,
-    pub unresolved: f64,
+    pub stall_penalty: f64,
+    pub unresolved_penalty: f64,
     pub resolution: f64,
-    pub filo: f64,
+    pub filo_penalty: f64,
     pub tension: f64,
     pub pivot: f64,
     pub surprise: f64,
@@ -132,10 +133,10 @@ pub fn score(signals: &NarrativeSignals, weights: &NarrativeWeights) -> Narrativ
     let breakdown = ScoreBreakdown {
         progress: signals.advancements as f64 * weights.progress,
         completion: signals.completions as f64 * weights.completion,
-        stall: signals.stalled as f64 * weights.stall_penalty,
-        unresolved: signals.unresolved_plants as f64 * weights.unresolved_penalty,
+        stall_penalty: signals.stalled as f64 * weights.stall_penalty,
+        unresolved_penalty: signals.unresolved_plants as f64 * weights.unresolved_penalty,
         resolution: signals.resolutions as f64 * weights.resolution_reward,
-        filo: signals.filo_violations as f64 * weights.filo_violation_penalty,
+        filo_penalty: signals.filo_violations as f64 * weights.filo_violation_penalty,
         tension: signals.tension_fit * weights.tension_fit,
         pivot: signals.pivot_magnitude * weights.pivot_reward,
         surprise: signals.surprise * weights.surprise_reward,
@@ -143,10 +144,10 @@ pub fn score(signals: &NarrativeSignals, weights: &NarrativeWeights) -> Narrativ
 
     let total = breakdown.progress
         + breakdown.completion
-        + breakdown.stall
-        + breakdown.unresolved
+        + breakdown.stall_penalty
+        + breakdown.unresolved_penalty
         + breakdown.resolution
-        + breakdown.filo
+        + breakdown.filo_penalty
         + breakdown.tension
         + breakdown.pivot
         + breakdown.surprise;
@@ -157,12 +158,53 @@ pub fn score(signals: &NarrativeSignals, weights: &NarrativeWeights) -> Narrativ
 /// Convenience: compute tension fit from a trajectory and desired direction.
 ///
 /// Returns 1.0 if the trajectory matches, -1.0 if opposite, 0.0 if neutral.
+/// Unknown trajectories (either actual or desired) always return 0.0 —
+/// two unknowns are not a match, they're both lacking data.
 pub fn tension_fit(actual: Trajectory, desired: Trajectory) -> f64 {
     match (actual, desired) {
+        (Trajectory::Unknown, _) | (_, Trajectory::Unknown) => 0.0,
         (a, d) if a == d => 1.0,
         (Trajectory::Rising, Trajectory::Falling) | (Trajectory::Falling, Trajectory::Rising) => -1.0,
         (Trajectory::Peak, Trajectory::Valley) | (Trajectory::Valley, Trajectory::Peak) => -1.0,
         _ => 0.0,
+    }
+}
+
+/// Assemble [`NarrativeSignals`] from tracker outputs and engine data.
+///
+/// Convenience function for the common MCTS evaluation path. Computes
+/// signal values from a tick delta and pre-collected tracker state so
+/// callers don't need to manually plumb 9 fields every evaluation.
+pub fn assemble_signals(
+    delta: &TickDelta,
+    plant_statuses: &[PlantStatus],
+    filo_violations: usize,
+    tension_trajectory: Trajectory,
+    desired_trajectory: Trajectory,
+    pivot_magnitude: f64,
+    surprise: f64,
+) -> NarrativeSignals {
+    NarrativeSignals {
+        advancements: delta.advanced.len(),
+        completions: delta.completed.len(),
+        stalled: delta.stalled.len(),
+        unresolved_plants: plant_statuses
+            .iter()
+            .filter(|p| p.active_plants > 0 && p.payoff_completions == 0)
+            .count(),
+        resolutions: delta
+            .completed
+            .iter()
+            .filter(|name| {
+                plant_statuses
+                    .iter()
+                    .any(|p| &p.payoff_pattern == *name)
+            })
+            .count(),
+        filo_violations,
+        tension_fit: tension_fit(tension_trajectory, desired_trajectory),
+        pivot_magnitude,
+        surprise,
     }
 }
 
@@ -218,6 +260,46 @@ mod tests {
         assert_eq!(tension_fit(Trajectory::Rising, Trajectory::Rising), 1.0);
         assert_eq!(tension_fit(Trajectory::Rising, Trajectory::Falling), -1.0);
         assert_eq!(tension_fit(Trajectory::Plateau, Trajectory::Rising), 0.0);
+    }
+
+    #[test]
+    fn tension_fit_unknown_returns_zero() {
+        assert_eq!(tension_fit(Trajectory::Unknown, Trajectory::Unknown), 0.0);
+        assert_eq!(tension_fit(Trajectory::Unknown, Trajectory::Rising), 0.0);
+        assert_eq!(tension_fit(Trajectory::Rising, Trajectory::Unknown), 0.0);
+    }
+
+    #[test]
+    fn assemble_signals_from_delta() {
+        let delta = TickDelta {
+            advanced: vec!["pattern_a".into(), "pattern_b".into()],
+            completed: vec!["payoff_x".into()],
+            negated: vec![],
+            stalled: vec!["stale_one".into()],
+            active_pm_count: 5,
+        };
+        let plants = vec![PlantStatus {
+            plant_pattern: "plant_x".into(),
+            payoff_pattern: "payoff_x".into(),
+            active_plants: 1,
+            payoff_completions: 0,
+            ticks_since_plant_advanced: 10,
+            stale: true,
+        }];
+        let signals = assemble_signals(
+            &delta, &plants, 2,
+            Trajectory::Rising, Trajectory::Rising,
+            0.5, 0.3,
+        );
+        assert_eq!(signals.advancements, 2);
+        assert_eq!(signals.completions, 1);
+        assert_eq!(signals.stalled, 1);
+        assert_eq!(signals.unresolved_plants, 1);
+        assert_eq!(signals.resolutions, 1); // payoff_x completed and matches plant
+        assert_eq!(signals.filo_violations, 2);
+        assert_eq!(signals.tension_fit, 1.0); // Rising matches Rising
+        assert_eq!(signals.pivot_magnitude, 0.5);
+        assert_eq!(signals.surprise, 0.3);
     }
 
     #[test]

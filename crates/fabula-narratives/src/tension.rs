@@ -7,6 +7,8 @@
 //! The tracker does NOT query the DataSource directly — the caller provides
 //! samples. This keeps it DataSource-agnostic.
 
+use std::collections::VecDeque;
+
 /// Classification of a trajectory's recent behavior.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Trajectory {
@@ -27,7 +29,9 @@ pub enum Trajectory {
 /// A single timestamped sample.
 #[derive(Debug, Clone, Copy)]
 pub struct Sample {
+    /// Tick number when the sample was taken.
     pub tick: u64,
+    /// Numeric value at this tick.
     pub value: f64,
 }
 
@@ -50,30 +54,49 @@ pub struct Sample {
 #[derive(Debug, Clone)]
 pub struct TensionTracker {
     window_size: usize,
-    samples: Vec<Sample>,
+    samples: VecDeque<Sample>,
+    /// Slope magnitude below which trajectory is classified as Plateau.
+    threshold: f64,
 }
 
 impl TensionTracker {
     /// Create a tracker with the given sliding window size.
+    ///
+    /// Window must be at least 3 (trajectory classification needs 3+ samples).
+    /// Uses a default slope threshold of 0.01 for trajectory classification.
     pub fn new(window_size: usize) -> Self {
-        assert!(window_size >= 2, "window must be at least 2");
+        assert!(window_size >= 3, "window must be at least 3 for trajectory classification");
         Self {
             window_size,
-            samples: Vec::new(),
+            samples: VecDeque::new(),
+            threshold: 0.01,
+        }
+    }
+
+    /// Create a tracker with a custom slope threshold for trajectory classification.
+    ///
+    /// The threshold controls how steep a slope must be to count as Rising/Falling
+    /// vs Plateau. Higher values require stronger trends.
+    pub fn with_threshold(window_size: usize, threshold: f64) -> Self {
+        assert!(window_size >= 3, "window must be at least 3 for trajectory classification");
+        Self {
+            window_size,
+            samples: VecDeque::new(),
+            threshold,
         }
     }
 
     /// Push a new sample. Old samples outside the window are dropped.
     pub fn push(&mut self, tick: u64, value: f64) {
-        self.samples.push(Sample { tick, value });
+        self.samples.push_back(Sample { tick, value });
         if self.samples.len() > self.window_size {
-            self.samples.remove(0);
+            self.samples.pop_front();
         }
     }
 
     /// Current value (most recent sample).
     pub fn current(&self) -> Option<f64> {
-        self.samples.last().map(|s| s.value)
+        self.samples.back().map(|s| s.value)
     }
 
     /// Compute the slope (linear regression) over the window.
@@ -110,12 +133,12 @@ impl TensionTracker {
         }
 
         let slope = self.slope();
-        let threshold = 0.01; // configurable sensitivity
+        let threshold = self.threshold;
 
         // Check for peak/valley by splitting window in half
         let mid = self.samples.len() / 2;
-        let first_half: Vec<f64> = self.samples[..mid].iter().map(|s| s.value).collect();
-        let second_half: Vec<f64> = self.samples[mid..].iter().map(|s| s.value).collect();
+        let first_half: Vec<f64> = self.samples.iter().take(mid).map(|s| s.value).collect();
+        let second_half: Vec<f64> = self.samples.iter().skip(mid).map(|s| s.value).collect();
 
         let first_mean = first_half.iter().sum::<f64>() / first_half.len() as f64;
         let second_mean = second_half.iter().sum::<f64>() / second_half.len() as f64;
@@ -198,5 +221,16 @@ mod tests {
         let mut t = TensionTracker::new(10);
         t.push(0, 1.0);
         assert_eq!(t.trajectory(), Trajectory::Unknown);
+    }
+
+    #[test]
+    fn custom_threshold_classifies_gentle_rise_as_plateau() {
+        let mut t = TensionTracker::with_threshold(10, 1.0); // very high threshold
+        for i in 0..10 {
+            t.push(i, i as f64 * 0.001); // very gentle rise
+        }
+        // With default threshold (0.01) this would be Rising,
+        // but with threshold=1.0 the slope is well below threshold
+        assert_eq!(t.trajectory(), Trajectory::Plateau);
     }
 }

@@ -69,6 +69,12 @@ impl ThreadTracker {
     }
 
     /// Register a narrative thread with its open and close pattern indices.
+    ///
+    /// If using [`observe_delta`](Self::observe_delta), the engine's pattern names
+    /// must follow the convention `{name}_open` and `{name}_close`. For example,
+    /// registering `"investigation"` expects patterns named `"investigation_open"`
+    /// and `"investigation_close"`. For custom naming, use [`record_open`](Self::record_open)
+    /// and [`record_close`](Self::record_close) directly.
     pub fn register(
         &mut self,
         name: impl Into<String>,
@@ -83,6 +89,10 @@ impl ThreadTracker {
     }
 
     /// Record that a thread opened. Call when the open pattern's first stage matches.
+    ///
+    /// Deduplicates by name: calling this twice with the same name is a no-op.
+    /// FILO tracking is per-thread-name, not per-instance — if the same thread
+    /// type opens multiple times, only the first open is tracked for nesting order.
     pub fn record_open(&mut self, thread_name: &str) {
         if !self.open_order.contains(&thread_name.to_string()) {
             self.open_order.push(thread_name.to_string());
@@ -99,6 +109,11 @@ impl ThreadTracker {
     /// Matches pattern names in the delta against `{thread_name}_open` and
     /// `{thread_name}_close` conventions. For custom pattern names, use
     /// `record_open` / `record_close` directly.
+    ///
+    /// Note the asymmetry: opens are detected from `delta.advanced` (a thread
+    /// opens when its open pattern begins matching), while closes are detected
+    /// from `delta.completed` (a thread closes when its close pattern fully
+    /// resolves).
     pub fn observe_delta(&mut self, delta: &fabula::engine::TickDelta) {
         // Collect matching thread names first to avoid borrow conflict
         let opens: Vec<String> = self.threads.iter()
@@ -114,20 +129,21 @@ impl ThreadTracker {
     }
 
     /// Status of all registered threads.
-    pub fn status<DS: fabula::datasource::DataSource>(
+    ///
+    /// Accepts a closure that returns [`PatternMetrics`] for a given pattern
+    /// index. Typical usage: `tracker.status(|idx| engine.pattern_metrics(idx))`.
+    ///
+    /// Decoupled from `SiftEngine` so callers can provide cached or speculative
+    /// metrics during MCTS rollouts without requiring a full engine reference.
+    pub fn status(
         &self,
-        engine: &fabula::engine::SiftEngine<DS>,
-    ) -> Vec<ThreadStatus>
-    where
-        DS::N: PartialEq,
-        DS::V: PartialEq,
-        DS::T: std::ops::Sub<Output = DS::T> + fabula::interval::NumericTime,
-    {
+        metrics_fn: impl Fn(usize) -> Option<fabula::engine::PatternMetrics>,
+    ) -> Vec<ThreadStatus> {
         self.threads
             .iter()
             .map(|thread| {
-                let metrics_open = engine.pattern_metrics(thread.open_pattern_idx);
-                let metrics_close = engine.pattern_metrics(thread.close_pattern_idx);
+                let metrics_open = metrics_fn(thread.open_pattern_idx);
+                let metrics_close = metrics_fn(thread.close_pattern_idx);
 
                 let open_count = metrics_open
                     .as_ref()
@@ -153,16 +169,11 @@ impl ThreadTracker {
     }
 
     /// Count of currently unresolved (open but not closed) threads.
-    pub fn open_thread_count<DS: fabula::datasource::DataSource>(
+    pub fn unresolved_thread_count(
         &self,
-        engine: &fabula::engine::SiftEngine<DS>,
-    ) -> usize
-    where
-        DS::N: PartialEq,
-        DS::V: PartialEq,
-        DS::T: std::ops::Sub<Output = DS::T> + fabula::interval::NumericTime,
-    {
-        self.status(engine)
+        metrics_fn: impl Fn(usize) -> Option<fabula::engine::PatternMetrics>,
+    ) -> usize {
+        self.status(metrics_fn)
             .iter()
             .filter(|s| s.unresolved)
             .count()
