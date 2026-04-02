@@ -451,44 +451,56 @@ Unexpected: A Statistical Heuristic for Story Sifting." ICIDS 2022.
 
 ---
 
-## Phase 4 — Narrative Pattern Library
+## Phase 4 — Narrative Scoring Library (`fabula-narratives`)
 
-Pre-built patterns for established narrative frameworks. Depends on Phase 3
-composition. Ships as a separate `fabula-narratives` crate so the core stays
-framework-agnostic.
+**Redesigned 2026-04-02 based on deep research review.** The research showed
+the GM needs **scoring signals**, not more patterns. The crate provides the
+evaluation toolkit for MCTS: thread management, tension tracking, pivot
+detection, and a composite quality function.
 
-### 4.1 Proppian function library
-31 narrative function patterns (villainy, mediation, trickery, departure,
-interdiction, violation, etc.). Each is a standalone pattern; composition
-operators combine them into story morphologies.
+### 4.1 ~~Narrative scoring crate~~ (DONE)
+Four research-backed modules in `crates/fabula-narratives/`:
 
-**Files**: New `crates/fabula-narratives/src/propp.rs`
-**Effort**: Medium
+**`thread.rs`** — Thread lifecycle management (MICE-style):
+- `ThreadTracker` registers open/close pattern pairs
+- Records open/close events, reports unresolved count
+- FILO nesting validation (First In, Last Out) — well-nested stories
+  close threads in reverse order of opening
+- 3 tests
+- **Research**: Kowal MICE Quotient, Versu social practices
 
-### 4.2 MICE thread patterns
-Milieu/Idea/Character/Event thread detection. Opening and closing patterns
-for each type. FILO order validation (threads must close in reverse order
-of opening).
+**`tension.rs`** — Numeric trajectory sampling:
+- `TensionTracker` with sliding window over numeric samples
+- Linear regression slope computation
+- Trajectory classification: Rising, Falling, Plateau, Peak, Valley
+- 5 tests
+- **Research**: L4D AI Director (Booth 2009), Ely/Frankel suspense model
 
-**Files**: `fabula-narratives/src/mice.rs`
-**Effort**: Small-medium
+**`pivot.rs`** — Event distribution shift detection:
+- `PivotDetector` computes Jensen-Shannon Divergence between consecutive
+  tick event-type distributions
+- JSD bounded in [0, 1] — directly comparable across ticks
+- History tracking with windowed average
+- 7 tests
+- **Research**: Schulz et al. (2024) "Narrative Information Theory" pivot measure
 
-### 4.3 Emotional arc shapes (Reagan 2016)
-Six canonical arc shapes: Rags to Riches, Tragedy, Man in a Hole, Icarus,
-Cinderella, Oedipus. Detect character emotional trajectories matching these
-shapes by sampling valence over time windows.
+**`scorer.rs`** — Composite MCTS quality function:
+- `NarrativeWeights` — configurable per-signal weights
+- `NarrativeSignals` — assembled from TickDelta, PlantStatus, trackers
+- `score()` pure function → `NarrativeScore` with `total` + `breakdown`
+- `tension_fit()` helper for trajectory matching
+- 7 tests
+- **Research**: Nelson & Mateas (2005) SBDM quality function
 
-**Files**: `fabula-narratives/src/arcs.rs`
-**Depends on**: Emotional valence queryable as numeric edge values
-**Effort**: Medium
-
-### 4.4 Kernel/satellite classification
-Patterns flagged as kernel-triggering (changes story direction, cannot be
-removed) vs satellite-generating (provides texture, removable). Enables
-narrative completeness checking.
-
-**Files**: Pattern metadata in `fabula/src/pattern.rs`, classification logic
-**Effort**: Small
+**Deferred from original Phase 4 plan** (research showed these belong elsewhere):
+- 4.1 Propp functions → academic pattern library, needs vocabulary mapping
+  layer. May add as phase 2 of fabula-narratives when needed.
+- 4.3 Reagan emotional arcs → retrospective time-series analysis, not
+  per-tick scoring. Needs curve fitting / DTW, different computational model.
+- 4.4 Kernel/satellite → optional metadata field on Pattern (2 lines).
+- 5.6 Character appraisal → character AI layer, not sifting.
+- 5.7 Knowledge propagation → Paracausality epistemic queries.
+- 5.8 Causality tracing → graph pathfinding utility.
 
 ---
 
@@ -610,7 +622,7 @@ Maps to Chomsky-like hierarchy for narrative pattern grammars.
 | **1** | Polish & Parity | Variable distinction, negation validation, dedup, metric temporal, age tracking |
 | **2** | Benchmarking | Stats counters, profiling + divan harness, fingerprint optimization, conditional label indexing |
 | **3** | Composition | Pattern algebra, DSL compose syntax, surprise scoring |
-| **4** | Pattern Library | Propp functions, MICE threads, emotional arcs, kernel/satellite |
+| **4** | Narrative Scoring | ~~Thread tracker~~, ~~tension tracker~~, ~~pivot detector~~, ~~MCTS scorer~~ |
 | **5** | Stack Integration | ~~Paracausality adapter~~, ~~lifecycle~~, ~~deltas~~, ~~MCTS fork~~, ~~plant/payoff~~, appraisal, gossip, causality |
 | **6** | Research | Formal semantics, scalability paper, expressiveness hierarchy |
 
