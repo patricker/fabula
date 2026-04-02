@@ -1048,6 +1048,78 @@ fn plant_payoff_stale_detection() {
     assert_eq!(status[0].payoff_completions, 0);
 }
 
+// ===========================================================================
+// end_tick() happy path
+// ===========================================================================
+
+#[test]
+fn end_tick_accumulates_and_clears() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("quick")
+            .stage("e", |s| s.edge("e", "type".into(), MemValue::Str("x".into())))
+            .build(),
+    );
+    engine.register(
+        PatternBuilder::new("slow")
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("start".into())))
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("end".into())))
+            .build(),
+    );
+
+    // Add edges within a single tick
+    g.add_str("ev1", "type", "x", 1);
+    g.add_str("ev2", "type", "start", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("x".into()), &Interval::open(1));
+    engine.on_edge_added(&g, &"ev2".into(), &"type".into(),
+        &MemValue::Str("start".into()), &Interval::open(1));
+
+    // end_tick summarizes everything
+    let delta = engine.end_tick(50);
+    assert!(delta.completed.contains(&"quick".to_string()), "quick should complete");
+    assert!(delta.advanced.contains(&"slow".to_string()), "slow should advance");
+    assert_eq!(engine.current_tick(), 1);
+
+    // Next tick with no events — accumulators should be cleared
+    let delta2 = engine.end_tick(50);
+    assert!(delta2.completed.is_empty(), "no events this tick");
+    assert!(delta2.advanced.is_empty(), "no events this tick");
+    assert_eq!(engine.current_tick(), 2);
+}
+
+#[test]
+fn end_tick_detects_stale_after_many_ticks() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("stuck")
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("start".into())))
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("end".into())))
+            .build(),
+    );
+
+    // Initiate PM
+    g.add_str("ev1", "type", "start", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("start".into()), &Interval::open(1));
+    engine.end_tick(50); // tick 1
+
+    // 100 empty ticks
+    for _ in 0..100 {
+        engine.end_tick(50);
+    }
+
+    // The 101st end_tick should report stale
+    let delta = engine.end_tick(50);
+    assert!(delta.stalled.contains(&"stuck".to_string()));
+}
+
 #[test]
 fn stats_reset() {
     let mut g = MemGraph::new();

@@ -289,7 +289,15 @@ pub struct SiftEngine<DS: DataSource> {
     negation_count: Vec<u64>,
     tick_counter: u64,
     plant_payoff_pairs: Vec<PlantPayoffPair>,
+    // Per-tick event accumulators for end_tick().
+    // Populated by on_edge_added(), cleared by end_tick().
+    tick_advanced: HashSet<String>,
+    tick_completed: HashSet<String>,
+    tick_negated: HashSet<String>,
 }
+
+// NOTE: tick accumulators are NOT included in Clone — a forked engine
+// starts with empty accumulators (no events in its new timeline).
 
 impl<DS: DataSource> SiftEngine<DS>
 where
@@ -311,6 +319,9 @@ where
             negation_count: Vec::new(),
             tick_counter: 0,
             plant_payoff_pairs: Vec::new(),
+            tick_advanced: HashSet::new(),
+            tick_completed: HashSet::new(),
+            tick_negated: HashSet::new(),
         }
     }
 
@@ -392,9 +403,48 @@ where
     }
 
     /// Advance the tick counter. Call once per simulation step.
-    /// Used for staleness detection.
+    /// Used for staleness detection. Does NOT produce a delta summary —
+    /// use [`end_tick`] for the happy path, or [`tick_delta`] with
+    /// manually collected events for filtered deltas.
     pub fn tick(&mut self) {
         self.tick_counter += 1;
+    }
+
+    /// End the current tick: increment the tick counter, build a
+    /// [`TickDelta`] from accumulated events, and clear the accumulators.
+    ///
+    /// This is the happy-path API for GM consumers. Call `on_edge_added()`
+    /// for each edge in the tick (events accumulate internally), then call
+    /// `end_tick()` to get the summary.
+    ///
+    /// ```rust,ignore
+    /// for edge in new_edges {
+    ///     engine.on_edge_added(&ds, &src, &label, &val, &interval);
+    /// }
+    /// let delta = engine.end_tick(50); // stale threshold = 50 ticks
+    /// if !delta.stalled.is_empty() { /* alert GM */ }
+    /// ```
+    pub fn end_tick(&mut self, stale_threshold: u64) -> TickDelta {
+        self.tick_counter += 1;
+
+        let stalled: Vec<String> = self.stale_patterns(stale_threshold)
+            .iter()
+            .filter_map(|&idx| self.patterns.get(idx).map(|p| p.name.clone()))
+            .collect();
+
+        let active_pm_count = self.partial_matches.iter()
+            .filter(|pm| pm.state == MatchState::Active)
+            .count();
+
+        let delta = TickDelta {
+            advanced: self.tick_advanced.drain().collect(),
+            completed: self.tick_completed.drain().collect(),
+            negated: self.tick_negated.drain().collect(),
+            stalled,
+            active_pm_count,
+        };
+
+        delta
     }
 
     /// Current tick counter.
@@ -800,7 +850,7 @@ where
         self.partial_matches.extend(new_matches);
         self.partial_matches.extend(advanced);
 
-        // Update per-pattern lifecycle metrics from events.
+        // Update per-pattern lifecycle metrics + tick accumulators from events.
         for event in &events {
             match event {
                 SiftEvent::Advanced { pattern, .. } => {
@@ -808,17 +858,20 @@ where
                         self.advancement_count[idx] += 1;
                         self.last_advanced_tick[idx] = self.tick_counter;
                     }
+                    self.tick_advanced.insert(pattern.clone());
                 }
                 SiftEvent::Completed { pattern, .. } => {
                     if let Some(idx) = self.patterns.iter().position(|p| p.name == *pattern) {
                         self.completion_count[idx] += 1;
                         self.last_advanced_tick[idx] = self.tick_counter;
                     }
+                    self.tick_completed.insert(pattern.clone());
                 }
                 SiftEvent::Negated { pattern, .. } => {
                     if let Some(idx) = self.patterns.iter().position(|p| p.name == *pattern) {
                         self.negation_count[idx] += 1;
                     }
+                    self.tick_negated.insert(pattern.clone());
                 }
             }
         }
@@ -1533,6 +1586,10 @@ where
             negation_count: self.negation_count.clone(),
             tick_counter: self.tick_counter,
             plant_payoff_pairs: self.plant_payoff_pairs.clone(),
+            // Forked engine starts with empty tick accumulators
+            tick_advanced: HashSet::new(),
+            tick_completed: HashSet::new(),
+            tick_negated: HashSet::new(),
         }
     }
 }
