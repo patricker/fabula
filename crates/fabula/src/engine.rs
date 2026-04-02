@@ -226,6 +226,25 @@ pub struct TickDelta {
 // ---------------------------------------------------------------------------
 
 /// The sift engine. Generic over a [`DataSource`] implementation.
+///
+/// `Clone` creates an independent copy of all engine state — patterns,
+/// partial matches, metrics, enabled flags. Use this for speculative
+/// evaluation (MCTS forking): clone the engine, evaluate on a forked
+/// DataSource, score the result, discard or commit.
+///
+/// ```rust,ignore
+/// // Fork: clone engine + fork data source
+/// let mut fork_engine = engine.clone();
+/// let fork_ds = fork_data_source(&ds);
+///
+/// // Speculate: add a hypothetical edge and see what matches
+/// fork_engine.on_edge_added(&fork_ds, &source, &label, &value, &interval);
+/// let delta = fork_engine.tick_delta(&events, 50);
+///
+/// // Score and decide whether to commit this branch
+/// let score = evaluate_narrative_quality(&delta);
+/// if score > best_score { best_engine = fork_engine; }
+/// ```
 pub struct SiftEngine<DS: DataSource> {
     patterns: Vec<Pattern<DS::L, DS::V>>,
     partial_matches: Vec<PartialMatch<DS::N, DS::V, DS::T>>,
@@ -1392,5 +1411,33 @@ where
 {
     fn default() -> Self {
         Self::new()
+    }
+}
+
+impl<DS: DataSource> Clone for SiftEngine<DS>
+where
+    DS::L: Clone,
+    DS::V: Clone,
+    DS::N: Clone,
+    DS::T: Clone,
+{
+    /// Clone the entire engine state for speculative evaluation.
+    ///
+    /// Both the original and clone are independent — advancing one
+    /// does not affect the other. Use this for MCTS-style forking:
+    /// clone the engine, evaluate on a forked graph, score, discard or commit.
+    fn clone(&self) -> Self {
+        Self {
+            patterns: self.patterns.clone(),
+            partial_matches: self.partial_matches.clone(),
+            next_match_id: self.next_match_id,
+            stats: self.stats.clone(),
+            enabled: self.enabled.clone(),
+            last_advanced_tick: self.last_advanced_tick.clone(),
+            completion_count: self.completion_count.clone(),
+            advancement_count: self.advancement_count.clone(),
+            negation_count: self.negation_count.clone(),
+            tick_counter: self.tick_counter,
+        }
     }
 }

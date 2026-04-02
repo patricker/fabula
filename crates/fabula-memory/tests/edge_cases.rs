@@ -904,6 +904,68 @@ fn tick_delta_summarizes_events() {
     assert_eq!(delta.active_pm_count, 1);
 }
 
+// ===========================================================================
+// Fork-aware evaluation (Phase 5.4)
+// ===========================================================================
+
+#[test]
+fn clone_engine_is_independent() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("two_stage")
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("start".into())))
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("end".into())))
+            .build(),
+    );
+
+    // Initiate a PM in the original
+    engine.tick();
+    g.add_str("ev1", "type", "start", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("start".into()), &Interval::open(1));
+
+    assert_eq!(engine.partial_matches().iter().filter(|pm| pm.state == MatchState::Active).count(), 1);
+
+    // Fork
+    let mut fork = engine.clone();
+
+    // Complete on the fork only
+    g.add_str("ev2", "type", "end", 5);
+    g.set_time(5);
+    let fork_events = fork.on_edge_added(&g, &"ev2".into(), &"type".into(),
+        &MemValue::Str("end".into()), &Interval::open(5));
+
+    let fork_completed = fork_events.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).count();
+    assert_eq!(fork_completed, 1, "fork should complete");
+
+    // Original is unaffected
+    assert_eq!(
+        engine.partial_matches().iter().filter(|pm| pm.state == MatchState::Active).count(),
+        1, "original should still have 1 active PM"
+    );
+    assert_eq!(engine.pattern_metrics(0).unwrap().completion_count, 0, "original has no completions");
+    assert_eq!(fork.pattern_metrics(0).unwrap().completion_count, 1, "fork has 1 completion");
+}
+
+#[test]
+fn clone_preserves_disabled_state() {
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    let idx = engine.register(
+        PatternBuilder::new("test")
+            .stage("e", |s| s.edge("e", "type".into(), MemValue::Str("x".into())))
+            .build(),
+    );
+
+    engine.set_pattern_enabled(idx, false);
+    let fork = engine.clone();
+
+    assert!(!fork.is_pattern_enabled(idx), "fork should inherit disabled state");
+}
+
 #[test]
 fn stats_reset() {
     let mut g = MemGraph::new();
