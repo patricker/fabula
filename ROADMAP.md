@@ -516,48 +516,41 @@ and WorldKernel.
 
 **Files**: `Paracausality/crates/fabula-adapter/`
 
-### 5.2 Pattern registration engine
-Named pattern groups with lifecycle management:
-- Register/deregister patterns at runtime
-- Per-pattern metrics: last advancement tick, clause status, staleness
-- Enable/disable pattern groups
-- Stale-plant alerts (from 1.4)
+### 5.2 ~~Pattern lifecycle management~~ (DONE)
+Added directly to SiftEngine (deep research review showed separate registry
+is an anti-pattern due to write-back dependency and index coupling):
+- `enabled: Vec<bool>` + `set_pattern_enabled()` / `deregister()` (soft-delete)
+- Per-pattern metrics: `last_advanced_tick`, `completion_count`,
+  `advancement_count`, `negation_count` — updated from events in `on_edge_added()`
+- `PatternMetrics` struct + `pattern_metrics(idx)` query
+- `stale_patterns(threshold)` finds stuck patterns with active PMs
+- `tick()` / `current_tick()` for staleness tracking
+- Disabled patterns' active PMs killed immediately (Rete convention)
 
-**Files**: New module or crate `fabula-registry`
-**Effort**: Medium
+**Research findings**: Façade, Versu, Prom Week, L4D all use "static registry
++ dynamic predicate gate" — activation is emergent from world state, not
+commanded. Rete literature unanimous: kill PMs on disable, don't freeze.
 
-### 5.3 Delta reporting (match state diffs)
-Engine returns "what changed since last tick" for quality scoring:
-- Patterns advanced (which, by how many stages)
-- Patterns completed
-- Patterns negated (killed)
-- Patterns stalled (no advancement for N ticks)
+### 5.3 ~~Delta reporting~~ (DONE)
+`TickDelta` struct + `tick_delta()` method — summarizes one tick's events:
+- `advanced`, `completed`, `negated`: which patterns had activity this tick
+- `stalled`: patterns with active PMs that haven't advanced for N ticks
+- `active_pm_count`: total across all patterns
+- Built on top of 5.2's per-pattern metrics (thin convenience layer)
 
-**Files**: `fabula/src/engine.rs` (snapshot/diff)
-**Effort**: Medium
+### 5.4 ~~Fork-aware evaluation~~ (DONE)
+`Clone` impl for `SiftEngine` enabling MCTS-style speculative evaluation:
+- Clone engine + fork DataSource → evaluate → score → discard or commit
+- Original and clone are fully independent
+- Manual Clone impl (avoids requiring DS: Clone)
 
-### 5.4 Fork-aware evaluation
-Document and example the pattern for MCTS timeline forking:
-- Fork DataSource → evaluate patterns on fork → score → commit best
-- Each fork is a separate DataSource + SiftEngine instance
-- Engine state cloning for speculative evaluation
-
-**Files**: Example in docs + `SiftEngine::clone_state()` method
-**Effort**: Small
-
-### 5.5 Plant/payoff tracking
-Application-level plant/payoff classification built on partial match age
-(from 1.6) and pattern registration (from 5.2). The GM classifies active
-PMs as "plants" (setup waiting for payoff) and completed PMs as "payoffs"
-(setup resolved). Cross-pattern plant/payoff pairs (Pattern A plants,
-Pattern B pays off) require pattern composition (Phase 3).
-
-- Explicit plant/payoff pair registration via pattern metadata
-- Stale-plant alerts ("this Chekhov's gun has waited 50 ticks")
-- Cross-pattern resolution tracking (requires shared variable bindings)
-
-**Depends on**: 1.6 (age tracking), 5.2 (pattern registration), 3.1 (composition for cross-pattern)
-**Effort**: Medium
+### 5.5 ~~Plant/payoff tracking~~ (DONE)
+Chekhov's gun tracking: register plant/payoff pattern pairs, monitor
+resolution status and staleness.
+- `PlantPayoffPair` with optional `shared_binding` constraint
+- `register_plant_payoff(plant_idx, payoff_idx, shared_binding)`
+- `PlantStatus` with `active_plants`, `payoff_completions`, `stale` flag
+- `plant_status(stale_threshold)` query
 
 ### 5.6 Character appraisal patterns
 Sifting-based emotional appraisal from GM architecture:
@@ -618,7 +611,7 @@ Maps to Chomsky-like hierarchy for narrative pattern grammars.
 | **2** | Benchmarking | Stats counters, profiling + divan harness, fingerprint optimization, conditional label indexing |
 | **3** | Composition | Pattern algebra, DSL compose syntax, surprise scoring |
 | **4** | Pattern Library | Propp functions, MICE threads, emotional arcs, kernel/satellite |
-| **5** | Stack Integration | Paracausality adapter, registry, deltas, MCTS, plant/payoff, appraisal, gossip |
+| **5** | Stack Integration | ~~Paracausality adapter~~, ~~lifecycle~~, ~~deltas~~, ~~MCTS fork~~, ~~plant/payoff~~, appraisal, gossip, causality |
 | **6** | Research | Formal semantics, scalability paper, expressiveness hierarchy |
 
 ---
