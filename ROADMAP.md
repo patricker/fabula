@@ -378,26 +378,76 @@ let scored = scorer.score(&matches, engine.patterns());
 
 **Files**: `fabula/src/scoring.rs`, `lib.rs` prelude
 
-### 3.3b Property-level surprise scoring (StU) — planned
-Kreminski's "Select the Unexpected" (ICIDS 2022) scores individual matches
-by the mean empirical frequency of their *properties* — character traits,
-event types, relationships present in the bindings. Two matches of the same
-pattern score differently if one involves rare entities.
+### 3.3b ~~Property-level surprise scoring (StU)~~ (DONE)
+Kreminski's "Select the Unexpected" (ICIDS 2022): scores individual matches
+by the mean empirical frequency of their *properties*. Two matches of the
+same pattern score differently if one involves rarer attributes.
 
-Requires:
-- Property extractor: `fn(match, graph) -> Vec<String>` that inspects
-  bindings and queries the DataSource for entity attributes
-- Per-property frequency table across all matches of a pattern
-- Score = mean of per-property frequencies (lower = more surprising)
-- DataSource access (the scorer needs to query the graph)
+```rust
+let mut stu = StuScorer::new();
+stu.observe_one("betrayal", &["actor_trait=ambitious", "target_role=king"]);
+// ... observe more matches ...
+let scored = stu.score(&[(match1, props1), (match2, props2)]);
+// scored[0].stu_score — lower = more surprising
+// scored[0].property_frequencies — per-property breakdown, rarest first
+```
 
-This is a significant extension that depends on a defined "property
-vocabulary" for the domain. Deferred until the GM integration (Phase 5)
-defines what properties matter.
+- `StuScorer` — separate from `SurpriseScorer`, DS-agnostic
+- Laplace smoothing: `(count + 1) / (total + V)` where V = vocabulary size
+- Property extraction is caller's responsibility (Approach C from planning)
+- Documented "everything is rare" antipattern: use categorical attributes
+  (traits, factions) not entity IDs
+- 8 unit tests + 1 doctest
+- `StuScoredMatch` includes `property_frequencies` for explainability
 
 **Reference**: Kreminski, Dickinson, Wardrip-Fruin, Mateas. "Select the
 Unexpected: A Statistical Heuristic for Story Sifting." ICIDS 2022.
-**Effort**: Medium-high
+
+**Future refinements** (from deep research review, 2026-04-01):
+
+**Aggregation alternatives** (replace arithmetic mean):
+- TF-IDF style: `sum(-log(freq))` instead of `mean(freq)`. Rare properties
+  dominate via log weighting. Natural generalization of StU — StU's mean is
+  a special case without the log transform. Matches information-theoretic
+  self-information.
+- Geometric mean: `(∏ freq(pi))^(1/k)`. A single rare property pulls the
+  entire score down. Risk: collapses to zero if any freq is zero (needs
+  Laplace smoothing, which we already have).
+- Minimum: `min(freq(pi))`. Most surprising property dominates entirely.
+  Loses signal from multiple rare properties.
+
+**Correlated-unlikelihood correction** (StU's known weakness):
+- Property-pair PMI: `PMI(pi, pj) = log(P(pi,pj) / P(pi)P(pj))`. High
+  PMI means properties co-occur more than expected → don't double-count
+  their rarity. Requires O(V²) pair counting per pattern.
+- Alternative: factor analysis on the property co-occurrence matrix to
+  identify independent "surprise dimensions."
+
+**Sequential surprise** (beyond static corpus statistics):
+- Schulz et al. (2024) "Narrative Information Theory" — five measures:
+  - Complexity: H(s_t) — mixed vs pure emotional state
+  - Pivot: JSD(s_t || s_{t-1}) — magnitude of shift between moments
+  - Predictability: I(s_{t+1}; S_t) — how foreseeable
+  - Suspense: H(P(s_{t+1} | S_t)) — uncertainty about what comes next
+  - Plot twist: JSD(P(s_{t+1}) || s_{t+1}) — predicted vs actual
+  Uses JSD (symmetric, bounded) over KL divergence. Requires a predictive
+  model of next-state distributions — significantly heavier machinery.
+- Simpler alternative: bigram transition probabilities between event types.
+  P(event_B | event_A) from observed sequences. Sequential surprise =
+  -log P(current_event | previous_event).
+
+**Confidence weighting** (cold start):
+- `final = stu_score * (1 - 1/(total_matches + 1))`. At 1 match,
+  confidence = 0.5. At 10, confidence = 0.91. At 100, confidence = 0.99.
+  Gently attenuates noisy scores from sparse data.
+
+**Related systems** (from literature review):
+- Indexter (Cardona-Rivera 2012): 5-index cognitive salience (protagonist,
+  time, space, causality, intentionality). No published formula.
+- Arc Sift (Leong, IJCAI 2022): DTW on fortune arcs. Orthogonal to StU —
+  scores arc *shape*, not event surprise.
+- Bad News (Samuel, ICIDS 2021): implicit heuristic learning from human
+  sifting interaction traces.
 
 ---
 
