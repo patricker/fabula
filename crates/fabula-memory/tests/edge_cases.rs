@@ -966,6 +966,88 @@ fn clone_preserves_disabled_state() {
     assert!(!fork.is_pattern_enabled(idx), "fork should inherit disabled state");
 }
 
+// ===========================================================================
+// Plant/payoff tracking (Phase 5.5)
+// ===========================================================================
+
+#[test]
+fn plant_payoff_tracks_setup_and_resolution() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    let plant_idx = engine.register(
+        PatternBuilder::new("promise")
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("promise".into())))
+            .build(),
+    );
+    let payoff_idx = engine.register(
+        PatternBuilder::new("fulfill")
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("fulfill".into())))
+            .build(),
+    );
+
+    engine.register_plant_payoff(plant_idx, payoff_idx, None);
+
+    // Plant fires
+    engine.tick();
+    g.add_str("ev1", "type", "promise", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("promise".into()), &Interval::open(1));
+
+    let status = engine.plant_status(50);
+    assert_eq!(status.len(), 1);
+    assert_eq!(status[0].payoff_completions, 0, "no payoff yet");
+    assert!(!status[0].stale, "only 1 tick — not stale");
+
+    // Payoff fires
+    g.add_str("ev2", "type", "fulfill", 2);
+    g.set_time(2);
+    engine.on_edge_added(&g, &"ev2".into(), &"type".into(),
+        &MemValue::Str("fulfill".into()), &Interval::open(2));
+
+    let status = engine.plant_status(50);
+    assert_eq!(status[0].payoff_completions, 1, "payoff resolved");
+}
+
+#[test]
+fn plant_payoff_stale_detection() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    let plant_idx = engine.register(
+        PatternBuilder::new("setup")
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("setup".into())))
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("middle".into())))
+            .build(),
+    );
+    let payoff_idx = engine.register(
+        PatternBuilder::new("payoff")
+            .stage("e3", |s| s.edge("e3", "type".into(), MemValue::Str("payoff".into())))
+            .build(),
+    );
+
+    engine.register_plant_payoff(plant_idx, payoff_idx, None);
+
+    // Initiate plant (advances to stage 1, but doesn't complete)
+    engine.tick();
+    g.add_str("ev1", "type", "setup", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("setup".into()), &Interval::open(1));
+
+    // Let 100 ticks pass
+    for _ in 0..100 {
+        engine.tick();
+    }
+
+    let status = engine.plant_status(50);
+    assert_eq!(status.len(), 1);
+    assert!(status[0].stale, "plant should be stale after 100 ticks");
+    assert_eq!(status[0].active_plants, 1);
+    assert_eq!(status[0].payoff_completions, 0);
+}
+
 #[test]
 fn stats_reset() {
     let mut g = MemGraph::new();

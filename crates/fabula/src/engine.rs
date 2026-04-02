@@ -221,6 +221,37 @@ pub struct TickDelta {
     pub active_pm_count: usize,
 }
 
+/// A registered plant/payoff pair. The GM declares that when the plant pattern
+/// has an active PM, it is narrative setup ("Chekhov's gun on the mantelpiece").
+/// When the payoff pattern completes, the setup is resolved ("the gun fires").
+#[derive(Debug, Clone)]
+pub struct PlantPayoffPair {
+    /// Pattern index of the plant (setup).
+    pub plant_idx: usize,
+    /// Pattern index of the payoff (resolution).
+    pub payoff_idx: usize,
+    /// Optional shared variable that must match across the pair
+    /// (e.g., same character in both plant and payoff).
+    pub shared_binding: Option<String>,
+}
+
+/// Status of a single plant from [`SiftEngine::plant_status`].
+#[derive(Debug, Clone)]
+pub struct PlantStatus {
+    /// Plant pattern name.
+    pub plant_pattern: String,
+    /// Payoff pattern name.
+    pub payoff_pattern: String,
+    /// Number of active plant PMs (unresolved setups).
+    pub active_plants: usize,
+    /// Number of payoff completions (resolved setups).
+    pub payoff_completions: u64,
+    /// Ticks since the plant pattern last advanced. High = Chekhov's gun gathering dust.
+    pub ticks_since_plant_advanced: u64,
+    /// Whether the plant is stale (no advancement for a long time with active PMs).
+    pub stale: bool,
+}
+
 // ---------------------------------------------------------------------------
 // The engine
 // ---------------------------------------------------------------------------
@@ -257,6 +288,7 @@ pub struct SiftEngine<DS: DataSource> {
     advancement_count: Vec<u64>,
     negation_count: Vec<u64>,
     tick_counter: u64,
+    plant_payoff_pairs: Vec<PlantPayoffPair>,
 }
 
 impl<DS: DataSource> SiftEngine<DS>
@@ -278,6 +310,7 @@ where
             advancement_count: Vec::new(),
             negation_count: Vec::new(),
             tick_counter: 0,
+            plant_payoff_pairs: Vec::new(),
         }
     }
 
@@ -395,6 +428,67 @@ where
                 self.enabled[idx]
                     && self.tick_counter.saturating_sub(self.last_advanced_tick[idx]) >= threshold
                     && self.partial_matches.iter().any(|pm| pm.pattern_idx == idx && pm.state == MatchState::Active)
+            })
+            .collect()
+    }
+
+    // -----------------------------------------------------------------------
+    // Plant/payoff tracking
+    // -----------------------------------------------------------------------
+
+    /// Register a plant/payoff pair. The plant pattern is narrative setup;
+    /// the payoff pattern is the resolution. When the plant has active PMs
+    /// and the payoff hasn't completed, the setup is "in flight." When the
+    /// payoff completes, the setup is resolved.
+    ///
+    /// `shared_binding` optionally constrains the pair: the payoff only
+    /// counts as resolving the plant if both share a binding with this
+    /// variable name pointing to the same entity.
+    pub fn register_plant_payoff(
+        &mut self,
+        plant_idx: usize,
+        payoff_idx: usize,
+        shared_binding: Option<String>,
+    ) {
+        self.plant_payoff_pairs.push(PlantPayoffPair {
+            plant_idx,
+            payoff_idx,
+            shared_binding,
+        });
+    }
+
+    /// All registered plant/payoff pairs.
+    pub fn plant_payoff_pairs(&self) -> &[PlantPayoffPair] {
+        &self.plant_payoff_pairs
+    }
+
+    /// Status of all plant/payoff pairs. Shows which setups are unresolved,
+    /// which are stale (Chekhov's guns gathering dust), and which have been
+    /// paid off.
+    pub fn plant_status(&self, stale_threshold: u64) -> Vec<PlantStatus> {
+        self.plant_payoff_pairs
+            .iter()
+            .filter_map(|pair| {
+                let plant = self.patterns.get(pair.plant_idx)?;
+                let payoff = self.patterns.get(pair.payoff_idx)?;
+
+                let active_plants = self.partial_matches.iter()
+                    .filter(|pm| pm.pattern_idx == pair.plant_idx && pm.state == MatchState::Active)
+                    .count();
+
+                let ticks_since = self.tick_counter
+                    .saturating_sub(self.last_advanced_tick[pair.plant_idx]);
+
+                let stale = active_plants > 0 && ticks_since >= stale_threshold;
+
+                Some(PlantStatus {
+                    plant_pattern: plant.name.clone(),
+                    payoff_pattern: payoff.name.clone(),
+                    active_plants,
+                    payoff_completions: self.completion_count[pair.payoff_idx],
+                    ticks_since_plant_advanced: ticks_since,
+                    stale,
+                })
             })
             .collect()
     }
@@ -1438,6 +1532,7 @@ where
             advancement_count: self.advancement_count.clone(),
             negation_count: self.negation_count.clone(),
             tick_counter: self.tick_counter,
+            plant_payoff_pairs: self.plant_payoff_pairs.clone(),
         }
     }
 }
