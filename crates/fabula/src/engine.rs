@@ -203,6 +203,24 @@ pub struct PatternMetrics {
     pub active_pm_count: usize,
 }
 
+/// Summary of what changed in one tick. Returned by [`SiftEngine::tick_delta`].
+///
+/// The GM uses this to assess narrative progress: which patterns are advancing
+/// (setup), completing (payoff), dying (dead ends), or stalling (forgotten plants).
+#[derive(Debug, Clone, Default)]
+pub struct TickDelta {
+    /// Patterns that had at least one PM advance this tick.
+    pub advanced: Vec<String>,
+    /// Patterns that completed this tick.
+    pub completed: Vec<String>,
+    /// Patterns that had PMs negated this tick.
+    pub negated: Vec<String>,
+    /// Patterns with active PMs that have not advanced for `stale_threshold` ticks.
+    pub stalled: Vec<String>,
+    /// Total active PM count across all patterns.
+    pub active_pm_count: usize,
+}
+
 // ---------------------------------------------------------------------------
 // The engine
 // ---------------------------------------------------------------------------
@@ -360,6 +378,68 @@ where
                     && self.partial_matches.iter().any(|pm| pm.pattern_idx == idx && pm.state == MatchState::Active)
             })
             .collect()
+    }
+
+    /// Compute a delta summary from the events produced by `on_edge_added()`.
+    ///
+    /// Call after each tick's `on_edge_added()` calls. Pass the events returned
+    /// by the engine and a staleness threshold (patterns with active PMs that
+    /// haven't advanced for this many ticks are reported as stalled).
+    ///
+    /// ```rust,ignore
+    /// engine.tick();
+    /// let events = engine.on_edge_added(&graph, ...);
+    /// let delta = engine.tick_delta(&events, 50);
+    /// if !delta.stalled.is_empty() { /* alert GM about stale plants */ }
+    /// ```
+    pub fn tick_delta<N: Debug, V: Debug>(
+        &self,
+        events: &[SiftEvent<N, V>],
+        stale_threshold: u64,
+    ) -> TickDelta {
+        let mut advanced = Vec::new();
+        let mut completed = Vec::new();
+        let mut negated = Vec::new();
+        let mut seen_advanced = HashSet::new();
+        let mut seen_completed = HashSet::new();
+        let mut seen_negated = HashSet::new();
+
+        for event in events {
+            match event {
+                SiftEvent::Advanced { pattern, .. } => {
+                    if seen_advanced.insert(pattern.clone()) {
+                        advanced.push(pattern.clone());
+                    }
+                }
+                SiftEvent::Completed { pattern, .. } => {
+                    if seen_completed.insert(pattern.clone()) {
+                        completed.push(pattern.clone());
+                    }
+                }
+                SiftEvent::Negated { pattern, .. } => {
+                    if seen_negated.insert(pattern.clone()) {
+                        negated.push(pattern.clone());
+                    }
+                }
+            }
+        }
+
+        let stalled: Vec<String> = self.stale_patterns(stale_threshold)
+            .iter()
+            .filter_map(|&idx| self.patterns.get(idx).map(|p| p.name.clone()))
+            .collect();
+
+        let active_pm_count = self.partial_matches.iter()
+            .filter(|pm| pm.state == MatchState::Active)
+            .count();
+
+        TickDelta {
+            advanced,
+            completed,
+            negated,
+            stalled,
+            active_pm_count,
+        }
     }
 
     pub fn drain_completed(&mut self) -> Vec<Match<DS::N, DS::V>> {

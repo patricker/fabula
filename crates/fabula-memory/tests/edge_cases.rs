@@ -862,6 +862,49 @@ fn evaluate_skips_disabled() {
 }
 
 #[test]
+fn tick_delta_summarizes_events() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("quick")
+            .stage("e", |s| s.edge("e", "type".into(), MemValue::Str("x".into())))
+            .build(),
+    );
+    engine.register(
+        PatternBuilder::new("slow")
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("start".into())))
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("end".into())))
+            .build(),
+    );
+
+    // Tick 1: initiate slow, complete quick
+    engine.tick();
+    g.add_str("ev1", "type", "x", 1);
+    g.add_str("ev2", "type", "start", 1);
+    g.set_time(1);
+    let mut all_events = Vec::new();
+    all_events.extend(engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("x".into()), &Interval::open(1)));
+    all_events.extend(engine.on_edge_added(&g, &"ev2".into(), &"type".into(),
+        &MemValue::Str("start".into()), &Interval::open(1)));
+
+    let delta = engine.tick_delta(&all_events, 50);
+    assert!(delta.completed.contains(&"quick".to_string()));
+    assert!(delta.advanced.contains(&"slow".to_string()));
+    assert!(delta.stalled.is_empty());
+
+    // Advance 100 ticks without completing "slow"
+    for _ in 0..100 {
+        engine.tick();
+    }
+    let no_events: Vec<SiftEvent<String, MemValue>> = vec![];
+    let delta = engine.tick_delta(&no_events, 50);
+    assert!(delta.stalled.contains(&"slow".to_string()));
+    assert_eq!(delta.active_pm_count, 1);
+}
+
+#[test]
 fn stats_reset() {
     let mut g = MemGraph::new();
     let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
