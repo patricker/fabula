@@ -9,6 +9,7 @@ use std::hash::Hash;
 
 /// A value constraint used in pattern clauses and scans.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum ValueConstraint<V> {
     /// Must equal this exact value.
     Eq(V),
@@ -55,6 +56,31 @@ impl<V> ValueConstraint<V> {
         }
     }
 }
+
+// ---------------------------------------------------------------------------
+// Trait bound aliases — reduce boilerplate on generic impls
+// ---------------------------------------------------------------------------
+
+/// Trait bound alias for node identifier types.
+///
+/// Blanket-implemented for all types satisfying the bounds.
+/// Use `N: NodeId` instead of `N: Eq + Hash + Clone + Debug`.
+pub trait NodeId: Eq + Hash + Clone + Debug {}
+impl<T: Eq + Hash + Clone + Debug> NodeId for T {}
+
+/// Trait bound alias for edge label types.
+///
+/// Blanket-implemented for all types satisfying the bounds.
+/// Use `L: Label` instead of `L: Eq + Hash + Clone + Debug`.
+pub trait Label: Eq + Hash + Clone + Debug {}
+impl<T: Eq + Hash + Clone + Debug> Label for T {}
+
+/// Trait bound alias for value types.
+///
+/// Blanket-implemented for all types satisfying the bounds.
+/// Use `V: Val` instead of `V: PartialEq + PartialOrd + Clone + Debug + Hash`.
+pub trait Val: PartialEq + PartialOrd + Clone + Debug + Hash {}
+impl<T: PartialEq + PartialOrd + Clone + Debug + Hash> Val for T {}
 
 /// An edge returned from a [`DataSource`] query.
 #[derive(Debug, Clone)]

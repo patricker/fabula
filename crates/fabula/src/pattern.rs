@@ -16,6 +16,7 @@ use std::fmt;
 /// Variables that appear in multiple clauses create joins — the pattern
 /// matcher ensures they bind to the same node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Var(pub String);
 
 impl Var {
@@ -32,6 +33,7 @@ impl fmt::Display for Var {
 
 /// What an edge's target should match against.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum Target<V> {
     /// Bind the target to a variable (for traversal / join).
     Bind(Var),
@@ -43,6 +45,7 @@ pub enum Target<V> {
 
 /// A single clause in a pattern — one edge traversal constraint.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Clause<L, V> {
     /// The source node variable (must be bound by a prior clause or be a scan root).
     pub source: Var,
@@ -57,6 +60,7 @@ pub struct Clause<L, V> {
 /// Optional metric bound on the gap distance for a temporal constraint.
 /// The "gap" meaning depends on the Allen relation (see `Interval::gap_for_relation`).
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct MetricGap {
     /// Minimum gap distance. `None` = no lower bound.
     pub min: Option<f64>,
@@ -66,6 +70,7 @@ pub struct MetricGap {
 
 /// A temporal ordering constraint between two event variables.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct TemporalConstraint {
     /// The variable whose interval should come first.
     pub left: Var,
@@ -81,6 +86,7 @@ pub struct TemporalConstraint {
 ///
 /// Corresponds to Winnow's `unless-event ... between ?start ?end`.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Negation<L, V> {
     /// Start of the negation window (must be bound).
     pub between_start: Var,
@@ -97,6 +103,7 @@ pub struct Negation<L, V> {
 /// A compiled sifting pattern — a named subgraph template with temporal
 /// constraints and negation windows.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Pattern<L, V> {
     /// Pattern name (for identification in matches and gap analysis).
     pub name: String,
@@ -117,6 +124,7 @@ pub struct Pattern<L, V> {
 /// Stages are the units of incremental matching — each new event is tested
 /// against the next unmatched stage.
 #[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Stage<L, V> {
     /// The event/node variable this stage is anchored to.
     pub anchor: Var,

@@ -138,7 +138,7 @@ impl StuScorer {
     /// Matches whose pattern has not been observed get `stu_score = 1.0`
     /// (maximally unsurprising — no data to distinguish).
     #[allow(clippy::type_complexity)]
-    pub fn score<N: Debug + Clone, V: Debug + Clone, T: Debug + Clone>(
+    pub fn score<N: Debug + Clone + PartialEq, V: Debug + Clone + PartialEq, T: Debug + Clone + PartialEq>(
         &self,
         matches_with_props: &[(Match<N, V, T>, Vec<String>)],
     ) -> Vec<StuScoredMatch<N, V, T>> {

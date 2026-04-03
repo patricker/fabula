@@ -28,6 +28,7 @@ impl NumericTime for f32 { fn as_f64(&self) -> f64 { *self as f64 } }
 /// A time interval `[start, end)`. If `end` is `None`, the interval is open-ended
 /// (still active / ongoing).
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Interval<T> {
     /// Inclusive start of the interval.
     pub start: T,
@@ -193,6 +194,7 @@ impl<T: fmt::Display> fmt::Display for Interval<T> {
 
 /// Allen's 13 mutually exclusive temporal relations between two bounded intervals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum AllenRelation {
     /// A ends before B starts.
     Before,

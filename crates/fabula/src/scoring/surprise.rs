@@ -63,7 +63,7 @@ impl SurpriseScorer {
     /// Call this once per `evaluate()` call. Increments the round counter
     /// and counts each pattern that matched (at most once per pattern per round,
     /// so `p` stays in [0, 1] as a true probability).
-    pub fn observe<N: Debug, V: Debug, T: Debug + Clone, L, VV>(
+    pub fn observe<N: Debug + PartialEq, V: Debug + PartialEq, T: Debug + Clone + PartialEq, L, VV>(
         &mut self,
         matches: &[Match<N, V, T>],
         patterns: &[Pattern<L, VV>],
@@ -111,7 +111,7 @@ impl SurpriseScorer {
     ///
     /// Returns one `ScoredMatch` per input match, annotated with the pattern's
     /// current surprise score. Patterns without a baseline get score 0.0.
-    pub fn score<N: Debug + Clone, V: Debug + Clone, T: Debug + Clone, L, VV>(
+    pub fn score<N: Debug + Clone + PartialEq, V: Debug + Clone + PartialEq, T: Debug + Clone + PartialEq, L, VV>(
         &self,
         matches: &[Match<N, V, T>],
         patterns: &[Pattern<L, VV>],

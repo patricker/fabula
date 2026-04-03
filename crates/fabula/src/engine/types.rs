@@ -17,8 +17,9 @@ pub(super) type MatchCandidate<N, V, T> = (HashMap<String, BoundValue<N, V>>, Ha
 
 /// A complete match — all stages satisfied, temporal constraints met,
 /// negation windows clear.
-#[derive(Debug, Clone)]
-pub struct Match<N: Debug, V: Debug, T: Debug + Clone> {
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct Match<N: Debug + PartialEq, V: Debug + PartialEq, T: Debug + Clone + PartialEq> {
     /// Which pattern matched.
     pub pattern: String,
     /// Index of the pattern in the engine's registry.
@@ -31,8 +32,37 @@ pub struct Match<N: Debug, V: Debug, T: Debug + Clone> {
     pub intervals: HashMap<String, Interval<T>>,
 }
 
+/// Order-independent hash of a HashMap. Uses XOR of per-entry hashes
+/// so iteration order doesn't affect the result.
+fn hash_map_order_independent<K: Hash, V: Hash, H: Hasher>(map: &HashMap<K, V>, state: &mut H) {
+    let mut xor: u64 = 0;
+    for (k, v) in map {
+        let mut entry_hasher = std::collections::hash_map::DefaultHasher::new();
+        k.hash(&mut entry_hasher);
+        v.hash(&mut entry_hasher);
+        xor ^= std::hash::Hasher::finish(&entry_hasher);
+    }
+    xor.hash(state);
+    map.len().hash(state);
+}
+
+impl<N, V, T> Hash for Match<N, V, T>
+where
+    N: Debug + PartialEq + Hash,
+    V: Debug + PartialEq + Hash,
+    T: Debug + Clone + PartialEq + Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.pattern.hash(state);
+        self.pattern_idx.hash(state);
+        hash_map_order_independent(&self.bindings, state);
+        hash_map_order_independent(&self.intervals, state);
+    }
+}
+
 /// A value bound to a variable — either a node reference or a data value.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BoundValue<N: Debug, V: Debug> {
     /// A graph node (can be followed as a source in subsequent clauses).
     Node(N),
@@ -136,6 +166,7 @@ pub enum SiftEvent<N: Debug, V: Debug> {
 
 /// Result of `why_not` — clause-by-clause analysis of why a pattern didn't match.
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GapAnalysis {
     pub pattern: String,
     pub stages: Vec<StageAnalysis>,
@@ -163,6 +194,7 @@ impl GapAnalysis {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct StageAnalysis {
     pub anchor: String,
     pub status: StageStatus,
@@ -170,6 +202,7 @@ pub struct StageAnalysis {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum StageStatus {
     Matched,
     PartiallyMatched { matched: usize, total: usize },
@@ -177,6 +210,7 @@ pub enum StageStatus {
 }
 
 #[derive(Debug)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct ClauseAnalysis {
     pub description: String,
     pub matched: bool,

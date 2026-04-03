@@ -7,5 +7,9 @@ description = "Incremental pattern matching over temporal graphs — core librar
 keywords = ["graph", "pattern-matching", "temporal", "sifting", "narrative"]
 categories = ["algorithms", "data-structures"]
 
+[features]
+serde = ["dep:serde"]
+
 [dependencies]
-# Zero external dependencies. This is intentional.
+# Zero external dependencies by default. This is intentional.
+serde = { version = "1", features = ["derive"], optional = true }

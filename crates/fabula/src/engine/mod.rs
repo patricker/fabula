@@ -41,7 +41,10 @@ mod eval;
 mod free;
 
 pub use types::*;
-pub use free::{evaluate_pattern, gap_analysis};
+pub use free::{
+    evaluate_pattern, evaluate_pattern_at, evaluate_pattern_first, evaluate_pattern_limit,
+    gap_analysis, gap_analysis_at,
+};
 
 // ---------------------------------------------------------------------------
 // The engine

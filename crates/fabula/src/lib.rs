@@ -47,9 +47,10 @@ pub mod scoring;
 /// Convenience re-exports for common usage.
 pub mod prelude {
     pub use crate::builder::PatternBuilder;
-    pub use crate::datasource::{DataSource, ValueConstraint};
+    pub use crate::datasource::{DataSource, Label, NodeId, Val, ValueConstraint};
     pub use crate::engine::{
-        evaluate_pattern, gap_analysis,
+        evaluate_pattern, evaluate_pattern_at, evaluate_pattern_first, evaluate_pattern_limit,
+        gap_analysis, gap_analysis_at,
         BoundValue, EngineStats, GapAnalysis, Match, MatchState, PartialMatch, PatternMetrics,
         PlantPayoffPair, PlantStatus, SiftEngine, SiftEngineFor, SiftEvent, StageAnalysis, StageStatus,
         ClauseAnalysis, TickDelta,

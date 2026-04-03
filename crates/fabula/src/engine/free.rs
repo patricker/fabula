@@ -37,6 +37,77 @@ where
     evaluate_pattern_at(ds, pattern, &now)
 }
 
+/// Evaluate a single pattern, returning only the first complete match.
+///
+/// Stops as soon as one match is found — O(1) matches instead of O(all).
+/// For the common case where you only need "does at least one match exist?"
+pub fn evaluate_pattern_first<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    pattern: &Pattern<L, V>,
+) -> Option<Match<N, V, T>>
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+{
+    let now = ds.now();
+    evaluate_pattern_limit(ds, pattern, &now, 1).into_iter().next()
+}
+
+/// Evaluate a single pattern, returning at most `max` complete matches.
+///
+/// Stops candidate expansion early when possible. For storylet pools where
+/// 50 matches exist but only the top 5 matter.
+pub fn evaluate_pattern_limit<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    pattern: &Pattern<L, V>,
+    at: &T,
+    max: usize,
+) -> Vec<Match<N, V, T>>
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+{
+    if max == 0 || pattern.stages.is_empty() {
+        return Vec::new();
+    }
+
+    let mut candidates: Vec<MatchCandidate<N, V, T>> =
+        find_stage_matches(ds, &pattern.stages[0], &HashMap::new(), at);
+
+    for stage in &pattern.stages[1..] {
+        let mut next = Vec::new();
+        for (bindings, intervals) in &candidates {
+            for (new_b, new_i) in find_stage_matches(ds, stage, bindings, at) {
+                let mut merged_b = bindings.clone();
+                merged_b.extend(new_b);
+                let mut merged_i = intervals.clone();
+                merged_i.extend(new_i);
+                next.push((merged_b, merged_i));
+            }
+        }
+        candidates = next;
+    }
+
+    candidates
+        .into_iter()
+        .filter(|(bindings, intervals)| {
+            check_temporal(pattern, intervals)
+                && check_negations_batch(ds, pattern, bindings, intervals)
+        })
+        .take(max)
+        .map(|(bindings, intervals)| Match {
+            pattern: pattern.name.clone(),
+            pattern_idx: None,
+            bindings,
+            intervals,
+        })
+        .collect()
+}
+
 /// Standalone gap analysis — why hasn't this pattern matched?
 ///
 /// This is the standalone equivalent of [`super::SiftEngine::why_not`]. It
@@ -60,10 +131,15 @@ where
 }
 
 // ---------------------------------------------------------------------------
-// Internal helpers — pub(super) for use by SiftEngine methods in eval.rs
+// Public variants with explicit time parameter
 // ---------------------------------------------------------------------------
 
-pub(super) fn evaluate_pattern_at<N, L, V, T>(
+/// Evaluate a single pattern at a specific time point.
+///
+/// Like [`evaluate_pattern`] but takes an explicit `at` time instead of
+/// calling `ds.now()`. Useful for speculative evaluation — checking what
+/// would match at a future or past timestamp without mutating the graph's clock.
+pub fn evaluate_pattern_at<N, L, V, T>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
     pattern: &Pattern<L, V>,
     now: &T,
@@ -110,7 +186,11 @@ where
         .collect()
 }
 
-pub(super) fn gap_analysis_at<N, L, V, T>(
+/// Standalone gap analysis at a specific time point.
+///
+/// Like [`gap_analysis`] but takes an explicit `at` time instead of
+/// calling `ds.now()`.
+pub fn gap_analysis_at<N, L, V, T>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
     pattern: &Pattern<L, V>,
     now: &T,
