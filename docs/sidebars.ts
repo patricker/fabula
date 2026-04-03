@@ -41,6 +41,8 @@ const sidebars: SidebarsConfig = {
         'reference/datasource',
         'reference/patterns',
         'reference/engine',
+        'reference/scoring',
+        'reference/narratives',
         'reference/dsl',
         {
           type: 'category',

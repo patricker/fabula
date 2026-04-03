@@ -81,6 +81,16 @@ A negation window says "these clauses must NOT match between two events." This i
 
 Negation windows are scoped to a temporal range (between two bound events, after a single event, or globally across the entire pattern). All clauses in a negation block must match the same entity for the negation to fire.
 
+## Beyond matching: scoring and lifecycle
+
+Fabula's core engine finds pattern matches. Two optional layers add higher-level capabilities:
+
+**Surprise scoring** (`fabula::scoring`). Rank matches by how unexpected they are. `SurpriseScorer` uses Shannon surprise relative to baseline frequencies. `StuScorer` uses the StU heuristic to score matches by the rarity of their individual properties (traits, factions, relationship types). Both operate as post-processing -- no engine modification required.
+
+**Narrative scoring** (`fabula-narratives` crate). Scoring signals for MCTS-based narrative management: thread lifecycle tracking (MICE-style open/close with FILO nesting validation), tension trajectory sampling (rising/falling/plateau), event distribution shift detection (JSD pivot measure), and a composite quality function with configurable weights.
+
+Both are optional. The core engine works fine without them.
+
 ## Where to go next
 
 - [How the Engine Works](./how-the-engine-works.md) -- the 4-phase incremental algorithm
@@ -88,3 +98,5 @@ Negation windows are scoped to a temporal range (between two bound events, after
 - [Design Decisions](./design-decisions.md) -- why fabula is built the way it is
 - [Pattern Cookbook](../guides/pattern-cookbook.md) -- worked recipes for common pattern types
 - [Incremental Integration](../guides/incremental-integration.md) -- wire fabula into a live simulation
+- [Scoring Reference](../reference/scoring.md) -- SurpriseScorer and StuScorer API
+- [Narrative Scoring Reference](../reference/narratives.md) -- thread, tension, pivot, and composite scorer API

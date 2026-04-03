@@ -186,3 +186,124 @@ pattern two_impulsive_betrayals {
 Note that `mid` in the negation block has no `?` — it is a scan root (the engine searches for any node matching the clauses). But `?char` on the right side of `->` references the bound variable from the parent pattern.
 
 Try this in the [Pattern Playground](/docs/playground/pattern-playground).
+
+## Compose Syntax
+
+Compose directives combine named patterns into larger patterns. Three operators are supported.
+
+```
+compose <name> = <pattern_a> >> <pattern_b> sharing(<var>, ...)   // sequence
+compose <name> = <pattern_a> | <pattern_b> | <pattern_c>         // exclusive choice
+compose <name> = <pattern> * <count> sharing(<var>, ...)          // repeat
+```
+
+### Sequence (`>>`)
+
+Creates a new pattern whose stages are `A`'s stages followed by `B`'s stages. Variables listed in `sharing(...)` are joined across the two patterns.
+
+```
+pattern setup {
+  stage e1 { e1.eventType = "promise"  e1.actor -> ?char }
+}
+pattern payoff {
+  stage e2 { e2.eventType = "fulfill"  e2.actor -> ?char }
+}
+
+compose promise_kept = setup >> payoff sharing(char)
+```
+
+### Choice (`|`)
+
+Registers all alternatives as separate patterns with a shared `group`. When one alternative completes, the engine kills active PMs for all sibling alternatives (exclusive choice).
+
+```
+compose crisis = war | famine | plague
+```
+
+### Repeat (`*`)
+
+Creates a sequence of N copies of the same pattern. Variables listed in `sharing(...)` are joined across all copies (the same actor in each repetition).
+
+```
+compose three_strikes = offense * 3 sharing(offender)
+```
+
+### Rules
+
+- All referenced patterns must be defined before the compose directive (no forward references).
+- `sharing(...)` is required for sequence and repeat when you want cross-pattern variable joins. Omit it for independent patterns.
+- Compose chains work: `compose ab = a >> b` then `compose abc = ab >> c`.
+- Variables are automatically renamed to avoid collisions (e.g., `e1` becomes `e1_0`, `e1_1`).
+
+---
+
+## TypeMapper
+
+By default, the DSL compiles patterns to `Pattern<String, MemValue>`. The `TypeMapper` trait lets you compile directly to a different type system.
+
+### `TypeMapper` trait
+
+```rust
+pub trait TypeMapper {
+    type L: Clone + Debug;  // label type
+    type V: Clone + Debug;  // value type
+
+    fn label(&self, s: &str) -> Result<Self::L, String>;
+    fn string_value(&self, s: &str) -> Result<Self::V, String>;
+    fn num_value(&self, n: f64) -> Result<Self::V, String>;
+    fn bool_value(&self, b: bool) -> Result<Self::V, String>;
+    fn node_ref(&self, name: &str) -> Result<Self::V, String>;
+}
+```
+
+All methods return `Result` to support fallible mappings (e.g., looking up a label in a predicate registry).
+
+### `MemMapper`
+
+The default mapper, producing `Pattern<String, MemValue>`. Used by `parse_pattern()` and `parse_document()`.
+
+### Custom mappers
+
+```rust
+use fabula_dsl::{TypeMapper, parse_pattern_with};
+
+struct WkMapper { labels: HashMap<String, u32> }
+
+impl TypeMapper for WkMapper {
+    type L = u32;
+    type V = paracausality::Value;
+
+    fn label(&self, s: &str) -> Result<u32, String> {
+        self.labels.get(s).copied()
+            .ok_or_else(|| format!("unknown predicate '{}'", s))
+    }
+    fn string_value(&self, s: &str) -> Result<Value, String> { Ok(Value::Str(s.into())) }
+    fn num_value(&self, n: f64) -> Result<Value, String> { Ok(Value::Num(n)) }
+    fn bool_value(&self, b: bool) -> Result<Value, String> { Ok(Value::Bool(b)) }
+    fn node_ref(&self, name: &str) -> Result<Value, String> { Ok(Value::Entity(name.parse()?)) }
+}
+
+let pattern = parse_pattern_with("pattern test { stage e { e.type = \"harm\" } }", &WkMapper { .. })?;
+// pattern is Pattern<u32, Value>
+```
+
+### `ParsedDocument<L, V>`
+
+`parse_document()` returns `ParsedDocument` (defaults to `<String, MemValue>`). `parse_document_with(input, &mapper)` returns `ParsedDocument<M::L, M::V>`.
+
+```rust
+pub struct ParsedDocument<L = String, V = MemValue> {
+    pub patterns: Vec<Pattern<L, V>>,
+    pub graphs: Vec<MemGraph>,   // always MemGraph (graphs are test-only)
+}
+```
+
+### Functions
+
+| Function | Returns | Description |
+|----------|---------|-------------|
+| `parse_pattern(input)` | `Result<Pattern<String, MemValue>>` | Parse a single pattern with `MemMapper`. |
+| `parse_pattern_with(input, mapper)` | `Result<Pattern<M::L, M::V>>` | Parse a single pattern with a custom mapper. |
+| `parse_graph(input)` | `Result<MemGraph>` | Parse a graph definition. |
+| `parse_document(input)` | `Result<ParsedDocument>` | Parse a full document (patterns + graphs + composes) with `MemMapper`. |
+| `parse_document_with(input, mapper)` | `Result<ParsedDocument<M::L, M::V>>` | Parse a full document with a custom mapper. |

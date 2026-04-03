@@ -1,7 +1,7 @@
 # Fabula — Design Document
 
 **Status**: Living document
-**Date**: 2026-03-30
+**Date**: 2026-04-02
 
 Fabula is a Rust library for incremental pattern matching over temporal graphs. It is a port and extension of [Felt](https://github.com/mkremins/felt) (Kreminski et al., ICIDS 2019) and [Winnow](https://github.com/mkremins/winnow) (Kreminski et al., AIIDE 2021), which are JavaScript/ClojureScript libraries for **story sifting** — extracting narratively compelling event sequences from simulation output.
 
@@ -185,7 +185,14 @@ Fabula is a Rust implementation that provides the **sifting and incremental matc
 | **Default negation bounds** | N/A | First/last event in pattern | `unless_after` (open end) + explicit bounds |
 | **Death details** | N/A | `{eventID, constraint}` | `SiftEvent::Negated { negation_label }` |
 | **Query rules** | `setQueryRules` | Inherited | Not applicable (no Datalog) |
-| **Text DSL** | N/A | S-expression parser + compiler | Planned (builder API is primary) |
+| **Text DSL** | N/A | S-expression parser + compiler | `fabula-dsl` crate: lexer + parser + compiler + TypeMapper |
+| **Pattern composition** | N/A | N/A | `compose` module: sequence (`>>`), choice (`\|`), repeat (`*`) |
+| **Surprise scoring** | N/A | N/A | `scoring` module: Shannon surprise + StU (Kreminski 2022) |
+| **Narrative scoring** | N/A | N/A | `fabula-narratives` crate: threads, tension, pivots, MCTS scorer |
+| **Metric temporal** | N/A | N/A | STN-style gap bounds on Allen relations (Dechter/Meiri/Pearl 1991) |
+| **Pattern lifecycle** | N/A | N/A | Enable/disable/deregister, per-pattern metrics, staleness |
+| **Plant/payoff tracking** | N/A | N/A | Chekhov's gun monitoring + staleness detection |
+| **MCTS forking** | N/A | N/A | `Clone` impl for speculative evaluation |
 | **Action system** | `registerAction` + `possibleActions` + `addEvent` + effects | Inherited | **Not in scope** — see below |
 | **Partial match survival** | N/A | Original PM returned with `lastStep: "pass"` | Original PM remains in `partial_matches` vec |
 
@@ -343,44 +350,48 @@ A character acts against their own values, then gets criticized by an opponent. 
 
 ## Implementation Status
 
-### Done
+### Core Library (`fabula`)
 - Allen interval algebra with all 13 relations (generic over time type)
 - Metric temporal constraints (STN-style gap bounds on Allen relations via `gap min..max`)
 - DataSource trait (generic over N, L, V, T)
-- MemGraph reference implementation
-- Pattern types (Stage, Clause, Target, TemporalConstraint, Negation)
-- Builder API for pattern construction
-- SiftEngine: batch evaluation (`evaluate`)
-- SiftEngine: incremental matching (`on_edge_added`)
-- SiftEngine: gap analysis (`why_not`)
-- SiftEngine: drain completed matches (`drain_completed`)
-- BoundValue generic over `<N, V>` (proper equality, no Debug formatting)
+- `SiftEngine<N, L, V, T>` -- decoupled from DataSource, with `SiftEngineFor<DS>` alias
+- Batch evaluation (`evaluate`), incremental matching (`on_edge_added`), gap analysis (`why_not`)
+- Drain completed matches (`drain_completed`)
+- BoundValue generic over `<N, V>` with closure-based matching (decoupled from DataSource)
 - Negation checks verify all clauses + bound variable consistency
 - Variable binding from all stage clauses (not just first)
-- Integration tests porting Winnow's hospitality scenario
+- Fingerprint-based PM deduplication (XOR hashing, zero-allocation rebuild)
+- Pattern lifecycle: enable/disable/deregister, per-pattern metrics, staleness detection
+- TickDelta reporting for GM integration
+- Plant/payoff (Chekhov's gun) tracking with staleness alerts
+- Manual `Clone` for MCTS forking (empty tick accumulators in clone)
+- Pattern composition: sequence, exclusive choice, repeat with variable sharing
+- Surprise scoring: Shannon surprise (`SurpriseScorer`) + StU property-level (`StuScorer`)
+- Pattern types with `PartialEq` derives and `map_types()` for type conversion
 
-### Remaining for Parity
+### DSL (`fabula-dsl`)
+- Lexer + parser + compiler for pattern and graph syntax
+- Strict variable/literal distinction: `?var.label` vs `name.label` with compile-time scope validation
+- Compose operators: `>>` (sequence), `|` (choice), `*` (repeat) with `sharing()`
+- `TypeMapper` trait for compiling to arbitrary type systems + `MemMapper` default
+- `ParsedDocument<L, V>` generic with defaults for backward compatibility
 
-| Feature | Priority | Notes |
-|---|---|---|
-| Text DSL (Winnow syntax → Pattern) | Done | `fabula-dsl` crate: lexer + parser + compiler. |
-| Strict variable/literal distinction | Done | `?var.label` for bound variables, `name.label` for literals. Compile-time scope validation catches unbound `?var` references. |
-| Statistical surprise scoring | Low | From "Select the Unexpected" (Kreminski, ICIDS 2022) |
-| Partial match deduplication | Done | Fingerprint-based dedup in `on_edge_added` Phase 2/3. Deterministic canonical-string fingerprint of `(pattern_idx, next_stage, bindings, intervals)`. |
+### Narrative Scoring (`fabula-narratives`)
+- Thread lifecycle management (MICE-style open/close, FILO nesting validation)
+- Tension trajectory sampling and classification (Rising/Falling/Plateau/Peak/Valley)
+- Pivot detection via Jensen-Shannon Divergence on event distributions
+- Composite MCTS quality function with configurable weights and explainable breakdown
 
-### Resolved (this session)
+### Adapters
+- `fabula-memory`: MemGraph (Vec-backed linear scan)
+- `fabula-petgraph`: PetTemporalGraph (wraps petgraph StableGraph)
+- `fabula-grafeo`: GrafeoGraph (wraps Grafeo graph database)
 
-| Feature | Status |
-|---|---|
-| Default negation bounds (first/last event) | Done — `unless_global` resolves to first/last stage anchors at build time |
-| Death details (which constraint + event killed) | Done — `SiftEvent::Negated` carries `clause_label` + `trigger_source` |
-| NegationBuilder missing `edge_constrained` | Done |
-| ValueConstraint in patterns (Lt, Gt) | Done — tested |
-| Open-ended negation (`unless_after`) | Done — tested |
-| Temporal constraint violation tests | Done — tested |
-| Romantic arc (3-stage tag-based) | Done — tested |
-| Global negation (Winnow default between) | Done — tested |
-| Clippy clean | Done — zero warnings |
+### Testing & Tooling
+- Golden test suite: 61 scenarios x 3 adapters = 183 tests
+- 422+ total tests across all crates
+- Benchmark harness (divan) + profiling binary
+- WASM bindings for DSL parsing and evaluation
 
 ### Out of Scope (belongs in consuming systems)
 

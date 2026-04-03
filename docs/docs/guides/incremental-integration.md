@@ -19,7 +19,7 @@ title: Incremental Integration
 use fabula::prelude::*;
 use fabula_memory::{MemGraph, MemValue};
 
-let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
 // Pattern: betrayal after hospitality
 engine.register(
@@ -93,7 +93,7 @@ use fabula::prelude::*;
 use fabula_memory::{MemGraph, MemValue};
 
 fn main() {
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     let mut graph = MemGraph::new();
 
     // Register the hospitality violation pattern
@@ -227,6 +227,40 @@ The number of active partial matches grows as events arrive and patterns partial
 - **Dead matches are cleaned automatically** -- the engine removes them at the end of each `on_edge_added` call.
 - **Active partial matches that will never complete** (stale matches) are not automatically garbage-collected. If you know a partial match can never complete (e.g., the simulation has moved far past the temporal window), there is currently no API to prune them.
 - **Monitor `partial_matches().len()`** to track growth. If it grows without bound, you may have patterns with very common first stages that create many partial matches.
+
+## Tick deltas and scoring
+
+For GM-style integration (MCTS evaluation, narrative quality scoring), use `end_tick()` to get a per-tick summary:
+
+```rust
+// After processing all edges for this tick:
+let delta = engine.end_tick(50); // stale threshold = 50 ticks
+
+// delta.advanced — patterns that progressed this tick
+// delta.completed — patterns that fully matched
+// delta.negated — patterns that were killed
+// delta.stalled — patterns with active PMs that haven't advanced in 50+ ticks
+// delta.active_pm_count — total active partial matches
+```
+
+Feed the delta into `fabula-narratives` for composite scoring:
+
+```rust
+use fabula_narratives::scorer::{assemble_signals, score, NarrativeWeights};
+use fabula_narratives::tension::Trajectory;
+
+let plant_statuses = engine.plant_status(50);
+let filo_violations = tracker.check_filo().len();
+let signals = assemble_signals(
+    &delta, &plant_statuses, filo_violations,
+    tension.trajectory(), Trajectory::Rising, // desired trajectory
+    pivot.last_pivot(), surprise_score,
+);
+let result = score(&signals, &NarrativeWeights::default());
+// result.total — composite narrative quality score
+```
+
+See the [Scoring Reference](../reference/scoring.md) and [Narrative Scoring Reference](../reference/narratives.md) for full API details.
 
 ## Performance notes
 

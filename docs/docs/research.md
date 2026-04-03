@@ -76,11 +76,40 @@ James Allen's foundational paper defines 13 mutually exclusive relations between
 
 - **Paper**: Allen, J.F. (1983). Maintaining Knowledge about Temporal Intervals. *Communications of the ACM* 26(11), 832-843.
 
+### Simple Temporal Networks (AI 1991)
+
+Dechter, Meiri, and Pearl formalize quantitative temporal constraints as bounded differences between time points. Meiri (1996) extends this to combine qualitative Allen relations with quantitative metric constraints. Fabula's `gap min..max` syntax implements per-constraint metric bounds checked during evaluation — not a full STN solver, but the same bounded-difference formalism.
+
+- **Paper**: Dechter, R., Meiri, I., & Pearl, J. (1991). Temporal Constraint Networks. *Artificial Intelligence* 49(1-3), 61-95.
+- **Paper**: Meiri, I. (1996). Combining Qualitative and Quantitative Constraints in Temporal Reasoning. *Artificial Intelligence* 87(1-2), 343-385.
+
 ### TABGP — Temporal Graph Pattern Matching (VLDB 2023)
 
 A database-oriented approach to temporal graph pattern matching using timed automata. TABGP focuses on query performance over large graph databases — a complementary concern to fabula's focus on incremental matching within simulations.
 
 - **Code**: [github.com/amirpouya/TABGP](https://github.com/amirpouya/TABGP)
+
+### Narrative scoring research
+
+Fabula's `fabula-narratives` crate implements scoring signals for MCTS-based narrative management. Each module is grounded in specific research:
+
+**Search-Based Drama Management (AIIDE 2005)**. Nelson and Mateas formalize the game master as an optimizer with a quality function over narrative states. The GM searches a tree of possible future actions, scoring each by narrative desirability. Fabula's `scorer` module is this quality function — a composite of weighted signals producing a single score for MCTS evaluation.
+
+- **Paper**: Nelson, M.J. & Mateas, M. (2005). Search-Based Drama Management in the Interactive Fiction Anchorhead. AIIDE 2005.
+
+**Narrative Information Theory (arXiv 2024)**. Schulz et al. define five information-theoretic measures of narrative (Complexity, Pivot, Predictability, Suspense, Plot Twist). Fabula's `pivot` module implements the Pivot measure: Jensen-Shannon Divergence between consecutive event-type distributions. JSD is symmetric and bounded in [0, 1], making it directly comparable across ticks.
+
+- **Paper**: Schulz, J., et al. (2024). Narrative Information Theory. arXiv:2411.12907.
+
+**Left 4 Dead AI Director (GDC 2009)**. Booth describes Valve's AI Director as a pacing system that tracks player stress via trajectory sampling and adjusts intensity accordingly. Fabula's `tension` module adapts this approach: sample a numeric value per tick, classify the trajectory (Rising/Falling/Plateau/Peak/Valley) via linear regression and split-window analysis.
+
+- **Talk**: Booth, M. (2009). The AI Systems of Left 4 Dead. GDC AI Summit.
+
+**Suspense and Surprise (AER 2015)**. Ely, Frankel, and Kamenica model suspense as entropy of future outcomes and surprise as divergence between predicted and actual outcomes. The key insight for tension scoring: trajectory (how values change) matters more than absolute level.
+
+- **Paper**: Ely, J., Frankel, A., & Kamenica, E. (2015). Suspense and Surprise. *Journal of Political Economy* 123(1), 215-260.
+
+**MICE Quotient (Writing Excuses)**. Mary Robinette Kowal's framework categorizes narrative threads as Milieu, Inquiry, Character, or Event. Well-formed stories close threads in reverse order of opening (FILO — First In, Last Out). Fabula's `thread` module tracks open/close pairs and validates nesting order.
 
 ---
 
@@ -98,5 +127,11 @@ Fabula is a Rust implementation of the sifting and incremental matching ideas fr
 | **Gap analysis** | Felt's `whyNot` (clause-by-clause). Winnow: none. | `why_not` returns a structured `GapAnalysis` with per-stage, per-clause status and failure reasons. |
 | **Negation** | `not-join` (Felt); `unless-event between` (Winnow). | `unless_between`, `unless_after` (open-ended), `unless_global` (full-pattern span). Multi-clause negation bodies. |
 | **Death details** | Winnow tracks `{eventID, constraint}`. | `SiftEvent::Negated` carries the triggering clause label and source node. |
+| **Text DSL** | N/A | Winnow's S-expression syntax | `fabula-dsl` crate with TypeMapper for compiling to arbitrary type systems. |
+| **Composition** | N/A | N/A | Sequence (`>>`), choice (`\|`), repeat (`*`) with variable sharing. |
+| **Surprise scoring** | N/A | N/A | Shannon surprise + StU property-level scoring (Kreminski 2022). |
+| **Narrative scoring** | N/A | N/A | `fabula-narratives` crate: threads, tension, pivots, composite MCTS quality function. |
+| **Metric temporal** | N/A | N/A | STN-style gap bounds on Allen relations (Dechter/Meiri/Pearl 1991). |
+| **Pattern lifecycle** | N/A | N/A | Enable/disable, metrics, staleness, plant/payoff tracking, MCTS forking. |
 
 The core insight that sifting patterns and simulation can share a query language carries forward from Felt. Fabula narrows its scope to the sifting side so it can be embedded in any simulation system — from game engines to procedural world generators — without imposing a specific action or effect model.

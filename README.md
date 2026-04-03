@@ -52,19 +52,32 @@ assert_eq!(matches.len(), 1);
 - **Partial match tracking** -- know how close each pattern is to completion at any moment
 - **Gap analysis (`why_not`)** -- clause-by-clause breakdown of why a pattern hasn't matched
 - **Allen interval algebra** -- 13 temporal relations (before, after, meets, overlaps, during, contains, starts, finishes, equals, and inverses)
+- **Metric temporal constraints** -- STN-style bounded gap constraints on Allen relations (`gap 3..10`)
 - **Negation windows** -- "no event of type X between events A and B"
 - **Value constraints** -- Eq, Lt, Gt, Lte, Gte, Between, Any
+- **Pattern composition** -- sequence (`>>`), exclusive choice (`|`), repeat (`*`) with variable sharing
+- **Text DSL** -- human-readable pattern syntax with strict variable scoping and compose operators
+- **Surprise scoring** -- Shannon surprise + StU (Select the Unexpected) property-level scoring
+- **Narrative scoring** -- thread tracking, tension arcs, pivot detection, composite MCTS quality function
+- **Pattern lifecycle** -- enable/disable/deregister, per-pattern metrics, staleness detection
+- **Plant/payoff tracking** -- Chekhov's gun monitoring with staleness alerts
+- **MCTS forking** -- clone engine state for speculative evaluation
+- **TypeMapper** -- compile DSL patterns to arbitrary type systems (e.g., Paracausality `u32` predicates)
 - **Zero dependencies** in the core crate
 
 ## Crates
 
 | Crate | Dependencies | Purpose |
 |---|---|---|
-| [`fabula`](crates/fabula) | None | Core library: pattern types, `DataSource` trait, `SiftEngine`, Allen algebra |
+| [`fabula`](crates/fabula) | None | Core library: pattern types, `DataSource` trait, `SiftEngine`, Allen algebra, scoring |
 | [`fabula-memory`](crates/fabula-memory) | `fabula` | `MemGraph` -- simple in-memory `DataSource` for testing and prototyping |
 | [`fabula-petgraph`](crates/fabula-petgraph) | `fabula`, `petgraph` | `DataSource` adapter wrapping `petgraph::StableGraph` with temporal edges |
 | [`fabula-grafeo`](crates/fabula-grafeo) | `fabula`, `grafeo` | `DataSource` adapter for the [Grafeo](https://github.com/GrafeoDB/grafeo) graph database |
-| [`fabula-test-suite`](crates/fabula-test-suite) | all of the above | Golden test suite: 61 scenarios running against all 3 adapters (183 tests) |
+| [`fabula-dsl`](crates/fabula-dsl) | `fabula`, `fabula-memory` | Text DSL parser: pattern syntax, graph syntax, compose operators, TypeMapper |
+| [`fabula-narratives`](crates/fabula-narratives) | `fabula` | Narrative scoring: thread tracking, tension arcs, pivot detection, MCTS quality function |
+| [`fabula-wasm`](crates/fabula-wasm) | `fabula`, `fabula-dsl`, `fabula-memory` | WebAssembly bindings for DSL parsing and evaluation |
+| [`fabula-test-suite`](crates/fabula-test-suite) | all adapters | Golden test suite: 61 scenarios running against all 3 adapters (183 tests) |
+| [`fabula-bench`](crates/fabula-bench) | `fabula`, adapters | Benchmark harness: divan parameterized benchmarks + profiling binary |
 
 ## The DataSource Trait
 
@@ -167,7 +180,7 @@ Implement `DataSource` for your graph store. See the adapter crates for examples
 ## Testing
 
 ```bash
-cargo test --workspace           # 265 tests across all crates
+cargo test --workspace           # 422+ tests across all crates
 cargo test -p fabula-test-suite  # 183 golden tests (61 scenarios x 3 adapters)
 cargo clippy --workspace -- -D warnings
 ```
@@ -188,9 +201,15 @@ Fabula is a Rust port and extension of:
 Extensions beyond Felt/Winnow:
 
 - **Allen interval algebra** instead of entity-ID ordering for temporal constraints
+- **Metric temporal constraints** (STN gap bounds -- Dechter/Meiri/Pearl 1991)
 - **Generic `DataSource` trait** instead of DataScript coupling
+- **Decoupled `SiftEngine<N,L,V,T>`** -- engine outlives any particular DataSource
 - **Multiple adapter crates** for real-world graph backends
 - **Gap analysis (`why_not`)** for debugging unmatched patterns
+- **Pattern composition** (Kreminski et al. 2025 FDG) -- sequence, choice, repeat
+- **Text DSL** with strict variable scoping, compose operators, and TypeMapper
+- **Surprise scoring** -- Shannon surprise + StU (Kreminski et al. 2022 ICIDS)
+- **Narrative scoring** -- thread tracking (Kowal MICE), tension arcs (Booth 2009), pivot detection (Schulz et al. 2024), composite MCTS quality function (Nelson & Mateas 2005)
 
 See [DESIGN.md](DESIGN.md) for the full feature mapping to the reference implementations.
 

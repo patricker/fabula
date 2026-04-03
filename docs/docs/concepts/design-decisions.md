@@ -69,13 +69,23 @@ The `fabula` crate has zero external dependencies. Not even `serde`, `log`, or `
 
 Your application depends on `fabula` plus whichever adapter crate matches your store. If none do, you implement `DataSource` yourself. See [Custom Adapter](../guides/custom-adapter.md).
 
+## 6. Scoring as post-processing, not engine modification
+
+Surprise scoring (Shannon surprise, StU property-level scoring) and narrative scoring (thread tracking, tension arcs, pivot detection) are implemented as separate modules and crates that operate on engine output. They do not modify the engine's matching logic.
+
+**Why.** The engine has one job: find matches. Scoring is inherently domain-specific -- what counts as "surprising" or "good narrative quality" varies by application. Keeping scoring separate means the engine stays small and general, while scoring modules can be composed, replaced, or omitted entirely.
+
+**What you lose.** Scoring cannot influence matching (e.g., "only advance patterns with surprise > 2.0"). If you need scoring-gated matching, implement it in your simulation loop by checking scores before feeding edges.
+
+**What you gain.** The engine stays simple and fast. Scoring modules are independently testable. You can use pattern matching without any scoring, or use scoring without the narrative quality function.
+
 ## Crate layout
 
 ```
 fabula/
   crates/
-    fabula/              Core library: engine, patterns, intervals, DataSource trait.
-                         Zero external dependencies.
+    fabula/              Core library: engine, patterns, intervals, DataSource trait,
+                         scoring, composition. Zero external dependencies.
 
     fabula-memory/       MemGraph: in-memory graph with linear scan.
                          Depends on: fabula
@@ -86,6 +96,18 @@ fabula/
     fabula-grafeo/       GrafeoGraph: grafeo-backed temporal graph.
                          Depends on: fabula, grafeo
 
+    fabula-dsl/          Text DSL parser: patterns, graphs, compose operators, TypeMapper.
+                         Depends on: fabula, fabula-memory
+
+    fabula-narratives/   Narrative scoring: threads, tension, pivots, MCTS quality function.
+                         Depends on: fabula
+
+    fabula-wasm/         WebAssembly bindings for DSL parsing and evaluation.
+                         Depends on: fabula, fabula-dsl, fabula-memory
+
+    fabula-bench/        Benchmark harness (divan) + profiling binary.
+                         Depends on: fabula, fabula-memory, fabula-petgraph
+
     fabula-test-suite/   Golden tests: TestGraph trait + scenarios + macro.
                          Depends on: fabula, fabula-memory, fabula-petgraph,
                                      fabula-grafeo, paste
@@ -95,13 +117,15 @@ The dependency graph flows strictly downward: `fabula-test-suite` depends on all
 
 ## Module overview for contributors
 
-The core `fabula` crate has five modules:
+The core `fabula` crate has seven modules:
 
 - **`interval`** -- `Interval<T>`, `AllenRelation` enum, relation classification, helper methods (`covers`, `intersects`, `before`, `meets`).
 - **`datasource`** -- `DataSource` trait (6 methods, 4 associated types), `Edge` struct, `ValueConstraint` enum (7 variants).
-- **`pattern`** -- `Pattern`, `Stage`, `Clause`, `Var`, `Target`, `TemporalConstraint`, `Negation`. These are data types -- no logic.
+- **`pattern`** -- `Pattern`, `Stage`, `Clause`, `Var`, `Target`, `TemporalConstraint`, `Negation`. Data types with `map_types()` for type conversion.
 - **`builder`** -- `PatternBuilder`, `StageBuilder`, `NegationBuilder`. Ergonomic API for constructing patterns.
-- **`engine`** -- `SiftEngine`, `Match`, `BoundValue`, `PartialMatch`, `MatchState`, `SiftEvent`, `GapAnalysis`. All matching logic lives here: batch evaluation, incremental matching, negation checking, gap analysis.
+- **`engine/`** -- `SiftEngine<N,L,V,T>`, lifecycle management (register, tick, enable/disable, metrics, plant/payoff), evaluation (batch, incremental, gap analysis), fork support (`Clone`).
+- **`compose`** -- Pattern composition operators: `sequence`, `choice`, `repeat` with variable renaming.
+- **`scoring/`** -- `SurpriseScorer` (Shannon surprise) and `StuScorer` (StU property-level scoring).
 
 ## Research lineage
 

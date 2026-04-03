@@ -1,7 +1,7 @@
 # Fabula Roadmap
 
 **Status**: Living document
-**Date**: 2026-03-31
+**Date**: 2026-04-02
 
 Research-driven expansion plan for fabula, organized in phases. Each phase
 builds on the previous and can be validated independently. Paracausality
@@ -617,14 +617,14 @@ Maps to Chomsky-like hierarchy for narrative pattern grammars.
 
 ## Summary
 
-| Phase | Theme | Key Deliverables |
-|-------|-------|------------------|
-| **1** | Polish & Parity | Variable distinction, negation validation, dedup, metric temporal, age tracking |
-| **2** | Benchmarking | Stats counters, profiling + divan harness, fingerprint optimization, conditional label indexing |
-| **3** | Composition | Pattern algebra, DSL compose syntax, surprise scoring |
-| **4** | Narrative Scoring | ~~Thread tracker~~, ~~tension tracker~~, ~~pivot detector~~, ~~MCTS scorer~~ |
-| **5** | Stack Integration | ~~Paracausality adapter~~, ~~lifecycle~~, ~~deltas~~, ~~MCTS fork~~, ~~plant/payoff~~, appraisal, gossip, causality |
-| **6** | Research | Formal semantics, scalability paper, expressiveness hierarchy |
+| Phase | Theme | Status | Key Deliverables |
+|-------|-------|--------|------------------|
+| **1** | Polish & Parity | DONE | Variable distinction, negation validation, dedup, metric temporal, age tracking |
+| **2** | Benchmarking | DONE (2.4 conditional) | Stats counters, profiling + divan harness, fingerprint optimization |
+| **3** | Composition | DONE | Pattern algebra, DSL compose syntax, surprise scoring (Shannon + StU) |
+| **4** | Narrative Scoring | DONE | Thread tracker, tension tracker, pivot detector, MCTS scorer |
+| **5** | Stack Integration | PARTIAL | ~~Paracausality adapter~~, ~~lifecycle~~, ~~deltas~~, ~~MCTS fork~~, ~~plant/payoff~~, appraisal, gossip, causality |
+| **6** | Research | FUTURE | Formal semantics, scalability paper, expressiveness hierarchy |
 
 ---
 
