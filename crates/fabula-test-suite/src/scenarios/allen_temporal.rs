@@ -23,7 +23,7 @@ pub fn batch_explicit_before_constraint<G: TestGraph>() {
         .temporal("e1", AllenRelation::Before, "e2")
         .build();
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -47,7 +47,7 @@ pub fn batch_explicit_before_constraint<G: TestGraph>() {
         .temporal("e1", AllenRelation::Before, "e2")
         .build();
 
-    let mut engine2: SiftEngine<G> = SiftEngine::new();
+    let mut engine2: SiftEngineFor<G> = SiftEngine::new();
     engine2.register(pattern2);
     assert_eq!(
         engine2.evaluate(&g2).len(),
@@ -77,7 +77,7 @@ pub fn batch_explicit_during_constraint<G: TestGraph>() {
         .temporal("e_inner", AllenRelation::During, "e_outer")
         .build();
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -104,7 +104,7 @@ pub fn batch_explicit_overlaps_constraint<G: TestGraph>() {
         .temporal("e1", AllenRelation::Overlaps, "e2")
         .build();
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),

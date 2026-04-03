@@ -21,7 +21,7 @@ pub fn batch_value_lt_matches<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "0.3 < 0.5 should match");
 }
@@ -44,7 +44,7 @@ pub fn batch_value_lt_no_match<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 0, "0.8 < 0.5 should not match");
 }
@@ -67,7 +67,7 @@ pub fn batch_value_between_matches<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "0.5 in [0.3, 0.7] should match");
 }
@@ -90,7 +90,7 @@ pub fn batch_value_gt_matches<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "0.8 > 0.5 should match");
 
@@ -111,7 +111,7 @@ pub fn batch_value_gt_matches<G: TestGraph>() {
         })
         .build();
 
-    let mut engine2: SiftEngine<G> = SiftEngine::new();
+    let mut engine2: SiftEngineFor<G> = SiftEngine::new();
     engine2.register(pattern2);
     assert_eq!(engine2.evaluate(&g2).len(), 0, "0.3 > 0.5 should not match");
 }
@@ -134,7 +134,7 @@ pub fn batch_value_eq_string<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "priority=important should match Eq");
 
@@ -155,7 +155,7 @@ pub fn batch_value_eq_string<G: TestGraph>() {
         })
         .build();
 
-    let mut engine2: SiftEngine<G> = SiftEngine::new();
+    let mut engine2: SiftEngineFor<G> = SiftEngine::new();
     engine2.register(pattern2);
     assert_eq!(engine2.evaluate(&g2).len(), 0, "priority=trivial should not match Eq(important)");
 }
@@ -192,7 +192,7 @@ pub fn batch_value_constraint_in_negation<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -229,7 +229,7 @@ pub fn batch_value_constraint_in_negation<G: TestGraph>() {
     g2.add_ref_edge("ev2", "actor", "alice", 3);
     g2.set_current_time(10);
 
-    let mut engine2: SiftEngine<G> = SiftEngine::new();
+    let mut engine2: SiftEngineFor<G> = SiftEngine::new();
     engine2.register(pattern2);
     assert_eq!(
         engine2.evaluate(&g2).len(),
@@ -256,7 +256,7 @@ pub fn batch_value_between_no_match<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 0, "0.9 not in [0.3, 0.7]");
 }

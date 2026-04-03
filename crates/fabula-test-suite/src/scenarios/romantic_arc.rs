@@ -39,7 +39,7 @@ pub fn batch_romantic_arc_matches<G: TestGraph>() {
     g.add_ref_edge("r3", "actor", "mira", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(romantic_pattern::<G>());
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -82,7 +82,7 @@ pub fn batch_romantic_arc_inline_negation<G: TestGraph>() {
     g.add_ref_edge("r3", "actor", "mira", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -122,7 +122,7 @@ pub fn batch_romantic_arc_inline_negation<G: TestGraph>() {
     g2.add_ref_edge("r3", "actor", "mira", 3);
     g2.set_current_time(10);
 
-    let mut engine2: SiftEngine<G> = SiftEngine::new();
+    let mut engine2: SiftEngineFor<G> = SiftEngine::new();
     engine2.register(pattern2);
     assert_eq!(
         engine2.evaluate(&g2).len(),
@@ -150,7 +150,7 @@ pub fn batch_romantic_arc_combinatorial<G: TestGraph>() {
     g.add_ref_edge("r4", "actor", "mira", 4);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(romantic_pattern::<G>());
     let matches = engine.evaluate(&g);
     // Combinations of 2 negatives from {r1,r2,r3} + r4 positive:
@@ -176,7 +176,7 @@ pub fn batch_romantic_arc_different_characters<G: TestGraph>() {
     g.add_ref_edge("r3", "actor", "mira", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(romantic_pattern::<G>());
     assert_eq!(
         engine.evaluate(&g).len(),

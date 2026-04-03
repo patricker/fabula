@@ -22,7 +22,7 @@ fn main() {
 /// Feed all pending edges into the engine. Takes ownership to avoid clone.
 fn feed_edges<G: TestGraph>(
     graph: &mut G,
-    engine: &mut fabula::prelude::SiftEngine<G>,
+    engine: &mut fabula::prelude::SiftEngineFor<G>,
     edges: Vec<fabula_bench::PendingEdge>,
 ) {
     // Insert all edges first so secondary clauses are visible

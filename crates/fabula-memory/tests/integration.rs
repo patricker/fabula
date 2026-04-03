@@ -76,7 +76,7 @@ fn hospitality_graph() -> MemGraph {
 #[test]
 fn batch_hospitality_matches() {
     let g = hospitality_graph();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -96,7 +96,7 @@ fn batch_hospitality_negated_when_guest_leaves() {
     let mut g = hospitality_graph();
     g.add_str("ev_leave", "eventType", "leaveTown", 2);
     g.add_ref("ev_leave", "actor", "alice", 2);
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
     assert_eq!(engine.evaluate(&g).len(), 0);
 }
@@ -106,7 +106,7 @@ fn batch_hospitality_unrelated_leave_doesnt_negate() {
     let mut g = hospitality_graph();
     g.add_str("ev_leave", "eventType", "leaveTown", 2);
     g.add_ref("ev_leave", "actor", "charlie", 2);
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
     assert_eq!(engine.evaluate(&g).len(), 1);
 }
@@ -118,7 +118,7 @@ fn batch_hospitality_unrelated_leave_doesnt_negate() {
 #[test]
 fn incremental_hospitality_three_stages() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
 
     // Stage 1
@@ -148,7 +148,7 @@ fn incremental_hospitality_three_stages() {
 #[test]
 fn incremental_hospitality_negation_kills() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
 
     // Stages 1 + 2
@@ -175,7 +175,7 @@ fn incremental_hospitality_negation_kills() {
 #[test]
 fn incremental_hospitality_unrelated_leave_doesnt_kill() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
 
     // Stages 1 + 2
@@ -216,7 +216,7 @@ fn batch_romantic_arc() {
     g.add_ref("r3", "actor", "mira", 3);
     g.set_time(10);
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(romantic_arc());
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -240,7 +240,7 @@ fn batch_romantic_arc_different_characters_no_match() {
     g.add_ref("r3", "actor", "mira", 3);
     g.set_time(10);
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(romantic_arc());
     assert_eq!(engine.evaluate(&g).len(), 0, "different actors should not match");
 }
@@ -263,7 +263,7 @@ fn batch_value_constraint_lt() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1);
 }
@@ -282,7 +282,7 @@ fn batch_value_constraint_lt_no_match() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 0);
 }
@@ -294,7 +294,7 @@ fn batch_value_constraint_lt_no_match() {
 #[test]
 fn incremental_single_stage_completes_immediately() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     let pattern = PatternBuilder::new("find_harm")
         .stage("e", |s| {
             s.edge("e", "eventType".into(), MemValue::Str("harm".into()))
@@ -339,7 +339,7 @@ fn batch_unless_after_blocks_match() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
 
     // No apology → should match
@@ -380,7 +380,7 @@ fn batch_unless_global() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1);
 
@@ -415,7 +415,7 @@ fn batch_rejects_wrong_temporal_order() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 0, "temporal order violated — should not match");
 }
@@ -427,7 +427,7 @@ fn batch_rejects_wrong_temporal_order() {
 #[test]
 fn why_not_empty_graph() {
     let g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
     let analysis = engine.why_not(&g, "violation_of_hospitality").unwrap();
     assert_eq!(analysis.stages.len(), 1, "should stop at first unmatched stage");
@@ -444,7 +444,7 @@ fn why_not_empty_graph() {
 #[test]
 fn drain_completed_removes_matches() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("find_harm")
         .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("harm".into())))
         .build());
@@ -465,7 +465,7 @@ fn drain_completed_removes_matches() {
 #[test]
 fn irrelevant_edges_produce_no_events() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
 
     // Match stage 1
@@ -489,7 +489,7 @@ fn irrelevant_edges_produce_no_events() {
 #[test]
 fn multiple_patterns_fire_independently() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
     engine.register(PatternBuilder::new("any_enter")
         .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("enterTown".into())))
@@ -510,7 +510,7 @@ fn multiple_patterns_fire_independently() {
 #[test]
 fn negation_event_includes_details() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
 
     // Set up stages 1+2

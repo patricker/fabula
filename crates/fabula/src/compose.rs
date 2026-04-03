@@ -1,5 +1,9 @@
 //! Pattern composition operators — build complex patterns from simpler ones.
 //!
+//! Inspired by Kreminski et al. (2025) "Stories from the Bottom Up: Composable
+//! Story Sifting Patterns" (FDG 2025). Enables authorial decomposition: write
+//! atomic pattern fragments, compose them into complex narrative structures.
+//!
 //! Three operators that produce regular [`Pattern`] structs the engine handles
 //! without modification:
 //!

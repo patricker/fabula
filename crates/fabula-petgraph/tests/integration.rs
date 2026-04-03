@@ -71,7 +71,7 @@ fn violation_of_hospitality() -> Pattern<String, PetValue<String>> {
 #[test]
 fn petgraph_batch_hospitality() {
     let g = hospitality_graph();
-    let mut engine: SiftEngine<Graph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<Graph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
 
     let matches = engine.evaluate(&g);
@@ -93,7 +93,7 @@ fn petgraph_batch_negation_blocks() {
     g.add_edge("ev_leave".into(), "eventType".into(), str_val("leaveTown"), Interval::open(2));
     g.add_edge("ev_leave".into(), "actor".into(), node_val("alice"), Interval::open(2));
 
-    let mut engine: SiftEngine<Graph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<Graph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
     assert_eq!(engine.evaluate(&g).len(), 0, "guest left — negation blocks");
 }
@@ -101,7 +101,7 @@ fn petgraph_batch_negation_blocks() {
 #[test]
 fn petgraph_incremental_three_stages() {
     let mut g = Graph::new(0);
-    let mut engine: SiftEngine<Graph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<Graph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
 
     // Stage 1
@@ -136,7 +136,7 @@ fn petgraph_incremental_three_stages() {
 #[test]
 fn petgraph_single_stage_immediate() {
     let mut g = Graph::new(0);
-    let mut engine: SiftEngine<Graph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<Graph> = SiftEngine::new();
 
     let pattern = PatternBuilder::new("find_harm")
         .stage("e", |s| {
@@ -158,7 +158,7 @@ fn petgraph_single_stage_immediate() {
 #[test]
 fn petgraph_why_not_on_empty() {
     let g = Graph::new(0);
-    let mut engine: SiftEngine<Graph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<Graph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
 
     let analysis = engine.why_not(&g, "violation_of_hospitality").unwrap();

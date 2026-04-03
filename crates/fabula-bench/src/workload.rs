@@ -61,7 +61,7 @@ impl PendingEdge {
     pub fn notify<G: TestGraph>(
         &self,
         graph: &G,
-        engine: &mut SiftEngine<G>,
+        engine: &mut SiftEngineFor<G>,
     ) -> Vec<SiftEvent<String, G::V>> {
         let interval = fabula::interval::Interval::open(self.time);
         if let Some(ref v) = self.value_str {
@@ -245,7 +245,7 @@ impl Default for WorkloadConfig {
 /// Pre-built workload ready for benchmarking.
 pub struct IsolatedWorkload<G: TestGraph> {
     pub graph: G,
-    pub engine: SiftEngine<G>,
+    pub engine: SiftEngineFor<G>,
     pub pending_edges: Vec<PendingEdge>,
 }
 
@@ -258,7 +258,7 @@ pub fn build_isolated_workload<G: TestGraph>(config: &WorkloadConfig) -> Isolate
     let mut rng = Rng::new(config.seed);
     let events = all_events();
     let mut graph = G::new_graph();
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
 
     // Register patterns
     let patterns_with_neg =
@@ -344,7 +344,7 @@ pub struct Tick {
 /// Full GM-profile workload: 200 ticks of incremental evaluation.
 pub struct GmWorkload<G: TestGraph> {
     pub graph: G,
-    pub engine: SiftEngine<G>,
+    pub engine: SiftEngineFor<G>,
     pub ticks: Vec<Tick>,
 }
 
@@ -359,7 +359,7 @@ pub fn build_gm_workload<G: TestGraph>() -> GmWorkload<G> {
     let mut rng = Rng::new(42);
     let events = all_events();
     let graph = G::new_graph();
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     let character_count = 10;
 
     // -- Category 1: Multi-stage with negation (6 patterns) --

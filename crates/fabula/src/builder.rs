@@ -1,5 +1,9 @@
 //! Ergonomic builder API for constructing patterns.
 //!
+//! Provides a fluent interface for building [`Pattern`] structs with stages,
+//! temporal constraints, and negation windows. See [`crate::pattern`] for the
+//! underlying types and their research lineage.
+//!
 //! ```rust
 //! use fabula::builder::PatternBuilder;
 //!

@@ -50,7 +50,7 @@ pub mod prelude {
     pub use crate::datasource::{DataSource, ValueConstraint};
     pub use crate::engine::{
         BoundValue, EngineStats, GapAnalysis, Match, MatchState, PartialMatch, PatternMetrics,
-        PlantPayoffPair, PlantStatus, SiftEngine, SiftEvent, StageAnalysis, StageStatus,
+        PlantPayoffPair, PlantStatus, SiftEngine, SiftEngineFor, SiftEvent, StageAnalysis, StageStatus,
         ClauseAnalysis, TickDelta,
     };
     pub use crate::interval::{AllenRelation, Interval, NumericTime};

@@ -4,7 +4,18 @@
 //! Operates as a post-processing step — the engine finds matches, the scorer
 //! ranks them. No engine modification required.
 //!
-//! # Phase 3.3a — Pattern-level scoring (Shannon surprise)
+//! ## Research foundation
+//!
+//! - **Pattern-level**: Shannon surprise (`-log₂(observed / baseline)`) with
+//!   Laplace smoothing. Standard information-theoretic self-information applied
+//!   to pattern match frequencies.
+//! - **Property-level**: Kreminski, Dickinson, Wardrip-Fruin, Mateas (2022)
+//!   "Select the Unexpected: A Statistical Heuristic for Story Sifting"
+//!   (ICIDS 2022). Scores individual matches by the mean empirical frequency
+//!   of their *properties* — two matches of the same pattern score differently
+//!   if one involves rarer attributes.
+//!
+//! # Pattern-level scoring (Shannon surprise)
 //!
 //! Each pattern has a baseline expected frequency. Matches from patterns that
 //! fire less often than expected score higher (more surprising).
@@ -23,13 +34,11 @@
 //! // let scored = scorer.score(&matches, engine.patterns());
 //! ```
 //!
-//! # Phase 3.3b — Property-level scoring (StU) — planned
+//! # Property-level scoring (StU)
 //!
-//! Kreminski's "Select the Unexpected" (ICIDS 2022) scores individual matches
-//! by the rarity of their *properties* (character traits, event types,
-//! relationships). Two matches of the same pattern score differently if one
-//! involves rare entities. Requires a property extractor with DataSource access.
-//! See ROADMAP Phase 3.3b.
+//! [`StuScorer`] implements Kreminski et al. (2022) StU with Laplace smoothing:
+//! `(count + 1) / (total + V)` where V = vocabulary size. Property extraction
+//! is the caller's responsibility — the scorer is domain-agnostic.
 
 use crate::engine::{BoundValue, Match, SiftEvent};
 use crate::pattern::Pattern;

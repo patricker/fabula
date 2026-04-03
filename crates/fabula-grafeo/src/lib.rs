@@ -307,7 +307,7 @@ mod tests {
             })
             .build();
 
-        let mut engine: SiftEngine<GrafeoGraph> = SiftEngine::new();
+        let mut engine: SiftEngineFor<GrafeoGraph> = SiftEngine::new();
         engine.register(pattern);
         let matches = engine.evaluate(&g);
         assert_eq!(matches.len(), 1, "should find violation of hospitality on Grafeo");
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn grafeo_incremental() {
         let mut g = GrafeoGraph::new();
-        let mut engine: SiftEngine<GrafeoGraph> = SiftEngine::new();
+        let mut engine: SiftEngineFor<GrafeoGraph> = SiftEngine::new();
 
         let pattern = PatternBuilder::new("find_harm")
             .stage("e", |s| {

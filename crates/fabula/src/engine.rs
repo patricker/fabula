@@ -5,6 +5,20 @@
 //! their partial match state. It can evaluate patterns in batch mode (against
 //! a snapshot) or incrementally (as new edges arrive).
 //!
+//! ## Research foundation
+//!
+//! - Kreminski et al. (2019) "Felt: A Simple Story Sifter" (ICIDS 2019)
+//!   — Core sifting model: patterns as Datalog-like queries with logic
+//!   variables over EAV graphs. Plant/payoff tracking for narrative causality.
+//! - Kreminski et al. (2021) "Winnow: A Domain-Specific Language for
+//!   Incremental Story Sifting" (AIIDE 2021) — Incremental matching with
+//!   negation windows (`unless-event ... between`). The 4-phase algorithm
+//!   (negation check → initiation → advancement → cleanup) is adapted from
+//!   Winnow's streaming evaluation model.
+//! - Rete networks (Forgy 1982) — Pattern lifecycle conventions: disabled
+//!   patterns kill active partial matches immediately; fingerprint-based
+//!   deduplication prevents unbounded PM accumulation.
+//!
 //! ## Intentional omissions from Felt
 //!
 //! Felt is both a sifting engine and an action-selection framework. Fabula
@@ -59,17 +73,20 @@ impl<N: Debug + Hash, V: Debug + Hash> Hash for BoundValue<N, V> {
 }
 
 impl<N: Debug + PartialEq, V: Debug + PartialEq> BoundValue<N, V> {
-    /// Check if this bound value matches a data source value, using the
-    /// data source's `value_as_node` to determine if the value is a node ref.
-    fn matches_value<DS: DataSource<N = N, V = V>>(
+    /// Check if this bound value matches a data source value.
+    ///
+    /// Takes a `value_as_node` closure (typically `|v| ds.value_as_node(v)`)
+    /// to determine if the value is a node reference. This decouples
+    /// BoundValue from the DataSource trait.
+    fn matches_value(
         &self,
-        ds: &DS,
+        value_as_node: &impl Fn(&V) -> Option<N>,
         value: &V,
     ) -> bool {
         match self {
             BoundValue::Node(n) => {
                 // The value must be a node reference to the same node
-                ds.value_as_node(value)
+                value_as_node(value)
                     .is_some_and(|vn| &vn == n)
             }
             BoundValue::Value(v) => value == v,
@@ -256,7 +273,12 @@ pub struct PlantStatus {
 // The engine
 // ---------------------------------------------------------------------------
 
-/// The sift engine. Generic over a [`DataSource`] implementation.
+/// The sift engine. Generic over node, label, value, and time types.
+///
+/// Decoupled from [`DataSource`] — the engine stores patterns and partial
+/// matches using the four type parameters directly. Methods that need graph
+/// access take `&impl DataSource<N=N, L=L, V=V, T=T>` as a parameter,
+/// allowing the engine to outlive any particular DataSource instance.
 ///
 /// `Clone` creates an independent copy of all engine state — patterns,
 /// partial matches, metrics, enabled flags. Use this for speculative
@@ -276,9 +298,9 @@ pub struct PlantStatus {
 /// let score = evaluate_narrative_quality(&delta);
 /// if score > best_score { best_engine = fork_engine; }
 /// ```
-pub struct SiftEngine<DS: DataSource> {
-    patterns: Vec<Pattern<DS::L, DS::V>>,
-    partial_matches: Vec<PartialMatch<DS::N, DS::V, DS::T>>,
+pub struct SiftEngine<N: Debug + Clone, L, V: Debug + Clone, T: Clone> {
+    patterns: Vec<Pattern<L, V>>,
+    partial_matches: Vec<PartialMatch<N, V, T>>,
     next_match_id: usize,
     stats: EngineStats,
     // Per-pattern lifecycle state
@@ -296,14 +318,33 @@ pub struct SiftEngine<DS: DataSource> {
     tick_negated: HashSet<String>,
 }
 
+/// Convenience alias: extract type params from a [`DataSource`] impl.
+///
+/// ```rust,ignore
+/// // Instead of SiftEngine<String, String, MemValue, i64>:
+/// let engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+/// ```
+pub type SiftEngineFor<DS> = SiftEngine<
+    <DS as DataSource>::N,
+    <DS as DataSource>::L,
+    <DS as DataSource>::V,
+    <DS as DataSource>::T,
+>;
+
 // NOTE: tick accumulators are NOT included in Clone — a forked engine
 // starts with empty accumulators (no events in its new timeline).
 
-impl<DS: DataSource> SiftEngine<DS>
+// ---------------------------------------------------------------------------
+// Block 1: Lifecycle methods — lighter bounds, no DataSource needed.
+// wk-sift can construct and register patterns without T: Sub + NumericTime.
+// ---------------------------------------------------------------------------
+
+impl<N, L, V, T> SiftEngine<N, L, V, T>
 where
-    DS::N: PartialEq,
-    DS::V: PartialEq,
-    DS::T: std::ops::Sub<Output = DS::T> + crate::interval::NumericTime,
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash,
 {
     /// Create a new empty engine.
     pub fn new() -> Self {
@@ -326,7 +367,7 @@ where
     }
 
     /// Register a pattern. Returns its index.
-    pub fn register(&mut self, pattern: Pattern<DS::L, DS::V>) -> usize {
+    pub fn register(&mut self, pattern: Pattern<L, V>) -> usize {
         let idx = self.patterns.len();
         self.patterns.push(pattern);
         self.enabled.push(true);
@@ -338,17 +379,17 @@ where
     }
 
     /// All registered patterns.
-    pub fn patterns(&self) -> &[Pattern<DS::L, DS::V>] {
+    pub fn patterns(&self) -> &[Pattern<L, V>] {
         &self.patterns
     }
 
     /// All partial matches (including completed ones).
-    pub fn partial_matches(&self) -> &[PartialMatch<DS::N, DS::V, DS::T>] {
+    pub fn partial_matches(&self) -> &[PartialMatch<N, V, T>] {
         &self.partial_matches
     }
 
     /// Active partial matches for a specific pattern (by name).
-    pub fn active_matches_for(&self, name: &str) -> Vec<&PartialMatch<DS::N, DS::V, DS::T>> {
+    pub fn active_matches_for(&self, name: &str) -> Vec<&PartialMatch<N, V, T>> {
         self.partial_matches
             .iter()
             .filter(|pm| {
@@ -491,10 +532,16 @@ where
     // Plant/payoff tracking
     // -----------------------------------------------------------------------
 
-    /// Register a plant/payoff pair. The plant pattern is narrative setup;
-    /// the payoff pattern is the resolution. When the plant has active PMs
-    /// and the payoff hasn't completed, the setup is "in flight." When the
-    /// payoff completes, the setup is resolved.
+    /// Register a plant/payoff pair for Chekhov's gun tracking.
+    ///
+    /// The plant pattern is narrative setup ("the gun on the mantelpiece");
+    /// the payoff pattern is the resolution ("the gun fires"). When the plant
+    /// has active PMs and the payoff hasn't completed, the setup is "in flight."
+    /// When the payoff completes, the setup is resolved.
+    ///
+    /// Inspired by Chatman (1978) "Story and Discourse" — kernel (plot-critical)
+    /// vs satellite (texture) events. Plants are satellites that become kernels
+    /// when they resolve.
     ///
     /// `shared_binding` optionally constrains the pair: the payoff only
     /// counts as resolving the plant if both share a binding with this
@@ -560,7 +607,7 @@ where
     /// let delta = engine.tick_delta(&events, 50);
     /// if !delta.stalled.is_empty() { /* alert GM about stale plants */ }
     /// ```
-    pub fn tick_delta<N: Debug, V: Debug>(
+    pub fn tick_delta(
         &self,
         events: &[SiftEvent<N, V>],
         stale_threshold: u64,
@@ -610,7 +657,7 @@ where
         }
     }
 
-    pub fn drain_completed(&mut self) -> Vec<Match<DS::N, DS::V>> {
+    pub fn drain_completed(&mut self) -> Vec<Match<N, V>> {
         let mut completed = Vec::new();
         self.partial_matches.retain(|pm| {
             if pm.state == MatchState::Complete {
@@ -627,13 +674,16 @@ where
     }
 
     /// Compute a deterministic dedup hash for a partial match.
-    /// Uses order-independent XOR of per-entry hashes so HashMap
-    /// iteration order doesn't matter. Zero allocation.
+    ///
+    /// Prevents duplicate PMs from accumulating — a key concern from Rete
+    /// network literature where unbounded token accumulation degrades
+    /// performance. Uses order-independent XOR of per-entry hashes so
+    /// HashMap iteration order doesn't matter. Zero allocation.
     fn compute_fingerprint(
         pattern_idx: usize,
         next_stage: usize,
-        bindings: &HashMap<String, BoundValue<DS::N, DS::V>>,
-        intervals: &HashMap<String, Interval<DS::T>>,
+        bindings: &HashMap<String, BoundValue<N, V>>,
+        intervals: &HashMap<String, Interval<T>>,
     ) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         let mut h = DefaultHasher::new();
@@ -665,8 +715,21 @@ where
         h.finish()
     }
 
+}
+
+// ---------------------------------------------------------------------------
+// Block 2: Evaluation methods — full bounds + DataSource parameter.
+// ---------------------------------------------------------------------------
+
+impl<N, L, V, T> SiftEngine<N, L, V, T>
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+{
     /// Batch evaluation: find all complete matches in the current graph state.
-    pub fn evaluate(&self, ds: &DS) -> Vec<Match<DS::N, DS::V>> {
+    pub fn evaluate(&self, ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized)) -> Vec<Match<N, V>> {
         let mut results = Vec::new();
         let now = ds.now();
         for (idx, pattern) in self.patterns.iter().enumerate() {
@@ -679,12 +742,12 @@ where
     /// Incremental: a new edge was added to the graph.
     pub fn on_edge_added(
         &mut self,
-        ds: &DS,
-        source: &DS::N,
-        label: &DS::L,
-        value: &DS::V,
-        interval: &Interval<DS::T>,
-    ) -> Vec<SiftEvent<DS::N, DS::V>> {
+        ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized),
+        source: &N,
+        label: &L,
+        value: &V,
+        interval: &Interval<T>,
+    ) -> Vec<SiftEvent<N, V>> {
         self.stats.total_on_edge_added += 1;
         let mut events = Vec::new();
 
@@ -922,11 +985,11 @@ where
     }
 
     /// Gap analysis: why hasn't this pattern matched?
-    pub fn why_not(&self, ds: &DS, pattern_name: &str) -> Option<GapAnalysis> {
+    pub fn why_not(&self, ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized), pattern_name: &str) -> Option<GapAnalysis> {
         let pattern = self.patterns.iter().find(|p| p.name == pattern_name)?;
         let now = ds.now();
         let mut stages = Vec::new();
-        let bindings: HashMap<String, BoundValue<DS::N, DS::V>> = HashMap::new();
+        let bindings: HashMap<String, BoundValue<N, V>> = HashMap::new();
 
         for stage in &pattern.stages {
             let mut clause_analyses = Vec::new();
@@ -977,15 +1040,15 @@ where
 
     fn evaluate_pattern(
         &self,
-        ds: &DS,
-        pattern: &Pattern<DS::L, DS::V>,
-        now: &DS::T,
-    ) -> Vec<Match<DS::N, DS::V>> {
+        ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized),
+        pattern: &Pattern<L, V>,
+        now: &T,
+    ) -> Vec<Match<N, V>> {
         if pattern.stages.is_empty() {
             return Vec::new();
         }
 
-        let mut candidates: Vec<MatchCandidate<DS::N, DS::V, DS::T>> =
+        let mut candidates: Vec<MatchCandidate<N, V, T>> =
             self.find_stage_matches(ds, &pattern.stages[0], &HashMap::new(), now);
 
         for stage in &pattern.stages[1..] {
@@ -1017,11 +1080,11 @@ where
 
     fn find_stage_matches(
         &self,
-        ds: &DS,
-        stage: &Stage<DS::L, DS::V>,
-        existing: &HashMap<String, BoundValue<DS::N, DS::V>>,
-        now: &DS::T,
-    ) -> Vec<MatchCandidate<DS::N, DS::V, DS::T>> {
+        ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized),
+        stage: &Stage<L, V>,
+        existing: &HashMap<String, BoundValue<N, V>>,
+        now: &T,
+    ) -> Vec<MatchCandidate<N, V, T>> {
         if stage.clauses.is_empty() {
             return Vec::new();
         }
@@ -1067,7 +1130,7 @@ where
         // Check remaining clauses and bind their target variables
         let mut result = Vec::new();
         for (mut b, iv) in candidates {
-            let mut merged: HashMap<String, BoundValue<DS::N, DS::V>> = existing.iter().chain(b.iter())
+            let mut merged: HashMap<String, BoundValue<N, V>> = existing.iter().chain(b.iter())
                 .map(|(k, v)| (k.clone(), v.clone()))
                 .collect();
             let mut all_ok = true;
@@ -1106,10 +1169,10 @@ where
 
     fn clause_satisfied(
         &self,
-        ds: &DS,
-        clause: &Clause<DS::L, DS::V>,
-        bindings: &HashMap<String, BoundValue<DS::N, DS::V>>,
-        now: &DS::T,
+        ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized),
+        clause: &Clause<L, V>,
+        bindings: &HashMap<String, BoundValue<N, V>>,
+        now: &T,
     ) -> bool {
         let source = match bindings.get(&clause.source.0) {
             Some(BoundValue::Node(n)) => n,
@@ -1122,17 +1185,17 @@ where
 
     fn target_matches_ds(
         &self,
-        ds: &DS,
-        target: &Target<DS::V>,
-        value: &DS::V,
-        bindings: &HashMap<String, BoundValue<DS::N, DS::V>>,
+        ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized),
+        target: &Target<V>,
+        value: &V,
+        bindings: &HashMap<String, BoundValue<N, V>>,
     ) -> bool {
         match target {
             Target::Literal(v) => value == v,
             Target::Constraint(c) => c.matches(value),
             Target::Bind(var) => {
                 if let Some(bound) = bindings.get(&var.0) {
-                    bound.matches_value::<DS>(ds, value)
+                    bound.matches_value(&|v| ds.value_as_node(v), value)
                 } else {
                     true // Unbound — any value matches
                 }
@@ -1144,15 +1207,15 @@ where
     /// Returns false if the variable is bound but the value doesn't match (B8 fix).
     fn bind_target(
         &self,
-        ds: &DS,
-        target: &Target<DS::V>,
-        value: &DS::V,
-        bindings: &mut HashMap<String, BoundValue<DS::N, DS::V>>,
+        ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized),
+        target: &Target<V>,
+        value: &V,
+        bindings: &mut HashMap<String, BoundValue<N, V>>,
     ) -> bool {
         if let Target::Bind(ref var) = target {
             if let Some(existing) = bindings.get(&var.0) {
                 // B8 fix: variable already bound — verify consistency
-                return existing.matches_value::<DS>(ds, value);
+                return existing.matches_value(&|v| ds.value_as_node(v), value);
             }
             if let Some(n) = ds.value_as_node(value) {
                 bindings.insert(var.0.clone(), BoundValue::Node(n));
@@ -1169,8 +1232,8 @@ where
 
     fn check_temporal(
         &self,
-        pattern: &Pattern<DS::L, DS::V>,
-        intervals: &HashMap<String, Interval<DS::T>>,
+        pattern: &Pattern<L, V>,
+        intervals: &HashMap<String, Interval<T>>,
     ) -> bool {
         // Implicit: stages are ordered left-to-right by start time
         for pair in pattern.stages.windows(2) {
@@ -1217,10 +1280,10 @@ where
     /// simultaneously within the temporal window.
     fn check_negations_batch(
         &self,
-        ds: &DS,
-        pattern: &Pattern<DS::L, DS::V>,
-        match_bindings: &HashMap<String, BoundValue<DS::N, DS::V>>,
-        intervals: &HashMap<String, Interval<DS::T>>,
+        ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized),
+        pattern: &Pattern<L, V>,
+        match_bindings: &HashMap<String, BoundValue<N, V>>,
+        intervals: &HashMap<String, Interval<T>>,
     ) -> bool {
         let now = ds.now();
 
@@ -1274,7 +1337,7 @@ where
                         Target::Bind(var) => {
                             // Check against the parent match's bindings
                             if let Some(bound) = match_bindings.get(&var.0) {
-                                bound.matches_value::<DS>(ds, &e.target)
+                                bound.matches_value(&|v| ds.value_as_node(v), &e.target)
                             } else {
                                 true
                             }
@@ -1299,13 +1362,13 @@ where
     ///
     /// Returns the label of the matched negation clause, if any.
     fn check_negation_kill(
-        ds: &DS,
-        pattern: &Pattern<DS::L, DS::V>,
-        pm: &PartialMatch<DS::N, DS::V, DS::T>,
-        source: &DS::N,
-        label: &DS::L,
-        value: &DS::V,
-        interval: &Interval<DS::T>,
+        ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized),
+        pattern: &Pattern<L, V>,
+        pm: &PartialMatch<N, V, T>,
+        source: &N,
+        label: &L,
+        value: &V,
+        interval: &Interval<T>,
     ) -> Option<String> {
         for negation in &pattern.negations {
             let start = match pm.intervals.get(&negation.between_start.0) {
@@ -1345,7 +1408,7 @@ where
                 // Check target binding consistency
                 if let Target::Bind(ref var) = clause.target {
                     if let Some(bound) = pm.bindings.get(&var.0) {
-                        if !bound.matches_value::<DS>(ds, value) {
+                        if !bound.matches_value(&|v| ds.value_as_node(v), value) {
                             continue;
                         }
                     }
@@ -1378,7 +1441,7 @@ where
                             Target::Constraint(c) => c.matches(&e.target),
                             Target::Bind(var) => {
                                 if let Some(bound) = pm.bindings.get(&var.0) {
-                                    bound.matches_value::<DS>(ds, &e.target)
+                                    bound.matches_value(&|v| ds.value_as_node(v), &e.target)
                                 } else {
                                     true
                                 }
@@ -1407,14 +1470,14 @@ where
     /// Returns None if no match, Some(vec of (bindings, intervals)) if matched.
     #[allow(clippy::type_complexity)]
     fn try_match_stage(
-        ds: &DS,
-        stage: &Stage<DS::L, DS::V>,
-        source: &DS::N,
-        label: &DS::L,
-        value: &DS::V,
-        interval: &Interval<DS::T>,
-        existing: &HashMap<String, BoundValue<DS::N, DS::V>>,
-    ) -> Option<Vec<MatchCandidate<DS::N, DS::V, DS::T>>> {
+        ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized),
+        stage: &Stage<L, V>,
+        source: &N,
+        label: &L,
+        value: &V,
+        interval: &Interval<T>,
+        existing: &HashMap<String, BoundValue<N, V>>,
+    ) -> Option<Vec<MatchCandidate<N, V, T>>> {
         let first = stage.clauses.first()?;
 
         // Does the label match?
@@ -1435,7 +1498,7 @@ where
             Target::Constraint(c) => c.matches(value),
             Target::Bind(var) => {
                 if let Some(bound) = existing.get(&var.0) {
-                    bound.matches_value::<DS>(ds, value)
+                    bound.matches_value(&|v| ds.value_as_node(v), value)
                 } else {
                     true
                 }
@@ -1446,7 +1509,7 @@ where
         }
 
         // Build bindings for this match
-        let mut bindings: HashMap<String, BoundValue<DS::N, DS::V>> = HashMap::new();
+        let mut bindings: HashMap<String, BoundValue<N, V>> = HashMap::new();
         bindings.insert(stage.anchor.0.clone(), BoundValue::Node(source.clone()));
         if !existing.contains_key(&first.source.0) {
             bindings.insert(first.source.0.clone(), BoundValue::Node(source.clone()));
@@ -1466,7 +1529,7 @@ where
 
         // Check remaining clauses and bind their target variables.
         // B1 fix: collect ALL matching binding sets, not just the first.
-        let mut merged: HashMap<String, BoundValue<DS::N, DS::V>> = existing.iter()
+        let mut merged: HashMap<String, BoundValue<N, V>> = existing.iter()
             .chain(bindings.iter())
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
@@ -1483,7 +1546,7 @@ where
                     Target::Constraint(c) => c.matches(&e.target),
                     Target::Bind(var) => {
                         if let Some(bound) = merged.get(&var.0) {
-                            bound.matches_value::<DS>(ds, &e.target)
+                            bound.matches_value(&|v| ds.value_as_node(v), &e.target)
                         } else {
                             true
                         }
@@ -1528,10 +1591,10 @@ where
 
     fn analyze_clause(
         &self,
-        ds: &DS,
-        clause: &Clause<DS::L, DS::V>,
-        bindings: &HashMap<String, BoundValue<DS::N, DS::V>>,
-        now: &DS::T,
+        ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized),
+        clause: &Clause<L, V>,
+        bindings: &HashMap<String, BoundValue<N, V>>,
+        now: &T,
     ) -> (bool, Option<String>) {
         let source = match bindings.get(&clause.source.0) {
             Some(BoundValue::Node(n)) => n,
@@ -1555,24 +1618,21 @@ where
     }
 }
 
-impl<DS: DataSource> Default for SiftEngine<DS>
+impl<N, L, V, T> Default for SiftEngine<N, L, V, T>
 where
-    DS::N: PartialEq,
-    DS::V: PartialEq,
-    DS::T: std::ops::Sub<Output = DS::T> + crate::interval::NumericTime,
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash,
 {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<DS: DataSource> Clone for SiftEngine<DS>
-where
-    DS::L: Clone,
-    DS::V: Clone,
-    DS::N: Clone,
-    DS::T: Clone,
-{
+// Manual Clone: tick accumulators are intentionally empty in cloned engines.
+// Do NOT replace with #[derive(Clone)] — forked engines start fresh.
+impl<N: Debug + Clone, L: Clone, V: Debug + Clone, T: Clone> Clone for SiftEngine<N, L, V, T> {
     /// Clone the entire engine state for speculative evaluation.
     ///
     /// Both the original and clone are independent — advancing one

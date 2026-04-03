@@ -41,6 +41,21 @@ impl<V: PartialOrd + PartialEq> ValueConstraint<V> {
     }
 }
 
+impl<V> ValueConstraint<V> {
+    /// Transform the value type of this constraint.
+    pub fn map<V2>(&self, f: impl Fn(&V) -> V2) -> ValueConstraint<V2> {
+        match self {
+            Self::Eq(v) => ValueConstraint::Eq(f(v)),
+            Self::Lt(v) => ValueConstraint::Lt(f(v)),
+            Self::Gt(v) => ValueConstraint::Gt(f(v)),
+            Self::Lte(v) => ValueConstraint::Lte(f(v)),
+            Self::Gte(v) => ValueConstraint::Gte(f(v)),
+            Self::Between(lo, hi) => ValueConstraint::Between(f(lo), f(hi)),
+            Self::Any => ValueConstraint::Any,
+        }
+    }
+}
+
 /// An edge returned from a [`DataSource`] query.
 #[derive(Debug, Clone)]
 pub struct Edge<N, V, T> {

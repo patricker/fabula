@@ -48,7 +48,7 @@ fn hospitality_graph<G: TestGraph>() -> G {
 /// Batch: hospitality violation fires when all three stages match.
 pub fn batch_hospitality_matches<G: TestGraph>() {
     let g = hospitality_graph::<G>();
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(voh_pattern::<G>());
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1, "should find exactly one violation");
@@ -68,7 +68,7 @@ pub fn batch_hospitality_negated_when_guest_leaves<G: TestGraph>() {
     let mut g = hospitality_graph::<G>();
     g.add_str_edge("ev_leave", "eventType", "leaveTown", 2);
     g.add_ref_edge("ev_leave", "actor", "alice", 2);
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(voh_pattern::<G>());
     assert_eq!(engine.evaluate(&g).len(), 0, "guest left — should negate");
 }
@@ -78,7 +78,7 @@ pub fn batch_hospitality_unrelated_leave<G: TestGraph>() {
     let mut g = hospitality_graph::<G>();
     g.add_str_edge("ev_leave", "eventType", "leaveTown", 2);
     g.add_ref_edge("ev_leave", "actor", "charlie", 2);
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(voh_pattern::<G>());
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -114,7 +114,7 @@ pub fn batch_hospitality_two_guests<G: TestGraph>() {
     g.add_ref_edge("ev6", "target", "dave", 6);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(voh_pattern::<G>());
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -133,7 +133,7 @@ pub fn batch_hospitality_missing_middle<G: TestGraph>() {
     g.add_ref_edge("ev3", "target", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(voh_pattern::<G>());
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -167,7 +167,7 @@ pub fn batch_hospitality_host_property_check<G: TestGraph>() {
     let mut g = hospitality_graph::<G>();
     g.add_str_edge("bob", "value", "communalism", 0);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern_with_prop);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -195,7 +195,7 @@ pub fn batch_hospitality_host_property_check<G: TestGraph>() {
         })
         .build();
 
-    let mut engine2: SiftEngine<G> = SiftEngine::new();
+    let mut engine2: SiftEngineFor<G> = SiftEngine::new();
     engine2.register(pattern_with_prop2);
     assert_eq!(
         engine2.evaluate(&g2).len(),

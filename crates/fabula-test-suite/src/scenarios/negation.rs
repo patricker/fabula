@@ -27,7 +27,7 @@ pub fn batch_unless_after_blocks<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
 
     // No apology -> should match
@@ -63,7 +63,7 @@ pub fn batch_unless_global<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "no reconciliation — should match");
 
@@ -109,7 +109,7 @@ pub fn batch_double_negation_two_windows<G: TestGraph>() {
     g.add_ref_edge("ev3", "actor", "alice", 5);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "clean sequence should match");
 
@@ -157,7 +157,7 @@ pub fn batch_double_negation_two_windows<G: TestGraph>() {
         })
         .build();
 
-    let mut engine2: SiftEngine<G> = SiftEngine::new();
+    let mut engine2: SiftEngineFor<G> = SiftEngine::new();
     engine2.register(pattern2);
     assert_eq!(
         engine2.evaluate(&g2).len(),
@@ -194,7 +194,7 @@ pub fn batch_negation_multi_clause_body<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -227,7 +227,7 @@ pub fn batch_negation_multi_clause_body<G: TestGraph>() {
     g2.add_ref_edge("ev2", "actor", "alice", 3);
     g2.set_current_time(10);
 
-    let mut engine2: SiftEngine<G> = SiftEngine::new();
+    let mut engine2: SiftEngineFor<G> = SiftEngine::new();
     engine2.register(pattern2);
     assert_eq!(
         engine2.evaluate(&g2).len(),
@@ -265,7 +265,7 @@ pub fn batch_negation_at_boundary_exclusive<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),

@@ -35,7 +35,7 @@ pub fn batch_two_betrayals_match<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(two_betrayals_pattern::<G>());
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1, "should match two betrayals by impulsive character");
@@ -54,7 +54,7 @@ pub fn batch_two_betrayals_intervening_blocks<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(two_betrayals_pattern::<G>());
     assert_eq!(engine.evaluate(&g).len(), 0, "reconcile between betrayals should block");
 }
@@ -71,7 +71,7 @@ pub fn batch_two_betrayals_other_actor_doesnt_block<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(two_betrayals_pattern::<G>());
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -90,7 +90,7 @@ pub fn batch_two_betrayals_non_impulsive_no_match<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(two_betrayals_pattern::<G>());
     assert_eq!(
         engine.evaluate(&g).len(),

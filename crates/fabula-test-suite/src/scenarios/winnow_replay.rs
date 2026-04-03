@@ -41,7 +41,7 @@ fn voh_pattern<G: TestGraph>() -> Pattern<String, G::V> {
 /// 7. harm(charlie->alice, t=7) -> no completion (alice PMs dead)
 pub fn incremental_winnow_7step_sequence<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(voh_pattern::<G>());
 
     // Step 1: enter(alice, t=1) -> PM advances to stage 1
@@ -193,7 +193,7 @@ pub fn batch_winnow_multi_pattern<G: TestGraph>() {
     g.add_ref_edge("ev3", "target", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
 
     // Register VoH
     engine.register(voh_pattern::<G>());

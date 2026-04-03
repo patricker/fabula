@@ -1,7 +1,12 @@
 //! Allen's interval algebra over generic time types.
 //!
-//! Provides the 13 mutually exclusive temporal relations between intervals,
-//! plus a generic `Interval` type with open-ended support.
+//! Implements Allen (1983) "Maintaining Knowledge about Temporal Intervals"
+//! (CACM 26(11)) — the 13 mutually exclusive temporal relations between
+//! intervals, plus metric gap computation from Dechter, Meiri, Pearl (1991)
+//! "Temporal Constraint Networks" and Meiri (1996) for combining qualitative
+//! Allen relations with quantitative STN-style metric bounds.
+//!
+//! Provides a generic `Interval` type with open-ended support.
 
 use std::fmt;
 use std::ops::Sub;

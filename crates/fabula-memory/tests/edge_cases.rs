@@ -14,7 +14,7 @@ use fabula_memory::{MemGraph, MemValue};
 #[test]
 fn empty_pattern_no_stages() {
     let g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     let pattern = PatternBuilder::<String, MemValue>::new("empty").build();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 0, "empty pattern should never match");
@@ -28,7 +28,7 @@ fn empty_stage_no_clauses() {
     g.add_str("ev1", "eventType", "harm", 1);
     g.set_time(10);
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     // A stage with clauses followed by an empty stage
     let pattern = PatternBuilder::new("has_empty_stage")
         .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("harm".into())))
@@ -42,7 +42,7 @@ fn empty_stage_no_clauses() {
 #[test]
 fn empty_stage_incremental_never_advances() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     let pattern = PatternBuilder::new("empty_first_stage")
         .stage("e1", |s| s) // empty first stage
         .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("harm".into())))
@@ -80,7 +80,7 @@ fn empty_negation_no_clauses() {
         .unless_between("e1", "e2", |neg| neg) // empty negation body
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1,
         "empty negation body should not block matches");
@@ -89,7 +89,7 @@ fn empty_negation_no_clauses() {
 #[test]
 fn empty_graph_with_registered_patterns() {
     let g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("find_harm")
         .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("harm".into())))
         .build());
@@ -107,7 +107,7 @@ fn single_edge_graph_single_clause_pattern() {
     g.add_str("ev1", "eventType", "harm", 1);
     g.set_time(1);
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("single")
         .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("harm".into())))
         .build());
@@ -136,7 +136,7 @@ fn single_stage_with_unless_after_batch() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
 
     // Batch correctly blocks: pardon exists after crime
@@ -150,7 +150,7 @@ fn single_stage_with_unless_after_incremental_consistency() {
     // When no negation event exists yet, the match completes normally.
     // When a negation event already exists, the match is blocked.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("unpardoned_crime")
         .stage("e1", |s| {
             s.edge("e1", "eventType".into(), MemValue::Str("crime".into()))
@@ -175,7 +175,7 @@ fn single_stage_with_unless_after_incremental_consistency() {
 
     // Now test: if pardon exists BEFORE crime, match should be blocked
     let mut g2 = MemGraph::new();
-    let mut engine2: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine2: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine2.register(PatternBuilder::new("unpardoned_crime")
         .stage("e1", |s| {
             s.edge("e1", "eventType".into(), MemValue::Str("crime".into()))
@@ -221,7 +221,7 @@ fn duplicate_edges_produce_duplicate_matches() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     // MemGraph stores both edges; scan returns duplicates; engine produces
@@ -253,7 +253,7 @@ fn same_event_cannot_satisfy_two_stages() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     // Same event (same start time) cannot satisfy both stages
     // due to strict temporal ordering: left.start >= right.start -> reject
@@ -282,7 +282,7 @@ fn events_at_identical_timestamps_cannot_sequence() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 0,
         "strict temporal ordering rejects same-timestamp events in different stages");
@@ -310,7 +310,7 @@ fn variable_consistency_across_stages() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 0,
         "variable bound in stage 1 must match in stage 2");
@@ -332,7 +332,7 @@ fn self_referential_edge() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1, "self-loop edge should match");
@@ -361,7 +361,7 @@ fn source_equals_target_variable_self_loop_only() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     // B8 fixed: only alice (self-loop) matches. Bob->Charlie is not a self-loop.
@@ -399,7 +399,7 @@ fn ten_stage_pattern() {
     }
     let pattern = builder.build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1, "10-stage chain should match");
@@ -410,7 +410,7 @@ fn distinct_events_create_distinct_pms() {
     // 100 different source nodes at different timestamps — all unique fingerprints.
     // These are legitimately distinct PMs (different bindings + intervals).
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("two_stage")
         .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("start".into())))
         .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("finish".into())))
@@ -457,7 +457,7 @@ fn large_graph_batch_evaluation() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1, "should find the one matching pair in 1000 edges");
@@ -473,7 +473,7 @@ fn dedup_before_fix_same_actor_duplicates() {
     // bindings {person=alice} but different intervals. These are distinct
     // temporal threads and should all be kept.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("two_stage")
         .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("start".into()))
             .edge_bind("e1", "actor".into(), "person"))
@@ -500,7 +500,7 @@ fn dedup_before_fix_duplicate_events_produce_multiple() {
     // Single-stage pattern with duplicate edges in the graph.
     // Today: duplicate edges produce duplicate completed matches.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("find_harm")
         .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("harm".into())))
         .build());
@@ -523,7 +523,7 @@ fn dedup_distinct_intervals_not_merged() {
     // Same actor enters at t=1 and t=3. Same bindings (person=alice) but
     // different intervals. These are distinct temporal threads — both kept.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("enter_then_act")
         .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("enter".into()))
             .edge_bind("e1", "actor".into(), "person"))
@@ -552,7 +552,7 @@ fn dedup_pm_count_bounded() {
     // 50 events from the same node at the same timestamp should produce
     // at most 1 PM per stage, not 50.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("two_harms")
         .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("harm".into()))
             .edge_bind("e1", "actor".into(), "attacker"))
@@ -578,7 +578,7 @@ fn dedup_pm_count_bounded() {
 fn dedup_events_match_pms() {
     // Event count must equal PM count — no orphan events, no silent PMs.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("find_harm")
         .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("harm".into())))
         .build());
@@ -601,7 +601,7 @@ fn dedup_events_match_pms() {
 #[test]
 fn stats_on_edge_added_counter() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("test")
         .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("enter".into())))
         .build());
@@ -626,7 +626,7 @@ fn stats_on_edge_added_counter() {
 #[test]
 fn stats_fingerprints_and_negation() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("test")
         .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("enter".into()))
             .edge_bind("e1", "actor".into(), "person"))
@@ -659,7 +659,7 @@ fn stats_fingerprints_and_negation() {
 #[test]
 fn stats_peak_active_pms() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("test")
         .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("enter".into())))
         .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("leave".into())))
@@ -684,7 +684,7 @@ fn stats_peak_active_pms() {
 #[test]
 fn disable_pattern_skips_matching() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     let idx = engine.register(
         PatternBuilder::new("test")
@@ -710,7 +710,7 @@ fn disable_pattern_skips_matching() {
 #[test]
 fn disable_kills_active_pms() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     let idx = engine.register(
         PatternBuilder::new("two_stage")
@@ -740,7 +740,7 @@ fn disable_kills_active_pms() {
 #[test]
 fn reenable_allows_new_matches() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     let idx = engine.register(
         PatternBuilder::new("test")
@@ -768,7 +768,7 @@ fn reenable_allows_new_matches() {
 #[test]
 fn pattern_metrics_track_events() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     let idx = engine.register(
         PatternBuilder::new("test")
@@ -791,7 +791,7 @@ fn pattern_metrics_track_events() {
 #[test]
 fn stale_patterns_detected() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     engine.register(
         PatternBuilder::new("stale")
@@ -820,7 +820,7 @@ fn stale_patterns_detected() {
 #[test]
 fn deregister_soft_deletes() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     let idx = engine.register(
         PatternBuilder::new("ephemeral")
@@ -843,7 +843,7 @@ fn deregister_soft_deletes() {
 #[test]
 fn evaluate_skips_disabled() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     let idx = engine.register(
         PatternBuilder::new("batch_test")
@@ -864,7 +864,7 @@ fn evaluate_skips_disabled() {
 #[test]
 fn tick_delta_summarizes_events() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     engine.register(
         PatternBuilder::new("quick")
@@ -911,7 +911,7 @@ fn tick_delta_summarizes_events() {
 #[test]
 fn clone_engine_is_independent() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     engine.register(
         PatternBuilder::new("two_stage")
@@ -952,7 +952,7 @@ fn clone_engine_is_independent() {
 
 #[test]
 fn clone_preserves_disabled_state() {
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     let idx = engine.register(
         PatternBuilder::new("test")
@@ -973,7 +973,7 @@ fn clone_preserves_disabled_state() {
 #[test]
 fn plant_payoff_tracks_setup_and_resolution() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     let plant_idx = engine.register(
         PatternBuilder::new("promise")
@@ -1013,7 +1013,7 @@ fn plant_payoff_tracks_setup_and_resolution() {
 #[test]
 fn plant_payoff_stale_detection() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     let plant_idx = engine.register(
         PatternBuilder::new("setup")
@@ -1055,7 +1055,7 @@ fn plant_payoff_stale_detection() {
 #[test]
 fn end_tick_accumulates_and_clears() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     engine.register(
         PatternBuilder::new("quick")
@@ -1094,7 +1094,7 @@ fn end_tick_accumulates_and_clears() {
 #[test]
 fn end_tick_detects_stale_after_many_ticks() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     engine.register(
         PatternBuilder::new("stuck")
@@ -1123,7 +1123,7 @@ fn end_tick_detects_stale_after_many_ticks() {
 #[test]
 fn stats_reset() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("test")
         .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("enter".into())))
         .build());
@@ -1146,7 +1146,7 @@ fn stats_reset() {
 #[test]
 fn pm_created_at_set_on_initiation() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("two_stage")
         .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("enter".into())))
         .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("leave".into())))
@@ -1165,7 +1165,7 @@ fn pm_created_at_set_on_initiation() {
 #[test]
 fn pm_created_at_inherited_on_advance() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("three_stage")
         .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("enter".into())))
         .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("greet".into())))
@@ -1214,7 +1214,7 @@ fn metric_before_gap_in_range() {
         .build();
 
     // Use incremental: add edges at their respective times
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
 
     g.set_time(3);
@@ -1242,7 +1242,7 @@ fn metric_before_gap_too_far() {
             MetricGap { min: Some(3.0), max: Some(10.0) })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     g.set_time(3);
     engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
@@ -1269,7 +1269,7 @@ fn metric_before_gap_too_close() {
             MetricGap { min: Some(3.0), max: Some(10.0) })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     g.set_time(3);
     engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
@@ -1299,7 +1299,7 @@ fn metric_open_ended_skips_gap_check() {
             MetricGap { min: Some(3.0), max: Some(10.0) })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     // Open-ended intervals: gap can't be computed (no end point).
     // Metric check skipped. Allen Before fallback (start comparison) passes.
@@ -1390,7 +1390,7 @@ fn unless_global_single_stage_works() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     // B7 fixed: unless_global on single-stage uses open-ended window → pardon blocks
@@ -1423,7 +1423,7 @@ fn negation_before_window_start_does_not_block() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     // Pardon at t=0 is before e1 at t=1, so it's outside the window
     assert_eq!(engine.evaluate(&g).len(), 1,
@@ -1458,7 +1458,7 @@ fn negation_at_exact_window_boundary() {
         })
         .build();
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     // Pardon at t=1, window start is t=1. With exclusive start (>), 1 > 1 is false.
@@ -1478,7 +1478,7 @@ fn incremental_negation_kills_only_matching_variable_bindings() {
     // Two partial matches for different characters; negation should
     // only kill the one whose bound variable matches.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("enter_then_harm")
         .stage("e1", |s| {
             s.edge("e1", "eventType".into(), MemValue::Str("enter".into()))
@@ -1534,7 +1534,7 @@ fn out_of_order_insertion_incremental_misses_match() {
     // via on_edge_added causes the incremental engine to miss valid matches
     // that batch evaluation finds.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("enter_then_harm")
         .stage("e1", |s| {
             s.edge("e1", "eventType".into(), MemValue::Str("enter".into()))
@@ -1596,7 +1596,7 @@ fn batch_and_incremental_agree_on_simple_case() {
 
     // Build graph incrementally
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern.clone());
 
     g.add_str("ev1", "eventType", "enter", 1);
@@ -1624,7 +1624,7 @@ fn batch_and_incremental_agree_on_simple_case() {
         .count();
 
     // Batch evaluation on the same graph
-    let mut batch_engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut batch_engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     batch_engine.register(pattern);
     let batch_matches = batch_engine.evaluate(&g);
 
@@ -1637,7 +1637,7 @@ fn batch_and_incremental_agree_on_simple_case() {
 fn incremental_temporal_ordering_enforced() {
     // B2 fix: on_edge_added now checks temporal ordering between stages.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("a_then_b")
         .stage("e1", |s| {
             s.edge("e1", "eventType".into(), MemValue::Str("a".into()))
@@ -1749,7 +1749,7 @@ fn unless_global_no_stages_still_resolves() {
 #[test]
 fn why_not_nonexistent_pattern() {
     let g = MemGraph::new();
-    let engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     assert!(engine.why_not(&g, "nonexistent").is_none(),
         "why_not for unregistered pattern should return None");
 }
@@ -1761,7 +1761,7 @@ fn why_not_matched_pattern_shows_all_matched() {
     g.add_ref("ev1", "actor", "bob", 1);
     g.set_time(10);
 
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("find_harm")
         .stage("e", |s| {
             s.edge("e", "eventType".into(), MemValue::Str("harm".into()))
@@ -1780,7 +1780,7 @@ fn why_not_matched_pattern_shows_all_matched() {
 #[test]
 fn why_not_stops_at_first_unmatched_stage() {
     let g = MemGraph::new(); // empty graph
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(PatternBuilder::new("three_stages")
         .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("a".into())))
         .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("b".into())))
@@ -1799,7 +1799,7 @@ fn why_not_stops_at_first_unmatched_stage() {
 
 #[test]
 fn drain_completed_on_empty_engine() {
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     let drained = engine.drain_completed();
     assert!(drained.is_empty());
 }
@@ -1807,7 +1807,7 @@ fn drain_completed_on_empty_engine() {
 #[test]
 fn drain_completed_preserves_active_matches() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
     // Register two patterns
     engine.register(PatternBuilder::new("single_stage")
