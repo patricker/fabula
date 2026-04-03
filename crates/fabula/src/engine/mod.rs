@@ -38,8 +38,10 @@ use std::hash::{Hash, Hasher};
 
 mod types;
 mod eval;
+mod free;
 
 pub use types::*;
+pub use free::{evaluate_pattern, gap_analysis};
 
 // ---------------------------------------------------------------------------
 // The engine
@@ -429,13 +431,15 @@ where
         }
     }
 
-    pub fn drain_completed(&mut self) -> Vec<Match<N, V>> {
+    pub fn drain_completed(&mut self) -> Vec<Match<N, V, T>> {
         let mut completed = Vec::new();
         self.partial_matches.retain(|pm| {
             if pm.state == MatchState::Complete {
                 completed.push(Match {
                     pattern: self.patterns[pm.pattern_idx].name.clone(),
+                    pattern_idx: Some(pm.pattern_idx),
                     bindings: pm.bindings.clone(),
+                    intervals: pm.intervals.clone(),
                 });
                 false
             } else {

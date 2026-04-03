@@ -98,7 +98,7 @@ pub fn rename_vars<L: Clone, V: Clone>(
         .iter()
         .map(|neg| Negation {
             between_start: rename(&neg.between_start),
-            between_end: neg.between_end.as_ref().map(&rename),
+            between_end: neg.between_end.as_ref().map(rename),
             clauses: neg.clauses.iter().map(&rename_clause).collect(),
             is_global: neg.is_global,
         })

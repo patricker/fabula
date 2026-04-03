@@ -49,6 +49,7 @@ pub mod prelude {
     pub use crate::builder::PatternBuilder;
     pub use crate::datasource::{DataSource, ValueConstraint};
     pub use crate::engine::{
+        evaluate_pattern, gap_analysis,
         BoundValue, EngineStats, GapAnalysis, Match, MatchState, PartialMatch, PatternMetrics,
         PlantPayoffPair, PlantStatus, SiftEngine, SiftEngineFor, SiftEvent, StageAnalysis, StageStatus,
         ClauseAnalysis, TickDelta,

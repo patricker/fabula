@@ -229,6 +229,11 @@ impl<L, V> Pattern<L, V> {
         vars.dedup();
         vars
     }
+
+    /// Total number of clauses across all stages.
+    pub fn condition_count(&self) -> usize {
+        self.stages.iter().map(|s| s.clauses.len()).sum()
+    }
 }
 
 #[cfg(test)]
@@ -281,6 +286,30 @@ mod tests {
         // Values transformed
         assert_eq!(mapped.stages[0].clauses[0].label, "TYPE");
         assert_eq!(mapped.stages[0].clauses[0].target, Target::Literal("SETUP".into()));
+    }
+
+    #[test]
+    fn condition_count_sums_clauses_across_stages() {
+        let pattern = PatternBuilder::<String, String>::new("test")
+            .stage("e1", |s| s
+                .edge("e1", "eventType".into(), "betray".into())
+                .edge_bind("e1", "actor".into(), "char"))
+            .stage("e2", |s| s
+                .edge("e2", "eventType".into(), "betray".into()))
+            .build();
+        assert_eq!(pattern.condition_count(), 3);
+
+        let empty = PatternBuilder::<String, String>::new("empty").build();
+        assert_eq!(empty.condition_count(), 0);
+
+        // Negation clauses are NOT counted — only stage clauses
+        let with_negation = PatternBuilder::<String, String>::new("neg")
+            .stage("e1", |s| s.edge("e1", "type".into(), "start".into()))
+            .stage("e2", |s| s.edge("e2", "type".into(), "end".into()))
+            .unless_between("e1", "e2", |n|
+                n.edge("mid", "type".into(), "block".into()))
+            .build();
+        assert_eq!(with_negation.condition_count(), 2); // 2 stage clauses, not 3
     }
 
     #[test]

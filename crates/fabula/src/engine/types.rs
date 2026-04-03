@@ -18,11 +18,17 @@ pub(super) type MatchCandidate<N, V, T> = (HashMap<String, BoundValue<N, V>>, Ha
 /// A complete match — all stages satisfied, temporal constraints met,
 /// negation windows clear.
 #[derive(Debug, Clone)]
-pub struct Match<N: Debug, V: Debug> {
+pub struct Match<N: Debug, V: Debug, T: Debug + Clone> {
     /// Which pattern matched.
     pub pattern: String,
+    /// Index of the pattern in the engine's registry.
+    /// `Some(idx)` when produced by engine methods (`evaluate`, `drain_completed`),
+    /// `None` when produced by the free `evaluate_pattern` function.
+    pub pattern_idx: Option<usize>,
     /// Variable -> bound node or value.
     pub bindings: HashMap<String, BoundValue<N, V>>,
+    /// Stage anchor variable -> matched time interval.
+    pub intervals: HashMap<String, Interval<T>>,
 }
 
 /// A value bound to a variable — either a node reference or a data value.
@@ -135,6 +141,27 @@ pub struct GapAnalysis {
     pub stages: Vec<StageAnalysis>,
 }
 
+impl GapAnalysis {
+    /// Fraction of total clauses that matched (0.0 = nothing, 1.0 = full match).
+    pub fn closeness(&self) -> f64 {
+        let mut total = 0usize;
+        let mut matched = 0usize;
+        for stage in &self.stages {
+            for clause in &stage.clauses {
+                total += 1;
+                if clause.matched {
+                    matched += 1;
+                }
+            }
+        }
+        if total == 0 {
+            0.0
+        } else {
+            matched as f64 / total as f64
+        }
+    }
+}
+
 #[derive(Debug)]
 pub struct StageAnalysis {
     pub anchor: String,
@@ -239,4 +266,75 @@ pub struct PlantStatus {
     pub ticks_since_plant_advanced: u64,
     /// Whether the plant is stale (no advancement for a long time with active PMs).
     pub stale: bool,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn closeness_empty_analysis() {
+        let gap = GapAnalysis {
+            pattern: "test".to_string(),
+            stages: vec![],
+        };
+        assert_eq!(gap.closeness(), 0.0);
+    }
+
+    #[test]
+    fn closeness_all_matched() {
+        let gap = GapAnalysis {
+            pattern: "test".to_string(),
+            stages: vec![StageAnalysis {
+                anchor: "e1".to_string(),
+                status: StageStatus::Matched,
+                clauses: vec![
+                    ClauseAnalysis { description: "a".into(), matched: true, reason: None },
+                    ClauseAnalysis { description: "b".into(), matched: true, reason: None },
+                ],
+            }],
+        };
+        assert_eq!(gap.closeness(), 1.0);
+    }
+
+    #[test]
+    fn closeness_partial() {
+        let gap = GapAnalysis {
+            pattern: "test".to_string(),
+            stages: vec![
+                StageAnalysis {
+                    anchor: "e1".to_string(),
+                    status: StageStatus::Matched,
+                    clauses: vec![
+                        ClauseAnalysis { description: "a".into(), matched: true, reason: None },
+                        ClauseAnalysis { description: "b".into(), matched: true, reason: None },
+                    ],
+                },
+                StageAnalysis {
+                    anchor: "e2".to_string(),
+                    status: StageStatus::PartiallyMatched { matched: 1, total: 2 },
+                    clauses: vec![
+                        ClauseAnalysis { description: "c".into(), matched: true, reason: None },
+                        ClauseAnalysis { description: "d".into(), matched: false, reason: Some("no match".into()) },
+                    ],
+                },
+            ],
+        };
+        assert_eq!(gap.closeness(), 0.75); // 3 of 4
+    }
+
+    #[test]
+    fn closeness_none_matched() {
+        let gap = GapAnalysis {
+            pattern: "test".to_string(),
+            stages: vec![StageAnalysis {
+                anchor: "e1".to_string(),
+                status: StageStatus::Unmatched,
+                clauses: vec![
+                    ClauseAnalysis { description: "a".into(), matched: false, reason: None },
+                ],
+            }],
+        };
+        assert_eq!(gap.closeness(), 0.0);
+    }
 }

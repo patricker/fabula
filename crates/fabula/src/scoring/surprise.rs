@@ -4,17 +4,22 @@
 //! Standard information-theoretic self-information applied to pattern match frequencies.
 
 use crate::engine::{BoundValue, Match, SiftEvent};
+use crate::interval::Interval;
 use crate::pattern::Pattern;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
 /// A match annotated with a surprise score.
 #[derive(Debug, Clone)]
-pub struct ScoredMatch<N: Debug, V: Debug> {
+pub struct ScoredMatch<N: Debug, V: Debug, T: Debug + Clone> {
     /// The underlying match.
     pub pattern: String,
+    /// Pattern index in the engine registry (if available).
+    pub pattern_idx: Option<usize>,
     /// Variable bindings from the match.
     pub bindings: HashMap<String, BoundValue<N, V>>,
+    /// Stage anchor variable -> matched time interval.
+    pub intervals: HashMap<String, Interval<T>>,
     /// Surprise score in bits. Higher = more unexpected.
     /// Negative = pattern fires more often than baseline (less surprising).
     /// Uses Laplace smoothing to handle zero-observation cases.
@@ -58,9 +63,9 @@ impl SurpriseScorer {
     /// Call this once per `evaluate()` call. Increments the round counter
     /// and counts each pattern that matched (at most once per pattern per round,
     /// so `p` stays in [0, 1] as a true probability).
-    pub fn observe<N: Debug, V: Debug, L, VV>(
+    pub fn observe<N: Debug, V: Debug, T: Debug + Clone, L, VV>(
         &mut self,
-        matches: &[Match<N, V>],
+        matches: &[Match<N, V, T>],
         patterns: &[Pattern<L, VV>],
     ) {
         self.total_rounds += 1;
@@ -106,11 +111,11 @@ impl SurpriseScorer {
     ///
     /// Returns one `ScoredMatch` per input match, annotated with the pattern's
     /// current surprise score. Patterns without a baseline get score 0.0.
-    pub fn score<N: Debug + Clone, V: Debug + Clone, L, VV>(
+    pub fn score<N: Debug + Clone, V: Debug + Clone, T: Debug + Clone, L, VV>(
         &self,
-        matches: &[Match<N, V>],
+        matches: &[Match<N, V, T>],
         patterns: &[Pattern<L, VV>],
-    ) -> Vec<ScoredMatch<N, V>> {
+    ) -> Vec<ScoredMatch<N, V, T>> {
         matches
             .iter()
             .map(|m| {
@@ -120,7 +125,9 @@ impl SurpriseScorer {
                     .unwrap_or(0.0);
                 ScoredMatch {
                     pattern: m.pattern.clone(),
+                    pattern_idx: m.pattern_idx,
                     bindings: m.bindings.clone(),
+                    intervals: m.intervals.clone(),
                     surprise,
                 }
             })
@@ -167,10 +174,12 @@ mod tests {
             .build()
     }
 
-    fn dummy_match(name: &str) -> Match<String, String> {
+    fn dummy_match(name: &str) -> Match<String, String, i64> {
         Match {
             pattern: name.to_string(),
+            pattern_idx: None,
             bindings: HashMap::new(),
+            intervals: HashMap::new(),
         }
     }
 
@@ -253,7 +262,7 @@ mod tests {
         scorer.set_baseline(0, 0.5);
 
         // 20 rounds, never matches
-        let no_matches: Vec<Match<String, String>> = vec![];
+        let no_matches: Vec<Match<String, String, i64>> = vec![];
         for _ in 0..20 {
             scorer.observe(&no_matches, &patterns);
         }

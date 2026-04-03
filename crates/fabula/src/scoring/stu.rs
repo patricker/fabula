@@ -5,6 +5,7 @@
 //! matches by the mean empirical frequency of their *properties*.
 
 use crate::engine::{BoundValue, Match};
+use crate::interval::Interval;
 use std::collections::HashMap;
 use std::fmt::Debug;
 
@@ -15,11 +16,15 @@ use std::fmt::Debug;
 /// `property_frequencies` shows which properties contributed and their
 /// individual frequencies, sorted ascending (rarest first) for explainability.
 #[derive(Debug, Clone)]
-pub struct StuScoredMatch<N: Debug, V: Debug> {
+pub struct StuScoredMatch<N: Debug, V: Debug, T: Debug + Clone> {
     /// Pattern name.
     pub pattern: String,
+    /// Pattern index in the engine registry (if available).
+    pub pattern_idx: Option<usize>,
     /// Variable bindings from the match.
     pub bindings: HashMap<String, BoundValue<N, V>>,
+    /// Stage anchor variable -> matched time interval.
+    pub intervals: HashMap<String, Interval<T>>,
     /// Per-property frequencies, sorted ascending (rarest first).
     /// Each entry is `(property_string, frequency)`.
     pub property_frequencies: Vec<(String, f64)>,
@@ -132,10 +137,11 @@ impl StuScorer {
     ///
     /// Matches whose pattern has not been observed get `stu_score = 1.0`
     /// (maximally unsurprising — no data to distinguish).
-    pub fn score<N: Debug + Clone, V: Debug + Clone>(
+    #[allow(clippy::type_complexity)]
+    pub fn score<N: Debug + Clone, V: Debug + Clone, T: Debug + Clone>(
         &self,
-        matches_with_props: &[(Match<N, V>, Vec<String>)],
-    ) -> Vec<StuScoredMatch<N, V>> {
+        matches_with_props: &[(Match<N, V, T>, Vec<String>)],
+    ) -> Vec<StuScoredMatch<N, V, T>> {
         matches_with_props
             .iter()
             .map(|(m, props)| {
@@ -144,7 +150,9 @@ impl StuScorer {
                 if props.is_empty() || table.is_none() {
                     return StuScoredMatch {
                         pattern: m.pattern.clone(),
+                        pattern_idx: m.pattern_idx,
                         bindings: m.bindings.clone(),
+                        intervals: m.intervals.clone(),
                         property_frequencies: Vec::new(),
                         stu_score: 1.0,
                     };
@@ -177,7 +185,9 @@ impl StuScorer {
 
                 StuScoredMatch {
                     pattern: m.pattern.clone(),
+                    pattern_idx: m.pattern_idx,
                     bindings: m.bindings.clone(),
+                    intervals: m.intervals.clone(),
                     property_frequencies: prop_freqs,
                     stu_score,
                 }
@@ -213,10 +223,12 @@ mod tests {
     use super::*;
     use crate::engine::Match;
 
-    fn dummy_match(name: &str) -> Match<String, String> {
+    fn dummy_match(name: &str) -> Match<String, String, i64> {
         Match {
             pattern: name.to_string(),
+            pattern_idx: None,
             bindings: HashMap::new(),
+            intervals: HashMap::new(),
         }
     }
 

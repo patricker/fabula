@@ -1,0 +1,733 @@
+//! Free functions for pattern evaluation and gap analysis without a SiftEngine.
+//!
+//! These functions enable standalone evaluation — useful when a consumer
+//! wants to evaluate individual patterns or run gap analysis without owning
+//! an engine instance.
+
+use super::types::*;
+use crate::datasource::{DataSource, ValueConstraint};
+use crate::interval::Interval;
+use crate::pattern::*;
+use std::collections::HashMap;
+use std::fmt::Debug;
+use std::hash::Hash;
+
+// ---------------------------------------------------------------------------
+// Public API
+// ---------------------------------------------------------------------------
+
+/// Evaluate a single pattern against a data source, returning all complete matches.
+///
+/// This is the standalone equivalent of registering a pattern with a
+/// [`super::SiftEngine`] and calling `evaluate()`. It performs batch evaluation
+/// without any engine state.
+///
+/// Returned matches have `pattern_idx: None` since there is no engine registry.
+pub fn evaluate_pattern<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    pattern: &Pattern<L, V>,
+) -> Vec<Match<N, V, T>>
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+{
+    let now = ds.now();
+    evaluate_pattern_at(ds, pattern, &now)
+}
+
+/// Standalone gap analysis — why hasn't this pattern matched?
+///
+/// This is the standalone equivalent of [`super::SiftEngine::why_not`]. It
+/// analyzes a pattern against a data source without requiring engine registration.
+///
+/// Unlike `SiftEngine::why_not` (which returns `Option` because the pattern
+/// might not be registered), this always returns a `GapAnalysis` since the
+/// pattern is provided directly.
+pub fn gap_analysis<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    pattern: &Pattern<L, V>,
+) -> GapAnalysis
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+{
+    let now = ds.now();
+    gap_analysis_at(ds, pattern, &now)
+}
+
+// ---------------------------------------------------------------------------
+// Internal helpers — pub(super) for use by SiftEngine methods in eval.rs
+// ---------------------------------------------------------------------------
+
+pub(super) fn evaluate_pattern_at<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    pattern: &Pattern<L, V>,
+    now: &T,
+) -> Vec<Match<N, V, T>>
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+{
+    if pattern.stages.is_empty() {
+        return Vec::new();
+    }
+
+    let mut candidates: Vec<MatchCandidate<N, V, T>> =
+        find_stage_matches(ds, &pattern.stages[0], &HashMap::new(), now);
+
+    for stage in &pattern.stages[1..] {
+        let mut next = Vec::new();
+        for (bindings, intervals) in &candidates {
+            for (new_b, new_i) in find_stage_matches(ds, stage, bindings, now) {
+                let mut merged_b = bindings.clone();
+                merged_b.extend(new_b);
+                let mut merged_i = intervals.clone();
+                merged_i.extend(new_i);
+                next.push((merged_b, merged_i));
+            }
+        }
+        candidates = next;
+    }
+
+    candidates
+        .into_iter()
+        .filter(|(bindings, intervals)| {
+            check_temporal(pattern, intervals)
+                && check_negations_batch(ds, pattern, bindings, intervals)
+        })
+        .map(|(bindings, intervals)| Match {
+            pattern: pattern.name.clone(),
+            pattern_idx: None,
+            bindings,
+            intervals,
+        })
+        .collect()
+}
+
+pub(super) fn gap_analysis_at<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    pattern: &Pattern<L, V>,
+    now: &T,
+) -> GapAnalysis
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+{
+    let mut stages = Vec::new();
+    let bindings: HashMap<String, BoundValue<N, V>> = HashMap::new();
+
+    for stage in &pattern.stages {
+        let mut clause_analyses = Vec::new();
+        let mut stage_matched = true;
+
+        for clause in &stage.clauses {
+            let (matched, reason) = analyze_clause(ds, clause, &bindings, now);
+            if !matched {
+                stage_matched = false;
+            }
+            clause_analyses.push(ClauseAnalysis {
+                description: format!(
+                    "?{} --[{:?}]--> {:?}{}",
+                    clause.source.0,
+                    clause.label,
+                    clause.target,
+                    if clause.negated { " (NOT)" } else { "" }
+                ),
+                matched,
+                reason,
+            });
+        }
+
+        let matched_count = clause_analyses.iter().filter(|c| c.matched).count();
+        let total = clause_analyses.len();
+        let status = if stage_matched {
+            StageStatus::Matched
+        } else if matched_count > 0 {
+            StageStatus::PartiallyMatched {
+                matched: matched_count,
+                total,
+            }
+        } else {
+            StageStatus::Unmatched
+        };
+
+        stages.push(StageAnalysis {
+            anchor: stage.anchor.0.clone(),
+            status,
+            clauses: clause_analyses,
+        });
+
+        if !stage_matched {
+            break;
+        }
+    }
+
+    GapAnalysis {
+        pattern: pattern.name.clone(),
+        stages,
+    }
+}
+
+pub(super) fn find_stage_matches<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    stage: &Stage<L, V>,
+    existing: &HashMap<String, BoundValue<N, V>>,
+    now: &T,
+) -> Vec<MatchCandidate<N, V, T>>
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash,
+{
+    if stage.clauses.is_empty() {
+        return Vec::new();
+    }
+
+    let first = &stage.clauses[0];
+    let mut candidates = Vec::new();
+
+    if let Some(bound) = existing.get(&first.source.0) {
+        if let BoundValue::Node(ref node) = bound {
+            for e in ds.edges_from(node, &first.label, now) {
+                if target_matches_ds(ds, &first.target, &e.target, existing) {
+                    let mut b = HashMap::new();
+                    if !bind_target(ds, &first.target, &e.target, &mut b) {
+                        continue;
+                    }
+                    let mut iv = HashMap::new();
+                    iv.insert(stage.anchor.0.clone(), e.interval.clone());
+                    candidates.push((b, iv));
+                }
+            }
+        }
+    } else {
+        let constraint = match &first.target {
+            Target::Literal(v) => ValueConstraint::Eq(v.clone()),
+            Target::Constraint(c) => c.clone(),
+            Target::Bind(_) => ValueConstraint::Any,
+        };
+        for e in ds.scan(&first.label, &constraint, now) {
+            let mut b = HashMap::new();
+            b.insert(first.source.0.clone(), BoundValue::Node(e.source.clone()));
+            b.insert(stage.anchor.0.clone(), BoundValue::Node(e.source.clone()));
+            if !bind_target(ds, &first.target, &e.target, &mut b) {
+                continue;
+            }
+            let mut iv = HashMap::new();
+            iv.insert(stage.anchor.0.clone(), e.interval.clone());
+            candidates.push((b, iv));
+        }
+    }
+
+    // Check remaining clauses and bind their target variables
+    let mut result = Vec::new();
+    for (mut b, iv) in candidates {
+        let mut merged: HashMap<String, BoundValue<N, V>> = existing
+            .iter()
+            .chain(b.iter())
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect();
+        let mut all_ok = true;
+        for c in &stage.clauses[1..] {
+            if !clause_satisfied(ds, c, &merged, now) {
+                all_ok = false;
+                break;
+            }
+            if let Target::Bind(ref var) = c.target {
+                if !merged.contains_key(&var.0) {
+                    if let Some(BoundValue::Node(ref src)) = merged.get(&c.source.0) {
+                        let edges = ds.edges_from(src, &c.label, now);
+                        if let Some(edge) = edges.first() {
+                            if let Some(n) = ds.value_as_node(&edge.target) {
+                                let bv = BoundValue::Node(n);
+                                b.insert(var.0.clone(), bv.clone());
+                                merged.insert(var.0.clone(), bv);
+                            } else {
+                                let bv = BoundValue::Value(edge.target.clone());
+                                b.insert(var.0.clone(), bv.clone());
+                                merged.insert(var.0.clone(), bv);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        if all_ok {
+            result.push((b, iv));
+        }
+    }
+
+    result
+}
+
+pub(super) fn target_matches_ds<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    target: &Target<V>,
+    value: &V,
+    bindings: &HashMap<String, BoundValue<N, V>>,
+) -> bool
+where
+    N: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug,
+{
+    match target {
+        Target::Literal(v) => value == v,
+        Target::Constraint(c) => c.matches(value),
+        Target::Bind(var) => {
+            if let Some(bound) = bindings.get(&var.0) {
+                bound.matches_value(&|v| ds.value_as_node(v), value)
+            } else {
+                true
+            }
+        }
+    }
+}
+
+pub(super) fn bind_target<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    target: &Target<V>,
+    value: &V,
+    bindings: &mut HashMap<String, BoundValue<N, V>>,
+) -> bool
+where
+    N: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug,
+{
+    if let Target::Bind(ref var) = target {
+        if let Some(existing) = bindings.get(&var.0) {
+            return existing.matches_value(&|v| ds.value_as_node(v), value);
+        }
+        if let Some(n) = ds.value_as_node(value) {
+            bindings.insert(var.0.clone(), BoundValue::Node(n));
+        } else {
+            bindings.insert(var.0.clone(), BoundValue::Value(value.clone()));
+        }
+    }
+    true
+}
+
+pub(super) fn clause_satisfied<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    clause: &Clause<L, V>,
+    bindings: &HashMap<String, BoundValue<N, V>>,
+    now: &T,
+) -> bool
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug,
+    T: Ord + Clone + Debug,
+{
+    let source = match bindings.get(&clause.source.0) {
+        Some(BoundValue::Node(n)) => n,
+        _ => return false,
+    };
+    let edges = ds.edges_from(source, &clause.label, now);
+    let found = edges
+        .iter()
+        .any(|e| target_matches_ds(ds, &clause.target, &e.target, bindings));
+    if clause.negated {
+        !found
+    } else {
+        found
+    }
+}
+
+pub(super) fn check_temporal<L, V, T>(
+    pattern: &Pattern<L, V>,
+    intervals: &HashMap<String, Interval<T>>,
+) -> bool
+where
+    T: Ord + Clone + Debug + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+{
+    // Implicit: stages are ordered left-to-right by start time
+    for pair in pattern.stages.windows(2) {
+        if let (Some(left), Some(right)) = (
+            intervals.get(&pair[0].anchor.0),
+            intervals.get(&pair[1].anchor.0),
+        ) {
+            if left.start >= right.start {
+                return false;
+            }
+        }
+    }
+    // Explicit constraints
+    for tc in &pattern.temporal {
+        if let (Some(left), Some(right)) = (intervals.get(&tc.left.0), intervals.get(&tc.right.0))
+        {
+            match left.relation(right) {
+                Some(rel) if rel == tc.relation => {}
+                None if tc.relation.is_before_or_meets() && left.start < right.start => {}
+                _ => return false,
+            }
+            if let Some(ref gap_bound) = tc.gap {
+                if let Some(gap_val) = left.gap_for_relation(right, tc.relation) {
+                    if let Some(min) = gap_bound.min {
+                        if gap_val < min {
+                            return false;
+                        }
+                    }
+                    if let Some(max) = gap_bound.max {
+                        if gap_val > max {
+                            return false;
+                        }
+                    }
+                }
+            }
+        }
+    }
+    true
+}
+
+pub(super) fn check_negations_batch<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    pattern: &Pattern<L, V>,
+    match_bindings: &HashMap<String, BoundValue<N, V>>,
+    intervals: &HashMap<String, Interval<T>>,
+) -> bool
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash,
+{
+    let now = ds.now();
+
+    for negation in &pattern.negations {
+        let start = match intervals.get(&negation.between_start.0) {
+            Some(iv) => &iv.start,
+            None => continue,
+        };
+        let end = negation
+            .between_end
+            .as_ref()
+            .and_then(|v| intervals.get(&v.0))
+            .map(|iv| &iv.start);
+
+        if negation.clauses.is_empty() {
+            continue;
+        }
+
+        let first = &negation.clauses[0];
+        let constraint = match &first.target {
+            Target::Literal(v) => ValueConstraint::Eq(v.clone()),
+            Target::Constraint(c) => c.clone(),
+            _ => ValueConstraint::Any,
+        };
+        let candidates = ds.scan_any_time(&first.label, &constraint);
+
+        for cand in &candidates {
+            let in_window =
+                &cand.interval.start > start && end.is_none_or(|e| &cand.interval.start < e);
+            if !in_window {
+                continue;
+            }
+
+            let neg_entity = &cand.source;
+
+            let all_ok = negation.clauses[1..].iter().all(|clause| {
+                let src = if clause.source.0 == first.source.0 {
+                    neg_entity.clone()
+                } else {
+                    return false;
+                };
+                let edges = ds.edges_from(&src, &clause.label, &now);
+                edges.iter().any(|e| match &clause.target {
+                    Target::Literal(v) => &e.target == v,
+                    Target::Constraint(c) => c.matches(&e.target),
+                    Target::Bind(var) => {
+                        if let Some(bound) = match_bindings.get(&var.0) {
+                            bound.matches_value(&|v| ds.value_as_node(v), &e.target)
+                        } else {
+                            true
+                        }
+                    }
+                })
+            });
+
+            if all_ok {
+                return false;
+            }
+        }
+    }
+    true
+}
+
+#[allow(clippy::too_many_arguments)]
+pub(super) fn check_negation_kill<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    pattern: &Pattern<L, V>,
+    pm: &PartialMatch<N, V, T>,
+    source: &N,
+    label: &L,
+    value: &V,
+    interval: &Interval<T>,
+) -> Option<String>
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash,
+{
+    for negation in &pattern.negations {
+        let start = match pm.intervals.get(&negation.between_start.0) {
+            Some(iv) => iv,
+            None => continue,
+        };
+        if let Some(ref end_var) = negation.between_end {
+            if pm.intervals.contains_key(&end_var.0) {
+                continue;
+            }
+        }
+        if interval.start <= start.start {
+            continue;
+        }
+
+        for (i, clause) in negation.clauses.iter().enumerate() {
+            if &clause.label != label {
+                continue;
+            }
+            let target_ok = match &clause.target {
+                Target::Literal(v) => value == v,
+                Target::Constraint(c) => c.matches(value),
+                Target::Bind(_) => true,
+            };
+            if !target_ok {
+                continue;
+            }
+            if let Some(BoundValue::Node(ref n)) = pm.bindings.get(&clause.source.0) {
+                if source != n {
+                    continue;
+                }
+            }
+            if let Target::Bind(ref var) = clause.target {
+                if let Some(bound) = pm.bindings.get(&var.0) {
+                    if !bound.matches_value(&|v| ds.value_as_node(v), value) {
+                        continue;
+                    }
+                }
+            }
+
+            let now = ds.now();
+            let mut all_others_ok = true;
+            for (j, other) in negation.clauses.iter().enumerate() {
+                if j == i {
+                    continue;
+                }
+                let src = if other.source.0 == clause.source.0 {
+                    source.clone()
+                } else if let Some(BoundValue::Node(ref n)) = pm.bindings.get(&other.source.0) {
+                    n.clone()
+                } else {
+                    all_others_ok = false;
+                    break;
+                };
+
+                let edges = ds.edges_from(&src, &other.label, &now);
+                let found = edges.iter().any(|e| match &other.target {
+                    Target::Literal(v) => &e.target == v,
+                    Target::Constraint(c) => c.matches(&e.target),
+                    Target::Bind(var) => {
+                        if let Some(bound) = pm.bindings.get(&var.0) {
+                            bound.matches_value(&|v| ds.value_as_node(v), &e.target)
+                        } else {
+                            true
+                        }
+                    }
+                });
+                if !found {
+                    all_others_ok = false;
+                    break;
+                }
+            }
+
+            if all_others_ok {
+                return Some(format!("{:?}", clause.label));
+            }
+        }
+    }
+    None
+}
+
+#[allow(clippy::type_complexity)]
+pub(super) fn try_match_stage<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    stage: &Stage<L, V>,
+    source: &N,
+    label: &L,
+    value: &V,
+    interval: &Interval<T>,
+    existing: &HashMap<String, BoundValue<N, V>>,
+) -> Option<Vec<MatchCandidate<N, V, T>>>
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash,
+{
+    let first = stage.clauses.first()?;
+
+    if &first.label != label {
+        return None;
+    }
+
+    if let Some(BoundValue::Node(ref n)) = existing.get(&first.source.0) {
+        if source != n {
+            return None;
+        }
+    }
+
+    let target_ok = match &first.target {
+        Target::Literal(v) => value == v,
+        Target::Constraint(c) => c.matches(value),
+        Target::Bind(var) => {
+            if let Some(bound) = existing.get(&var.0) {
+                bound.matches_value(&|v| ds.value_as_node(v), value)
+            } else {
+                true
+            }
+        }
+    };
+    if !target_ok {
+        return None;
+    }
+
+    let mut bindings: HashMap<String, BoundValue<N, V>> = HashMap::new();
+    bindings.insert(stage.anchor.0.clone(), BoundValue::Node(source.clone()));
+    if !existing.contains_key(&first.source.0) {
+        bindings.insert(first.source.0.clone(), BoundValue::Node(source.clone()));
+    }
+    if let Target::Bind(ref var) = first.target {
+        if !existing.contains_key(&var.0) && !bindings.contains_key(&var.0) {
+            if let Some(n) = ds.value_as_node(value) {
+                bindings.insert(var.0.clone(), BoundValue::Node(n));
+            } else {
+                bindings.insert(var.0.clone(), BoundValue::Value(value.clone()));
+            }
+        }
+    }
+
+    let event_time = &interval.start;
+
+    let mut merged: HashMap<String, BoundValue<N, V>> = existing
+        .iter()
+        .chain(bindings.iter())
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+
+    for clause in &stage.clauses[1..] {
+        let src_node = match merged.get(&clause.source.0) {
+            Some(BoundValue::Node(n)) => n.clone(),
+            _ => return None,
+        };
+        let edges = ds.edges_from(&src_node, &clause.label, event_time);
+        let matching_edge = edges.iter().find(|e| match &clause.target {
+            Target::Literal(v) => &e.target == v,
+            Target::Constraint(c) => c.matches(&e.target),
+            Target::Bind(var) => {
+                if let Some(bound) = merged.get(&var.0) {
+                    bound.matches_value(&|v| ds.value_as_node(v), &e.target)
+                } else {
+                    true
+                }
+            }
+        });
+        let ok = if clause.negated {
+            matching_edge.is_none()
+        } else {
+            matching_edge.is_some()
+        };
+        if !ok {
+            return None;
+        }
+        if !clause.negated {
+            if let Target::Bind(ref var) = clause.target {
+                if !merged.contains_key(&var.0) {
+                    if let Some(edge) = matching_edge {
+                        let bv = if let Some(n) = ds.value_as_node(&edge.target) {
+                            BoundValue::Node(n)
+                        } else {
+                            BoundValue::Value(edge.target.clone())
+                        };
+                        bindings.insert(var.0.clone(), bv.clone());
+                        merged.insert(var.0.clone(), bv);
+                    }
+                }
+            }
+        }
+    }
+
+    let mut intervals = HashMap::new();
+    intervals.insert(stage.anchor.0.clone(), interval.clone());
+
+    Some(vec![(bindings, intervals)])
+}
+
+pub(super) fn analyze_clause<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    clause: &Clause<L, V>,
+    bindings: &HashMap<String, BoundValue<N, V>>,
+    now: &T,
+) -> (bool, Option<String>)
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug,
+    T: Ord + Clone + Debug,
+{
+    let source = match bindings.get(&clause.source.0) {
+        Some(BoundValue::Node(n)) => n,
+        Some(_) => {
+            return (
+                false,
+                Some(format!(
+                    "?{} is bound to a value, not a node",
+                    clause.source.0
+                )),
+            )
+        }
+        None => {
+            return (
+                false,
+                Some(format!("?{} is not bound", clause.source.0)),
+            )
+        }
+    };
+
+    let edges = ds.edges_from(source, &clause.label, now);
+    let found = edges
+        .iter()
+        .any(|e| target_matches_ds(ds, &clause.target, &e.target, bindings));
+    let ok = if clause.negated { !found } else { found };
+
+    if ok {
+        (true, None)
+    } else if clause.negated {
+        (
+            false,
+            Some(format!("edge {:?} exists but should not", clause.label)),
+        )
+    } else if edges.is_empty() {
+        (
+            false,
+            Some(format!(
+                "no edges with label {:?} from ?{}",
+                clause.label, clause.source.0
+            )),
+        )
+    } else {
+        (
+            false,
+            Some("edges exist but none match target constraint".to_string()),
+        )
+    }
+}
