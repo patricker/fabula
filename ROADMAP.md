@@ -60,6 +60,26 @@ lifecycle), `TensionTracker` (sliding window trajectory), `PivotDetector`
 (petgraph, GM-scale workload). Petgraph well within 16ms frame budget.
 ~420+ tests across all crates, 61 golden scenarios x 3 adapters.
 
+### Salience Integration (DONE — 2026-04-03)
+
+API changes requested by the Salience storylet selection system. Three
+rounds of work to unblock the downstream consumer.
+
+| Item | Summary |
+|------|---------|
+| Free `evaluate_pattern(ds, pattern)` | Standalone batch evaluation without owning a SiftEngine. All stateless helpers extracted to `engine/free.rs`; engine methods delegate. |
+| Free `gap_analysis(ds, pattern)` | Standalone gap analysis without registering the pattern. Returns `GapAnalysis` directly. |
+| `evaluate_pattern_at` / `gap_analysis_at` | Public with explicit `at: &T` time parameter for speculative evaluation at arbitrary timestamps. |
+| `evaluate_pattern_first` / `evaluate_pattern_limit` | Early-termination variants: `_first` returns `Option<Match>` (O(1) gating), `_limit` caps result set. |
+| `Match<N,V>` → `Match<N,V,T>` | Added `intervals` (stage anchor → time interval) and `pattern_idx` (Some from engine, None from free functions). Breaking change. |
+| `PartialEq + Eq + Hash` on Match | Manual `Hash` via order-independent XOR. Enables `HashSet<Match>` for dedup. |
+| `GapAnalysis::closeness()` | Fraction of matched clauses (0.0–1.0) for near-miss ranking. |
+| `Pattern::condition_count()` | Total clauses across all stages. |
+| `serde` feature flag | Optional `Serialize`/`Deserialize` on all public types via `cfg_attr`. |
+| Trait bound aliases | `NodeId`, `Label`, `Val` with blanket impls — `L: Label` instead of `L: Eq + Hash + Clone + Debug`. |
+| `MemGraph`: `Clone` + `end_edge` + `upsert_edge` | `Clone` for Monte Carlo simulation. `end_edge` closes open intervals. `upsert_edge` = end + insert. |
+| Composable DSL parser (Option B) | `Parser::parse_pattern_body()` for downstream DSLs. `pos()`, `from_tokens_at()`, `into_inner()` for resumable parsing. 13 methods made public. `PatternBody` AST type. `compile_pattern_body[_with]()`. |
+
 ---
 
 ## Active Roadmap
@@ -765,6 +785,7 @@ Items explicitly deferred with conditions for reconsideration.
 | 2 | Benchmarking | **DONE** | Stats counters, profiling + divan harness, fingerprint optimization (5.8x) |
 | 3 | Composition | **DONE** | Pattern algebra, DSL compose syntax, surprise scoring (Shannon + StU) |
 | 4 | Narrative Scoring | **DONE** | Thread tracker, tension tracker, pivot detector, MCTS scorer |
+| — | Salience Integration | **DONE** | Free functions, Match intervals, early termination, serde, Eq+Hash, composable parser, MemGraph utilities |
 | **5** | **Platform Generalization** | **NEXT** | Metadata, timeout events, cross-stage comparison, repeat range, unordered stages |
 | **6** | **Narrative Stack** | PLANNED | Causality tracing, character appraisal, knowledge propagation |
 | **7** | **Scoring & DSL** | PLANNED | StU refinements, nested compose, non-exclusive choice, private patterns |
