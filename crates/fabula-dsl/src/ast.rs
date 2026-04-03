@@ -70,6 +70,19 @@ pub struct PatternAst {
     pub temporals: Vec<TemporalAst>,
 }
 
+/// The interior of a pattern — stages, negations, and temporal constraints,
+/// without the `pattern name { }` wrapper.
+///
+/// Used by [`crate::parser::Parser::parse_pattern_body()`] for composable
+/// parsing — downstream DSLs can parse a pattern body embedded in their own
+/// block syntax.
+#[derive(Debug, Clone)]
+pub struct PatternBody {
+    pub stages: Vec<StageAst>,
+    pub negations: Vec<NegationAst>,
+    pub temporals: Vec<TemporalAst>,
+}
+
 /// A stage within a pattern.
 #[derive(Debug, Clone)]
 pub struct StageAst {

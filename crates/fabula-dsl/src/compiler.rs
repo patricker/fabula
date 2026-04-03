@@ -85,6 +85,33 @@ pub fn compile_pattern(ast: &PatternAst) -> Result<Pattern<String, MemValue>, Pa
     compile_pattern_with(ast, &MemMapper)
 }
 
+/// Compile a [`PatternBody`] (from [`crate::parser::Parser::parse_pattern_body()`])
+/// into a `Pattern<String, MemValue>` using the default mapper.
+///
+/// The `name` is assigned to the resulting pattern since the body doesn't
+/// include the `pattern name { }` header.
+pub fn compile_pattern_body(
+    name: &str,
+    body: &PatternBody,
+) -> Result<Pattern<String, MemValue>, ParseError> {
+    compile_pattern_body_with(name, body, &MemMapper)
+}
+
+/// Compile a [`PatternBody`] using a custom [`TypeMapper`].
+pub fn compile_pattern_body_with<M: TypeMapper>(
+    name: &str,
+    body: &PatternBody,
+    mapper: &M,
+) -> Result<Pattern<M::L, M::V>, ParseError> {
+    let ast = PatternAst {
+        name: name.to_string(),
+        stages: body.stages.clone(),
+        negations: body.negations.clone(),
+        temporals: body.temporals.clone(),
+    };
+    compile_pattern_with(&ast, mapper)
+}
+
 /// Compile a pattern AST using a custom [`TypeMapper`].
 ///
 /// Validates variable scoping: `?var` sources must reference a variable

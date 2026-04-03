@@ -1,4 +1,14 @@
 //! Recursive descent parser for the fabula DSL.
+//!
+//! The parser is designed for composability: downstream DSLs can reuse it to
+//! parse fabula pattern syntax embedded in their own blocks. Key entry points:
+//!
+//! - [`Parser::parse_pattern_body()`] — parse stages, negations, and temporals
+//!   without the `pattern name { }` wrapper
+//! - [`Parser::pos()`] / [`Parser::into_inner()`] — read or recover the cursor
+//!   position for resumable parsing
+//! - [`Parser::from_tokens_at()`] — construct a parser at a specific position
+//!   in an existing token stream
 
 use crate::ast::*;
 use crate::error::ParseError;
@@ -11,9 +21,34 @@ pub struct Parser {
 }
 
 impl Parser {
+    /// Create a new parser from a token stream, starting at position 0.
     pub fn new(tokens: Vec<Token>) -> Self {
         Self { tokens, pos: 0 }
     }
+
+    /// Create a parser starting at a specific position in the token stream.
+    ///
+    /// Use this to resume parsing after handing the token stream to another
+    /// parser (e.g., a downstream DSL parser that calls fabula's parser for
+    /// pattern sections).
+    pub fn from_tokens_at(tokens: Vec<Token>, pos: usize) -> Self {
+        Self { tokens, pos }
+    }
+
+    /// Current cursor position in the token stream.
+    pub fn pos(&self) -> usize {
+        self.pos
+    }
+
+    /// Consume the parser, returning the token stream and cursor position.
+    ///
+    /// Use this to recover the tokens after parsing a section, so a
+    /// downstream DSL can continue parsing from where fabula left off.
+    pub fn into_inner(self) -> (Vec<Token>, usize) {
+        (self.tokens, self.pos)
+    }
+
+    // ---- Document-level parsing ----
 
     /// Parse a complete document (patterns, graphs, and compose directives).
     pub fn parse_document(&mut self) -> Result<Document, ParseError> {
@@ -31,7 +66,7 @@ impl Parser {
         Ok(Document { items })
     }
 
-    /// Parse a single pattern declaration.
+    /// Parse a single pattern declaration, then assert EOF.
     pub fn parse_pattern_only(&mut self) -> Result<PatternAst, ParseError> {
         let pat = self.parse_pattern()?;
         if !self.at_eof() {
@@ -40,7 +75,7 @@ impl Parser {
         Ok(pat)
     }
 
-    /// Parse a single graph declaration.
+    /// Parse a single graph declaration, then assert EOF.
     pub fn parse_graph_only(&mut self) -> Result<GraphAst, ParseError> {
         let g = self.parse_graph()?;
         if !self.at_eof() {
@@ -51,16 +86,45 @@ impl Parser {
 
     // ---- Pattern parsing ----
 
-    fn parse_pattern(&mut self) -> Result<PatternAst, ParseError> {
+    /// Parse a full `pattern name { ... }` declaration.
+    pub fn parse_pattern(&mut self) -> Result<PatternAst, ParseError> {
         self.expect(TokenKind::Pattern)?;
         let name = self.expect_ident()?;
         self.expect(TokenKind::LBrace)?;
+        let body = self.parse_pattern_body()?;
+        self.expect(TokenKind::RBrace)?;
+        Ok(PatternAst {
+            name,
+            stages: body.stages,
+            negations: body.negations,
+            temporals: body.temporals,
+        })
+    }
 
+    /// Parse the body of a pattern — stages, negations, and temporal
+    /// constraints — without the `pattern name { }` wrapper.
+    ///
+    /// Stops when it sees `}` or EOF but does **not** consume the closing
+    /// brace. The caller owns the block structure and is responsible for
+    /// consuming the delimiter.
+    ///
+    /// This is the primary composability entry point for downstream DSLs
+    /// that embed fabula pattern syntax in their own blocks:
+    ///
+    /// ```rust,ignore
+    /// // salience-dsl example
+    /// parser.expect_ident()?;             // "precondition"
+    /// parser.expect(TokenKind::LBrace)?;  // {
+    /// let body = parser.parse_pattern_body()?;
+    /// parser.expect(TokenKind::RBrace)?;  // }
+    /// let pattern = compile_pattern_body_with("name", &body, &mapper)?;
+    /// ```
+    pub fn parse_pattern_body(&mut self) -> Result<PatternBody, ParseError> {
         let mut stages = Vec::new();
         let mut negations = Vec::new();
         let mut temporals = Vec::new();
 
-        while !self.check(TokenKind::RBrace) {
+        while !self.check(TokenKind::RBrace) && !self.at_eof() {
             match &self.peek().kind {
                 TokenKind::Stage => stages.push(self.parse_stage()?),
                 TokenKind::Unless => negations.push(self.parse_negation()?),
@@ -69,11 +133,11 @@ impl Parser {
             }
         }
 
-        self.expect(TokenKind::RBrace)?;
-        Ok(PatternAst { name, stages, negations, temporals })
+        Ok(PatternBody { stages, negations, temporals })
     }
 
-    fn parse_stage(&mut self) -> Result<StageAst, ParseError> {
+    /// Parse a `stage anchor { clauses... }` block.
+    pub fn parse_stage(&mut self) -> Result<StageAst, ParseError> {
         self.expect(TokenKind::Stage)?;
         let anchor = self.expect_ident()?;
         self.expect(TokenKind::LBrace)?;
@@ -87,7 +151,8 @@ impl Parser {
         Ok(StageAst { anchor, clauses })
     }
 
-    fn parse_negation(&mut self) -> Result<NegationAst, ParseError> {
+    /// Parse an `unless [between|after] ... { clauses }` negation block.
+    pub fn parse_negation(&mut self) -> Result<NegationAst, ParseError> {
         self.expect(TokenKind::Unless)?;
 
         let kind = if self.check(TokenKind::Between) {
@@ -114,7 +179,8 @@ impl Parser {
         Ok(NegationAst { kind, clauses })
     }
 
-    fn parse_temporal(&mut self) -> Result<TemporalAst, ParseError> {
+    /// Parse a `temporal left relation right [gap range]` constraint.
+    pub fn parse_temporal(&mut self) -> Result<TemporalAst, ParseError> {
         self.expect(TokenKind::Temporal)?;
         let left = self.expect_ident()?;
         let relation = self.expect_ident()?;
@@ -161,7 +227,8 @@ impl Parser {
 
     // ---- Compose parsing ----
 
-    fn parse_compose(&mut self) -> Result<ComposeAst, ParseError> {
+    /// Parse a `compose name = ...` directive.
+    pub fn parse_compose(&mut self) -> Result<ComposeAst, ParseError> {
         self.expect(TokenKind::Compose)?;
         let name = self.expect_ident()?;
         self.expect(TokenKind::Eq)?;
@@ -214,7 +281,8 @@ impl Parser {
         Ok(vars)
     }
 
-    fn parse_clause(&mut self) -> Result<ClauseAst, ParseError> {
+    /// Parse a single clause: `[!] [?]source.label = | -> | < | > | <= | >= target`.
+    pub fn parse_clause(&mut self) -> Result<ClauseAst, ParseError> {
         // Optional negation prefix: !
         let negated = if self.check(TokenKind::Bang) {
             self.advance();
@@ -326,7 +394,8 @@ impl Parser {
 
     // ---- Graph parsing ----
 
-    fn parse_graph(&mut self) -> Result<GraphAst, ParseError> {
+    /// Parse a `graph { ... }` declaration.
+    pub fn parse_graph(&mut self) -> Result<GraphAst, ParseError> {
         self.expect(TokenKind::Graph)?;
         self.expect(TokenKind::LBrace)?;
 
@@ -408,13 +477,15 @@ impl Parser {
         }
     }
 
-    // ---- Utilities ----
+    // ---- Token cursor utilities ----
 
-    fn peek(&self) -> &Token {
+    /// Peek at the current token without advancing.
+    pub fn peek(&self) -> &Token {
         &self.tokens[self.pos]
     }
 
-    fn advance(&mut self) -> &Token {
+    /// Advance the cursor and return the consumed token.
+    pub fn advance(&mut self) -> &Token {
         let tok = &self.tokens[self.pos];
         if self.pos + 1 < self.tokens.len() {
             self.pos += 1;
@@ -422,15 +493,18 @@ impl Parser {
         tok
     }
 
-    fn at_eof(&self) -> bool {
+    /// Check if the cursor is at the end of the token stream.
+    pub fn at_eof(&self) -> bool {
         matches!(self.tokens[self.pos].kind, TokenKind::Eof)
     }
 
-    fn check(&self, kind: TokenKind) -> bool {
+    /// Check if the current token matches the given kind (by discriminant).
+    pub fn check(&self, kind: TokenKind) -> bool {
         std::mem::discriminant(&self.tokens[self.pos].kind) == std::mem::discriminant(&kind)
     }
 
-    fn expect(&mut self, expected: TokenKind) -> Result<&Token, ParseError> {
+    /// Expect the current token to be of the given kind, advance, and return it.
+    pub fn expect(&mut self, expected: TokenKind) -> Result<&Token, ParseError> {
         if self.check(expected.clone()) {
             Ok(self.advance())
         } else {
@@ -438,7 +512,9 @@ impl Parser {
         }
     }
 
-    fn expect_ident(&mut self) -> Result<String, ParseError> {
+    /// Expect and consume an identifier token. Some keywords are allowed as
+    /// identifiers in certain positions (between, after, compose, sharing).
+    pub fn expect_ident(&mut self) -> Result<String, ParseError> {
         match &self.peek().kind {
             TokenKind::Ident(_) => {
                 if let TokenKind::Ident(s) = &self.advance().kind {
@@ -456,7 +532,8 @@ impl Parser {
         }
     }
 
-    fn expect_ident_or_string(&mut self) -> Result<String, ParseError> {
+    /// Expect and consume an identifier or string literal token.
+    pub fn expect_ident_or_string(&mut self) -> Result<String, ParseError> {
         match &self.peek().kind {
             TokenKind::Ident(_) => {
                 if let TokenKind::Ident(s) = &self.advance().kind {
@@ -476,7 +553,8 @@ impl Parser {
         }
     }
 
-    fn expect_number(&mut self) -> Result<f64, ParseError> {
+    /// Expect and consume a number literal token.
+    pub fn expect_number(&mut self) -> Result<f64, ParseError> {
         match &self.peek().kind {
             TokenKind::Number(_) => {
                 if let TokenKind::Number(n) = &self.advance().kind {
@@ -489,7 +567,8 @@ impl Parser {
         }
     }
 
-    fn error(&self, msg: &str) -> ParseError {
+    /// Create a parse error at the current token position.
+    pub fn error(&self, msg: &str) -> ParseError {
         let tok = &self.tokens[self.pos];
         ParseError {
             line: tok.line,
