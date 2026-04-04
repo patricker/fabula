@@ -9,7 +9,7 @@
 
 use crate::datasource::ValueConstraint;
 use crate::interval::AllenRelation;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 /// A named position in a pattern traversal.
@@ -126,6 +126,32 @@ pub struct Pattern<L, V> {
     /// complete within this many ticks of its creation, the engine
     /// emits `SiftEvent::Expired` and kills the PM.
     pub deadline_ticks: Option<u64>,
+    /// Repeat range configuration. When set, the engine loops over a segment
+    /// of stages instead of completing after the last stage. Enables "at least
+    /// N, up to M" matching with first/last binding bookends.
+    pub repeat_range: Option<RepeatRange>,
+}
+
+/// Configuration for looping repeat patterns (`* N..M` or `* N..`).
+///
+/// The pattern's stages are laid out as `[first_... | last_...]`. The `last_`
+/// segment loops: when a PM advances past `stage_end - 1`, the engine resets
+/// `next_stage` to `stage_start` and increments `repetition_count`. Completion
+/// is emitted once `min_reps` is reached. Looping stops at `max_reps` (or never
+/// if unbounded).
+#[derive(Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub struct RepeatRange {
+    /// First stage index of the looping segment (inclusive).
+    pub stage_start: usize,
+    /// Last stage index of the looping segment (exclusive).
+    pub stage_end: usize,
+    /// Minimum repetitions before the first completion.
+    pub min_reps: usize,
+    /// Maximum repetitions. `None` = unlimited.
+    pub max_reps: Option<usize>,
+    /// Variables shared across repetitions (not prefixed, persist across loops).
+    pub shared_vars: HashSet<String>,
 }
 
 /// A stage is a group of clauses anchored to a single event/node variable.
@@ -216,6 +242,7 @@ impl<L, V> Pattern<L, V> {
             group: self.group.clone(),
             metadata: self.metadata.clone(),
             deadline_ticks: self.deadline_ticks,
+            repeat_range: self.repeat_range.clone(),
         }
     }
 

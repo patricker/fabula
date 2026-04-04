@@ -293,11 +293,31 @@ impl Parser {
             }
             ComposeBody::Choice { alternatives }
         } else if self.check(TokenKind::Star) {
-            // Repeat: first * count sharing(...)
+            // Repeat: first * N sharing(...) or first * N..M sharing(...) or first * N.. sharing(...)
             self.advance();
-            let count = self.expect_number()? as usize;
+            let min = self.expect_number()? as usize;
+            let max = if self.check(TokenKind::DotDot) {
+                self.advance();
+                // Check for explicit max or unbounded
+                if matches!(self.peek().kind, TokenKind::Number(_)) {
+                    Some(Some(self.expect_number()? as usize))
+                } else {
+                    Some(None) // unbounded: N..
+                }
+            } else {
+                None // exact: N
+            };
             let shared = self.parse_sharing_clause()?;
-            ComposeBody::Repeat { pattern: first, count, shared }
+            match max {
+                None => {
+                    // Exact: * N → min=N, max=Some(N)
+                    ComposeBody::Repeat { pattern: first, min, max: Some(min), shared }
+                }
+                Some(max_val) => {
+                    // Range: * N..M or * N..
+                    ComposeBody::Repeat { pattern: first, min, max: max_val, shared }
+                }
+            }
         } else {
             return Err(self.error("expected '>>' (sequence), '|' (choice), or '*' (repeat)"));
         };

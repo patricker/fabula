@@ -53,10 +53,11 @@ pub enum ComposeBody {
     Choice {
         alternatives: Vec<String>,
     },
-    /// `A * 3 sharing(x, y)`
+    /// `A * 3 sharing(x, y)` (exact) or `A * 3..5 sharing(x, y)` (range)
     Repeat {
         pattern: String,
-        count: usize,
+        min: usize,
+        max: Option<usize>,
         shared: Vec<String>,
     },
 }

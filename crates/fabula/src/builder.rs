@@ -172,6 +172,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             group: None,
             metadata: self.metadata,
             deadline_ticks: self.deadline_ticks,
+            repeat_range: None,
         }
     }
 }

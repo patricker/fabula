@@ -882,3 +882,95 @@ fn roundtrip_constraint_var_eq() {
     let matches = engine.evaluate(&doc.graphs[0]);
     assert_eq!(matches.len(), 1, "500 == 500 should match via EqVar");
 }
+
+// ===========================================================================
+// Repeat with range (min..max)
+// ===========================================================================
+
+#[test]
+fn parse_compose_repeat_range() {
+    let dsl = r#"
+        pattern offense { stage e1 { e1.type = "offense" e1.target -> ?target } }
+        compose strikes = offense * 3..5 sharing(target)
+    "#;
+    let doc = parse_document(dsl).unwrap();
+    let strikes = doc.patterns.iter().find(|p| p.name == "strikes").unwrap();
+    assert!(strikes.repeat_range.is_some(), "should have repeat_range");
+    let rr = strikes.repeat_range.as_ref().unwrap();
+    assert_eq!(rr.min_reps, 3);
+    assert_eq!(rr.max_reps, Some(5));
+}
+
+#[test]
+fn parse_compose_repeat_unbounded() {
+    let dsl = r#"
+        pattern offense { stage e1 { e1.type = "offense" } }
+        compose brute = offense * 5..
+    "#;
+    let doc = parse_document(dsl).unwrap();
+    let brute = doc.patterns.iter().find(|p| p.name == "brute").unwrap();
+    assert!(brute.repeat_range.is_some(), "should have repeat_range");
+    let rr = brute.repeat_range.as_ref().unwrap();
+    assert_eq!(rr.min_reps, 5);
+    assert_eq!(rr.max_reps, None, "unbounded max should be None");
+}
+
+#[test]
+fn parse_compose_repeat_exact_unchanged() {
+    // * N (exact count) should still work and NOT produce repeat_range
+    let dsl = r#"
+        pattern offense { stage e1 { e1.type = "offense" e1.target -> ?target } }
+        compose strikes = offense * 3 sharing(target)
+    "#;
+    let doc = parse_document(dsl).unwrap();
+    let strikes = doc.patterns.iter().find(|p| p.name == "strikes").unwrap();
+    assert!(strikes.repeat_range.is_none(), "exact repeat should use unrolled approach");
+    assert_eq!(strikes.stages.len(), 3, "exact repeat should have 3 stages");
+}
+
+#[test]
+fn roundtrip_repeat_range() {
+    use fabula_memory::MemGraph;
+
+    let dsl = r#"
+        pattern offense {
+            stage e1 {
+                e1.type = "offense"
+                e1.target -> ?target
+            }
+        }
+        compose strikes = offense * 2..4 sharing(target)
+        graph {
+            @1 ev1.type = "offense"
+            @1 ev1.target -> alice
+            @2 ev2.type = "offense"
+            @2 ev2.target -> alice
+            @3 ev3.type = "offense"
+            @3 ev3.target -> alice
+            now = 10
+        }
+    "#;
+    let doc = parse_document(dsl).unwrap();
+    let strikes = doc.patterns.iter().find(|p| p.name == "strikes").unwrap();
+    assert!(strikes.repeat_range.is_some(), "should use repeat_range");
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    for p in &doc.patterns {
+        engine.register(p.clone());
+    }
+
+    // Feed edges incrementally
+    let g = &doc.graphs[0];
+    for i in 1..=3i64 {
+        let src = format!("ev{}", i);
+        engine.on_edge_added(g, &src, &"type".into(),
+            &fabula_memory::MemValue::Str("offense".into()), &Interval::open(i));
+    }
+
+    let completed = engine.drain_completed();
+    assert!(!completed.is_empty(), "repeat_range should produce completions via DSL roundtrip");
+    // At least one completion should have the shared target = alice
+    assert!(completed.iter().any(|m| {
+        matches!(m.bindings.get("target"), Some(BoundValue::Node(n)) if n == "alice")
+    }), "shared target should be alice");
+}

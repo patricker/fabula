@@ -133,6 +133,7 @@ pub fn rename_vars<L: Clone, V: Clone>(
         group: pattern.group.clone(),
         metadata: pattern.metadata.clone(),
         deadline_ticks: pattern.deadline_ticks,
+        repeat_range: pattern.repeat_range.clone(),
     }
 }
 
@@ -180,6 +181,7 @@ pub fn sequence<L: Clone, V: Clone>(
         group: None,
         metadata,
         deadline_ticks: None,
+        repeat_range: None,
     }
 }
 
@@ -263,6 +265,73 @@ pub fn repeat<L: Clone, V: Clone>(
         group: None,
         metadata,
         deadline_ticks: None,
+        repeat_range: None,
+    }
+}
+
+// ---------------------------------------------------------------------------
+// repeat_range — looping repeat with first/last bookends
+// ---------------------------------------------------------------------------
+
+/// Create a pattern that matches a sub-pattern at least `min` times, up to
+/// `max` times (or unbounded if `max` is `None`). Uses first/last bookends:
+/// the first iteration binds `first_` prefixed variables, subsequent iterations
+/// overwrite `last_` prefixed variables. Shared variables persist across all
+/// iterations.
+///
+/// Stage layout: `[first_e1, first_e2, ...] [last_e1, last_e2, ...]`
+/// The `last_` segment loops. Completion is emitted at `min` repetitions;
+/// the PM continues matching up to `max`.
+pub fn repeat_range<L: Clone, V: Clone>(
+    name: &str,
+    pattern: &Pattern<L, V>,
+    min: usize,
+    max: Option<usize>,
+    shared: &[&str],
+) -> Pattern<L, V> {
+    assert!(min >= 1, "repeat_range: min must be >= 1");
+    if let Some(max_val) = max {
+        assert!(max_val >= min, "repeat_range: max must be >= min");
+    }
+
+    let keep: HashSet<&str> = shared.iter().copied().collect();
+
+    // Generate first_ and last_ copies
+    let first = rename_vars(pattern, "first", &keep);
+    let last = rename_vars(pattern, "last", &keep);
+
+    let first_stage_count = first.stages.len();
+    let last_stage_count = last.stages.len();
+
+    let mut stages = first.stages;
+    stages.extend(last.stages);
+
+    let mut temporal = first.temporal;
+    temporal.extend(last.temporal);
+
+    let mut negations = first.negations;
+    negations.extend(last.negations);
+
+    let mut metadata = first.metadata;
+    metadata.extend(last.metadata);
+
+    let shared_vars: HashSet<String> = shared.iter().map(|s| s.to_string()).collect();
+
+    Pattern {
+        name: name.to_string(),
+        stages,
+        temporal,
+        negations,
+        group: None,
+        metadata,
+        deadline_ticks: None,
+        repeat_range: Some(crate::pattern::RepeatRange {
+            stage_start: first_stage_count,
+            stage_end: first_stage_count + last_stage_count,
+            min_reps: min,
+            max_reps: max,
+            shared_vars,
+        }),
     }
 }
 

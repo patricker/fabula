@@ -128,7 +128,7 @@ Fabula is a Rust implementation of the sifting and incremental matching ideas fr
 | **Negation** | `not-join` (Felt); `unless-event between` (Winnow). | `unless_between`, `unless_after` (open-ended), `unless_global` (full-pattern span). Multi-clause negation bodies. |
 | **Death details** | Winnow tracks `{eventID, constraint}`. | `SiftEvent::Negated` carries the triggering clause label and source node. |
 | **Text DSL** | N/A | Winnow's S-expression syntax | `fabula-dsl` crate with TypeMapper for compiling to arbitrary type systems. |
-| **Composition** | N/A | N/A | Sequence (`>>`), choice (`\|`), repeat (`*`) with variable sharing. |
+| **Composition** | N/A | N/A | Sequence (`>>`), choice (`\|`), repeat (`*` exact, `* N..M` range, `* N..` unbounded) with variable sharing and first/last bookends. |
 | **Surprise scoring** | N/A | N/A | Shannon surprise + StU property-level scoring (Kreminski 2022). |
 | **Narrative scoring** | N/A | N/A | `fabula-narratives` crate: threads, tension, pivots, composite MCTS quality function. |
 | **Metric temporal** | N/A | N/A | STN-style gap bounds on Allen relations (Dechter/Meiri/Pearl 1991). |

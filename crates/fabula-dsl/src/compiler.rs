@@ -478,10 +478,29 @@ pub fn compile_compose_with<M: TypeMapper>(
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(compose::choice(&ast.name, &pats, true))
         }
-        ComposeBody::Repeat { pattern, count, shared } => {
+        ComposeBody::Repeat { pattern, min, max, shared } => {
             let p = resolve(pattern)?;
             let shared_refs: Vec<&str> = shared.iter().map(|s| s.as_str()).collect();
-            Ok(vec![compose::repeat(&ast.name, p, *count, &shared_refs)])
+            if *min < 1 {
+                return Err(ParseError {
+                    line: 0, column: 0, span: (0, 0),
+                    message: "repeat count must be at least 1".to_string(),
+                });
+            }
+            if let Some(max_val) = max {
+                if *max_val < *min {
+                    return Err(ParseError {
+                        line: 0, column: 0, span: (0, 0),
+                        message: format!("repeat max ({}) must be >= min ({})", max_val, min),
+                    });
+                }
+            }
+            // Exact repeat (min == max): use original unrolled repeat for backward compat
+            if *max == Some(*min) {
+                Ok(vec![compose::repeat(&ast.name, p, *min, &shared_refs)])
+            } else {
+                Ok(vec![compose::repeat_range(&ast.name, p, *min, *max, &shared_refs)])
+            }
         }
     }
 }

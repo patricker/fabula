@@ -986,6 +986,236 @@ fn cross_stage_var_in_negation_body() {
 }
 
 // ===========================================================================
-// 5e. Metric temporal constraints
+// 5e. Repeat with range (min..max)
+// ===========================================================================
+
+#[test]
+fn repeat_range_completes_at_min() {
+    // Pattern: offense * 3..5 sharing(target)
+    // min=3 means 3 total occurrences: first_ + 2 last_ loops
+    let offense = PatternBuilder::new("offense")
+        .stage("e", |s| {
+            s.edge("e", "type".into(), MemValue::Str("offense".into()))
+                .edge_bind("e", "target".into(), "target")
+        })
+        .build();
+
+    let pattern = fabula::compose::repeat_range("strikes", &offense, 3, Some(5), &["target"]);
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    let mut g = MemGraph::new();
+
+    // Offense 1 (matches first_ stage)
+    g.add_str("ev1", "type", "offense", 1);
+    g.add_ref("ev1", "target", "alice", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("offense".into()), &Interval::open(1));
+
+    // Offense 2 (matches last_ stage → rep=2, min=3 → not yet)
+    g.add_str("ev2", "type", "offense", 2);
+    g.add_ref("ev2", "target", "alice", 2);
+    g.set_time(2);
+    let ev2 = engine.on_edge_added(&g, &"ev2".into(), &"type".into(),
+        &MemValue::Str("offense".into()), &Interval::open(2));
+    let completions: Vec<_> = ev2.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).collect();
+    assert_eq!(completions.len(), 0, "should not complete at 2 occurrences (min=3)");
+
+    // Offense 3 (last_ loop → rep=3 >= min=3 → complete!)
+    g.add_str("ev3", "type", "offense", 3);
+    g.add_ref("ev3", "target", "alice", 3);
+    g.set_time(3);
+    let ev3 = engine.on_edge_added(&g, &"ev3".into(), &"type".into(),
+        &MemValue::Str("offense".into()), &Interval::open(3));
+    let completions: Vec<_> = ev3.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).collect();
+    assert_eq!(completions.len(), 1, "should complete at 3 occurrences (min=3)");
+}
+
+#[test]
+fn repeat_range_continues_after_min() {
+    // Pattern: offense * 2..5 sharing(target)
+    // min=2: completes after 2 total occurrences (first_ + first last_)
+    // Then continues looping, producing more completions
+    let offense = PatternBuilder::new("offense")
+        .stage("e", |s| {
+            s.edge("e", "type".into(), MemValue::Str("offense".into()))
+                .edge_bind("e", "target".into(), "target")
+        })
+        .build();
+
+    let pattern = fabula::compose::repeat_range("strikes", &offense, 2, Some(5), &["target"]);
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    let mut g = MemGraph::new();
+
+    // Feed 2 offenses → completes at min=2
+    for i in 1..=2 {
+        g.add_str(&format!("ev{}", i), "type", "offense", i);
+        g.add_ref(&format!("ev{}", i), "target", "alice", i);
+        g.set_time(i);
+        engine.on_edge_added(&g, &format!("ev{}", i).into(), &"type".into(),
+            &MemValue::Str("offense".into()), &Interval::open(i));
+    }
+
+    // Offense 3 — should produce another completion (3 >= min=2)
+    g.add_str("ev3", "type", "offense", 3);
+    g.add_ref("ev3", "target", "alice", 3);
+    g.set_time(3);
+    let ev3 = engine.on_edge_added(&g, &"ev3".into(), &"type".into(),
+        &MemValue::Str("offense".into()), &Interval::open(3));
+
+    let completions: Vec<_> = ev3.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).collect();
+    assert!(completions.len() >= 1, "should complete again at 3 total occurrences");
+}
+
+#[test]
+fn repeat_range_stops_at_max() {
+    // Pattern: offense * 2..4 sharing(target)
+    // Verify no PM loops beyond max=4 total occurrences.
+    let offense = PatternBuilder::new("offense")
+        .stage("e", |s| {
+            s.edge("e", "type".into(), MemValue::Str("offense".into()))
+                .edge_bind("e", "target".into(), "target")
+        })
+        .build();
+
+    let pattern = fabula::compose::repeat_range("strikes", &offense, 2, Some(4), &["target"]);
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    let mut g = MemGraph::new();
+
+    // Use a "setup" event type for first_ stage, and "offense" for last_ — but
+    // actually both first_ and last_ match the same sub-pattern ("offense").
+    // With multiple events, multiple starting points create multiple PMs.
+    // Just verify that completions happen but no PM has rep_count > max.
+    for i in 1..=5 {
+        g.add_str(&format!("ev{}", i), "type", "offense", i);
+        g.add_ref(&format!("ev{}", i), "target", "alice", i);
+        g.set_time(i);
+        engine.on_edge_added(&g, &format!("ev{}", i).into(), &"type".into(),
+            &MemValue::Str("offense".into()), &Interval::open(i));
+    }
+
+    let completed = engine.drain_completed();
+    assert!(!completed.is_empty(), "should have completions");
+
+    // Verify no PM loops beyond max=4 total occurrences.
+    let active = engine.active_matches_for("strikes");
+    for pm in &active {
+        assert!(pm.repetition_count <= 4, "no PM should loop beyond max=4, got rep {}", pm.repetition_count);
+    }
+}
+
+#[test]
+fn repeat_range_unbounded_keeps_matching() {
+    // Pattern: offense * 2.. sharing(target) — no max
+    // min=2 means 2 total occurrences → first completion after 2 events
+    let offense = PatternBuilder::new("offense")
+        .stage("e", |s| {
+            s.edge("e", "type".into(), MemValue::Str("offense".into()))
+                .edge_bind("e", "target".into(), "target")
+        })
+        .build();
+
+    let pattern = fabula::compose::repeat_range("strikes", &offense, 2, None, &["target"]);
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    let mut g = MemGraph::new();
+
+    // Feed 6 offenses
+    for i in 1..=6 {
+        g.add_str(&format!("ev{}", i), "type", "offense", i);
+        g.add_ref(&format!("ev{}", i), "target", "alice", i);
+        g.set_time(i);
+        engine.on_edge_added(&g, &format!("ev{}", i).into(), &"type".into(),
+            &MemValue::Str("offense".into()), &Interval::open(i));
+    }
+
+    // Completions at 2, 3, 4, 5, 6 total occurrences = 5 from the first starting PM
+    // (plus more from PMs starting at later events)
+    let completed = engine.drain_completed();
+    assert!(completed.len() >= 5, "unbounded should produce completions at each occurrence >= min (got {})", completed.len());
+}
+
+#[test]
+fn repeat_range_first_last_bindings() {
+    // Verify first_ and last_ binding bookends
+    let offense = PatternBuilder::new("offense")
+        .stage("e", |s| {
+            s.edge("e", "type".into(), MemValue::Str("offense".into()))
+                .edge_bind("e", "actor".into(), "actor")
+                .edge_bind("e", "target".into(), "target")
+        })
+        .build();
+
+    // min=2 means 2 total occurrences → completes after first_ + first last_
+    let pattern = fabula::compose::repeat_range("strikes", &offense, 2, Some(4), &["target"]);
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    let mut g = MemGraph::new();
+
+    // Offense 1 by bob (matches first_)
+    g.add_str("ev1", "type", "offense", 1);
+    g.add_ref("ev1", "actor", "bob", 1);
+    g.add_ref("ev1", "target", "alice", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("offense".into()), &Interval::open(1));
+
+    // Offense 2 by charlie (matches last_ → rep=2 >= min=2 → completes)
+    g.add_str("ev2", "type", "offense", 2);
+    g.add_ref("ev2", "actor", "charlie", 2);
+    g.add_ref("ev2", "target", "alice", 2);
+    g.set_time(2);
+    engine.on_edge_added(&g, &"ev2".into(), &"type".into(),
+        &MemValue::Str("offense".into()), &Interval::open(2));
+
+    let completed = engine.drain_completed();
+    assert!(!completed.is_empty(), "should have completions at 2 total occurrences");
+
+    let first_match = &completed[0];
+    // Should have first_ and last_ bindings plus shared target
+    assert!(first_match.bindings.contains_key("target"), "shared var should be present");
+    assert!(first_match.bindings.contains_key("first_actor"), "first_ binding should exist");
+    assert!(first_match.bindings.contains_key("last_actor"), "last_ binding should exist");
+
+    // first_actor should be bob (first offense)
+    assert_eq!(
+        first_match.bindings.get("first_actor"),
+        Some(&BoundValue::Node("bob".into())),
+        "first_actor should be bob"
+    );
+
+    // last_actor should be charlie (second offense = first last_ iteration)
+    assert_eq!(
+        first_match.bindings.get("last_actor"),
+        Some(&BoundValue::Node("charlie".into())),
+        "last_actor should be charlie"
+    );
+}
+
+#[test]
+fn repeat_range_exact_is_backward_compatible() {
+    // * N (exact) should produce same behavior as old repeat()
+    let offense = PatternBuilder::<String, MemValue>::new("offense")
+        .stage("e", |s| {
+            s.edge("e", "type".into(), MemValue::Str("offense".into()))
+                .edge_bind("e", "target".into(), "target")
+        })
+        .build();
+
+    let exact = fabula::compose::repeat("three", &offense, 3, &["target"]);
+    // repeat_range with min=max should also work via the old path
+    assert!(exact.repeat_range.is_none(), "exact repeat should not have repeat_range");
+    assert_eq!(exact.stages.len(), 3, "exact repeat should unroll 3 copies");
+}
+
+// ===========================================================================
+// 5f. Metric temporal constraints
 // ===========================================================================
 

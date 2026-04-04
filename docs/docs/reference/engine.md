@@ -478,6 +478,7 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
     pub created_at: T,
     pub created_at_tick: u64,
     pub fingerprint: u64,
+    pub repetition_count: u32,
 }
 ```
 
@@ -491,7 +492,8 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
 | `id` | `usize` | Unique identifier for tracking. |
 | `created_at` | `T` | Timestamp when this partial match was first initiated. Set from the initiating edge's interval start; inherited from parent on fork. Only meaningful in incremental mode. |
 | `created_at_tick` | `u64` | Engine tick when this partial match was first initiated. Inherited from parent on advancement (not reset). Used by `end_tick()` for deadline expiry checks: `current_tick - created_at_tick > deadline_ticks`. |
-| `fingerprint` | `u64` | Precomputed dedup hash of `(pattern_idx, next_stage, bindings, intervals)`. Computed once at creation using order-independent XOR hashing. |
+| `fingerprint` | `u64` | Precomputed dedup hash of `(pattern_idx, next_stage, bindings, intervals, repetition_count)`. Computed once at creation using order-independent XOR hashing. |
+| `repetition_count` | `u32` | Number of completed sub-pattern occurrences for repeat-range patterns. Incremented each time the PM loops back to the repeat segment start. Zero for non-repeating patterns. |
 
 ---
 

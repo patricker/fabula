@@ -117,6 +117,7 @@ where
                             id,
                             fingerprint: fp,
                             created_at_tick: self.tick_counter,
+                            repetition_count: 0,
                         };
 
                         if is_last_stage {
@@ -163,15 +164,112 @@ where
                     }
 
                     let next = stage_idx + 1;
-                    let is_complete = next >= pattern.stages.len();
+                    let is_past_end = next >= pattern.stages.len();
 
                     let mut merged_bindings = pm.bindings.clone();
                     merged_bindings.extend(new_bindings);
                     let mut merged_intervals = pm.intervals.clone();
                     merged_intervals.extend(new_intervals);
 
+                    // Check for repeat range looping
+                    if is_past_end {
+                        if let Some(ref rr) = pattern.repeat_range {
+                            // first_ + first last_ = 2 occurrences; each subsequent loop = +1.
+                            // repetition_count starts at 0, so first pass adds 2.
+                            let increment = if pm.repetition_count == 0 { 2 } else { 1 };
+                            let new_rep = pm.repetition_count + increment;
+                            let min_met = new_rep >= rr.min_reps as u32;
+                            let max_reached = rr.max_reps.is_some_and(|m| new_rep >= m as u32);
+
+                            if min_met && free::check_temporal(pattern, &merged_intervals) {
+                                // Emit completion snapshot
+                                self.stats.total_fingerprints += 1;
+                                let cfp = Self::compute_fingerprint_with_rep(
+                                    pm.pattern_idx, next, &merged_bindings, &merged_intervals, new_rep,
+                                );
+                                if seen.insert(cfp) {
+                                    let cid = self.next_match_id;
+                                    self.next_match_id += 1;
+                                    advanced.push(PartialMatch {
+                                        pattern_idx: pm.pattern_idx,
+                                        bindings: merged_bindings.clone(),
+                                        created_at: pm.created_at.clone(),
+                                        intervals: merged_intervals.clone(),
+                                        next_stage: next,
+                                        state: MatchState::Complete,
+                                        id: cid,
+                                        fingerprint: cfp,
+                                        created_at_tick: pm.created_at_tick,
+                                        repetition_count: new_rep,
+                                    });
+                                    events.push(SiftEvent::Completed {
+                                        pattern: pattern.name.clone(),
+                                        match_id: cid,
+                                        bindings: merged_bindings.clone(),
+                                        metadata: pattern.metadata.clone(),
+                                    });
+                                }
+                            }
+
+                            if !max_reached {
+                                // Loop: create Active PM at segment start.
+                                // Clear non-shared bindings from the looping segment
+                                // so stage anchors can match fresh events. Keep intervals
+                                // for temporal ordering between iterations.
+                                let mut loop_bindings = merged_bindings.clone();
+                                for si in rr.stage_start..rr.stage_end {
+                                    let anchor = &pattern.stages[si].anchor.0;
+                                    if !rr.shared_vars.contains(anchor) {
+                                        loop_bindings.remove(anchor);
+                                    }
+                                    for clause in &pattern.stages[si].clauses {
+                                        if !rr.shared_vars.contains(&clause.source.0) {
+                                            loop_bindings.remove(&clause.source.0);
+                                        }
+                                        if let crate::pattern::Target::Bind(ref var) = clause.target {
+                                            if !rr.shared_vars.contains(&var.0) {
+                                                loop_bindings.remove(&var.0);
+                                            }
+                                        }
+                                    }
+                                }
+
+                                self.stats.total_fingerprints += 1;
+                                let lfp = Self::compute_fingerprint_with_rep(
+                                    pm.pattern_idx, rr.stage_start, &loop_bindings, &merged_intervals, new_rep,
+                                );
+                                if seen.insert(lfp) {
+                                    let lid = self.next_match_id;
+                                    self.next_match_id += 1;
+                                    advanced.push(PartialMatch {
+                                        pattern_idx: pm.pattern_idx,
+                                        bindings: loop_bindings,
+                                        created_at: pm.created_at.clone(),
+                                        intervals: merged_intervals,
+                                        next_stage: rr.stage_start,
+                                        state: MatchState::Active,
+                                        id: lid,
+                                        fingerprint: lfp,
+                                        created_at_tick: pm.created_at_tick,
+                                        repetition_count: new_rep,
+                                    });
+                                    events.push(SiftEvent::Advanced {
+                                        pattern: pattern.name.clone(),
+                                        match_id: lid,
+                                        stage_index: stage_idx,
+                                        metadata: pattern.metadata.clone(),
+                                    });
+                                }
+                            }
+                            continue; // Skip normal PM creation
+                        }
+                    }
+
+                    // Normal (non-repeat) advancement or completion
+                    let is_complete = is_past_end;
+
                     self.stats.total_fingerprints += 1;
-                    let fp = Self::compute_fingerprint(pm.pattern_idx, next, &merged_bindings, &merged_intervals);
+                    let fp = Self::compute_fingerprint_with_rep(pm.pattern_idx, next, &merged_bindings, &merged_intervals, pm.repetition_count);
                     if !seen.insert(fp) {
                         continue;
                     }
@@ -193,6 +291,7 @@ where
                         id,
                         fingerprint: fp,
                         created_at_tick: pm.created_at_tick,
+                        repetition_count: pm.repetition_count,
                     };
 
                     if is_complete {
@@ -246,25 +345,37 @@ where
 
         // Exclusive choice groups: when a pattern with a group completes,
         // kill all other active PMs in the same group.
-        let completed_groups: Vec<String> = events
+        // Exception: repeat-range patterns exempt their own looping PMs —
+        // completion at min should kill other alternatives, not the continuation.
+        let completed_in_groups: Vec<(usize, String)> = events
             .iter()
             .filter_map(|e| {
                 if let SiftEvent::Completed { pattern, .. } = e {
-                    self.patterns.iter()
-                        .find(|p| p.name == *pattern)
-                        .and_then(|p| p.group.clone())
+                    self.patterns.iter().enumerate()
+                        .find(|(_, p)| p.name == *pattern)
+                        .and_then(|(idx, p)| p.group.clone().map(|g| (idx, g)))
                 } else {
                     None
                 }
             })
             .collect();
-        if !completed_groups.is_empty() {
+        if !completed_in_groups.is_empty() {
             for pm in &mut self.partial_matches {
                 if pm.state != MatchState::Active {
                     continue;
                 }
                 if let Some(ref g) = self.patterns[pm.pattern_idx].group {
-                    if completed_groups.contains(g) {
+                    let dominated = completed_in_groups.iter().any(|(completed_idx, cg)| {
+                        if g != cg { return false; }
+                        // Exempt looping PMs from the same repeat-range pattern
+                        if pm.pattern_idx == *completed_idx
+                            && self.patterns[pm.pattern_idx].repeat_range.is_some()
+                        {
+                            return false;
+                        }
+                        true
+                    });
+                    if dominated {
                         pm.state = MatchState::Dead;
                     }
                 }

@@ -504,10 +504,21 @@ where
         bindings: &HashMap<String, BoundValue<N, V>>,
         intervals: &HashMap<String, Interval<T>>,
     ) -> u64 {
+        Self::compute_fingerprint_with_rep(pattern_idx, next_stage, bindings, intervals, 0)
+    }
+
+    fn compute_fingerprint_with_rep(
+        pattern_idx: usize,
+        next_stage: usize,
+        bindings: &HashMap<String, BoundValue<N, V>>,
+        intervals: &HashMap<String, Interval<T>>,
+        repetition_count: u32,
+    ) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         let mut h = DefaultHasher::new();
         pattern_idx.hash(&mut h);
         next_stage.hash(&mut h);
+        repetition_count.hash(&mut h);
 
         // XOR of per-entry hashes — order-independent, no sorting needed.
         // Mix in map length to distinguish empty maps from self-cancelling entries.

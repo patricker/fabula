@@ -45,6 +45,8 @@ The engine tries to advance every existing active partial match. For each partia
 
 The key behavior here: **the original partial match survives**. When the engine forks, it creates a copy with the new bindings and advances the copy. The original stays in its current state, waiting for a potentially different edge to match the same stage. This is critical because the same stage can match multiple future events with different bindings.
 
+**Repeat-range looping**: For patterns created with `compose::repeat_range()` (DSL `* N..M` or `* N..`), when a PM advances past the last stage of the looping segment, the engine creates a completion snapshot (if min repetitions are met) AND a new Active PM that loops back to the start of the segment with incremented `repetition_count`. Non-shared bindings from the looping segment are cleared so stage anchors can match fresh events. Intervals are preserved for temporal ordering between iterations.
+
 ### Phase 4: Cleanup
 
 Dead partial matches (killed by negation in Phase 1) are removed from storage. New partial matches from Phases 2 and 3 are added.

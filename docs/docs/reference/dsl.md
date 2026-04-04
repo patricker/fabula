@@ -227,7 +227,9 @@ Compose directives combine named patterns into larger patterns. Three operators 
 ```
 compose <name> = <pattern_a> >> <pattern_b> sharing(<var>, ...)   // sequence
 compose <name> = <pattern_a> | <pattern_b> | <pattern_c>         // exclusive choice
-compose <name> = <pattern> * <count> sharing(<var>, ...)          // repeat
+compose <name> = <pattern> * <count> sharing(<var>, ...)          // exact repeat
+compose <name> = <pattern> * <min>..<max> sharing(<var>, ...)     // repeat range
+compose <name> = <pattern> * <min>.. sharing(<var>, ...)          // repeat (unbounded)
 ```
 
 ### Sequence (`>>`)
@@ -255,11 +257,30 @@ compose crisis = war | famine | plague
 
 ### Repeat (`*`)
 
-Creates a sequence of N copies of the same pattern. Variables listed in `sharing(...)` are joined across all copies (the same actor in each repetition).
+**Exact repeat** (`* N`): creates a sequence of N copies of the same pattern. Variables listed in `sharing(...)` are joined across all copies (the same actor in each repetition). Each copy gets distinct `repN_` prefixed variable names, so you can inspect individual repetition bindings.
 
 ```
 compose three_strikes = offense * 3 sharing(offender)
 ```
+
+**Repeat range** (`* N..M`): matches the sub-pattern at least N times, up to M times. Uses a looping engine with first/last bookends instead of unrolling. The first match binds `first_` prefixed variables, subsequent matches overwrite `last_` prefixed variables. Shared variables persist across all iterations. Completion is emitted at N occurrences; the engine continues matching up to M.
+
+```
+compose brute_force = login_fail * 5..10 sharing(account)   // 5 to 10 attempts
+compose escalation = price_hike * 3..5 sharing(item)        // 3 to 5 hikes
+```
+
+**Unbounded repeat** (`* N..`): matches at least N times with no upper limit. The engine loops indefinitely, emitting a completion at each occurrence >= N.
+
+```
+compose persistent = anomaly * 3.. sharing(sensor)   // 3 or more anomalies
+```
+
+Bindings available in repeat-range matches:
+- `first_*` — variables from the first match (e.g., `first_actor`, `first_e`)
+- `last_*` — variables from the most recent match (overwritten each iteration)
+- Shared variables — unprefixed, consistent across all iterations
+- `repetition_count` — available on the `PartialMatch` for inspection
 
 ### Rules
 
@@ -267,6 +288,7 @@ compose three_strikes = offense * 3 sharing(offender)
 - `sharing(...)` is required for sequence and repeat when you want cross-pattern variable joins. Omit it for independent patterns.
 - Compose chains work: `compose ab = a >> b` then `compose abc = ab >> c`.
 - Variables are automatically renamed to avoid collisions (e.g., `e1` becomes `e1_0`, `e1_1`).
+- Repeat range (`* N..M`, `* N..`) requires `N >= 1`. For bounded ranges, `M >= N`.
 
 ---
 

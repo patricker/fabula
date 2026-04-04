@@ -124,7 +124,7 @@ The core `fabula` crate has seven modules:
 - **`pattern`** -- `Pattern`, `Stage`, `Clause`, `Var`, `Target`, `TemporalConstraint`, `Negation`. Data types with `map_types()` for type conversion.
 - **`builder`** -- `PatternBuilder`, `StageBuilder`, `NegationBuilder`. Ergonomic API for constructing patterns.
 - **`engine/`** -- `SiftEngine<N,L,V,T>`, lifecycle management (register, tick, enable/disable, metrics, plant/payoff), evaluation (batch, incremental, gap analysis), fork support (`Clone`).
-- **`compose`** -- Pattern composition operators: `sequence`, `choice`, `repeat` with variable renaming.
+- **`compose`** -- Pattern composition operators: `sequence`, `choice`, `repeat` (exact), `repeat_range` (looping with first/last bookends) with variable renaming.
 - **`scoring/`** -- `SurpriseScorer` (Shannon surprise) and `StuScorer` (StU property-level scoring).
 
 ## Research lineage

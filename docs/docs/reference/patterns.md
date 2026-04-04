@@ -176,6 +176,7 @@ pub struct Pattern<L, V> {
     pub group: Option<String>,
     pub metadata: HashMap<String, String>,
     pub deadline_ticks: Option<u64>,
+    pub repeat_range: Option<RepeatRange>,
 }
 ```
 
@@ -188,6 +189,7 @@ pub struct Pattern<L, V> {
 | `group` | `Option<String>` | Mutual-exclusion group. When one pattern in a group completes, the engine kills active PMs for all other patterns in the same group. Set by `choice` composition. |
 | `metadata` | `HashMap<String, String>` | Arbitrary key-value pairs propagated to `Match`, `SiftEvent`, and scored match types. Use for tagging patterns with narrative roles, priorities, or domain-specific attributes. |
 | `deadline_ticks` | `Option<u64>` | If set, active partial matches for this pattern are expired (killed with `SiftEvent::Expired`) when they have been alive for more than this many ticks without completing. Checked during `end_tick()`. |
+| `repeat_range` | `Option<RepeatRange>` | Looping repeat configuration. Set by `compose::repeat_range()` or DSL `* N..M` / `* N..`. When present, the engine loops over a segment of stages instead of completing after the last stage. See [DSL Reference — Repeat](dsl.md#repeat-). |
 
 #### Methods
 

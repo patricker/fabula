@@ -150,145 +150,44 @@ IoT, and gaming domains.
 No item in this phase requires external dependencies. All changes are in
 the zero-dependency `fabula` core crate (plus DSL support in `fabula-dsl`).
 
-#### 5.3 Cross-stage value comparison (`ValueConstraint::BoundVar`)
+### Cross-stage Value Comparison (DONE — 2026-04-03)
 
-New `ValueConstraint` variants that compare an edge's target value against
-a previously-bound variable, not just a literal.
+Compare edge targets against previously-bound variables instead of
+literals. Pre-resolution approach: engine converts `GtVar("x")` →
+`Gt(resolved_value)` before matching, keeping DataSource unchanged.
 
-Many patterns require relating values across stages:
-- Anti-cheat: "position_B distance from position_A > max_speed * elapsed"
-- Finance: "order_price_B > order_price_A" (escalating manipulation)
-- Clinical: "lab_value_B < lab_value_A" (deteriorating patient)
-- IoT: "temperature_B > temperature_A + threshold" (rate of change)
-- Process mining: "invoice amount differs from PO amount"
-
-Currently all `ValueConstraint` variants take a literal `V`. The bindings
-map stores resolved values but there is no way to reference them from a
-constraint.
-
-**Changes required:**
-
-1. **ValueConstraint enum** (`fabula/src/datasource.rs`): Add variants:
-   ```rust
-   EqVar(String),    // target == bound_value_of("var_name")
-   LtVar(String),    // target < bound_value_of("var_name")
-   GtVar(String),    // target > bound_value_of("var_name")
-   LteVar(String),   // target <= bound_value_of("var_name")
-   GteVar(String),   // target >= bound_value_of("var_name")
-   ```
-
-2. **ValueConstraint::matches()**: Currently takes `&V`. Need a new
-   method `matches_with_bindings(&V, &HashMap<String, BoundValue<N, V>>)`
-   that resolves variable references from the PM's bindings map. For
-   `BoundVar` variants, extract the `V` from `BoundValue::Value(v)`;
-   if the binding is `BoundValue::Node(n)`, the comparison is
-   ill-typed — return false (or convert via `DataSource::value_as_node`
-   in reverse).
-
-   Alternatively, keep `matches(&V)` unchanged and add a pre-resolution
-   step in the engine that converts `GtVar("x")` → `Gt(resolved_value)`
-   before matching. Cleaner: the resolution happens once in the engine,
-   constraint evaluation stays simple.
-
-3. **Engine eval** (`fabula/src/engine/eval.rs`): In `try_match_stage()`
-   and `find_stage_matches()`, before evaluating clauses, resolve any
-   `*Var` constraints against the PM's current bindings. If the variable
-   isn't bound yet (e.g., in stage 0), treat as unsatisfiable.
-
-4. **PatternBuilder** (`fabula/src/builder.rs`): Add methods:
-   ```rust
-   pub fn edge_gt_var(self, source: &str, label: L, var_name: &str) -> Self
-   pub fn edge_lt_var(self, source: &str, label: L, var_name: &str) -> Self
-   pub fn edge_eq_var(self, source: &str, label: L, var_name: &str) -> Self
-   // etc.
-   ```
-
-5. **DSL** (`fabula-dsl/`): New syntax for variable-referencing constraints:
-   ```
-   stage e2 {
-     e2.price > ?prev_price        // GtVar("prev_price")
-     e2.score <= ?baseline_score   // LteVar("baseline_score")
-   }
-   ```
-   Parser detects `?` prefix on the right-hand side of a constraint
-   operator to distinguish `e2.price > 100` (literal) from
-   `e2.price > ?prev_price` (variable).
-
-6. **DSL compiler**: Validate that the referenced variable was bound in
-   an earlier stage (same scoping rules as source-position `?var`).
-
-**Trait bound note**: `V: PartialOrd` is already required by `DataSource`.
-No new trait bounds needed.
-
-**Files**: `fabula/src/datasource.rs`, `engine/eval.rs`, `builder.rs`,
-`fabula-dsl/src/{ast,parser,compiler}.rs`
-**Tests**: GtVar resolves correctly, unbound var returns no match,
-BoundValue::Node vs Value handling, DSL parse + compile + roundtrip,
-golden test with cross-stage value comparison
-**Effort**: Small-medium (~80-120 LoC)
+| Item | Summary |
+|------|---------|
+| `ValueConstraint::*Var` variants | `EqVar`, `LtVar`, `GtVar`, `LteVar`, `GteVar` — 5 new variants referencing bound variable names. `matches()` returns false for unresolved (fail-closed). `map()` passes through String names. `is_var()` predicate. |
+| Pre-resolution in engine | `resolve_constraint()`, `resolve_target()` helpers in `engine/free.rs`. Updated 6 eval sites: `find_stage_matches`, `try_match_stage`, `target_matches_ds`, `check_negations_batch`, `check_negation_kill`. `BoundValue::Node` → resolution fails (type mismatch). |
+| `StageBuilder` methods | `edge_eq_var`, `edge_lt_var`, `edge_gt_var`, `edge_lte_var`, `edge_gte_var`. |
+| DSL `> ?var` syntax | All 5 comparison operators (`=`, `<`, `>`, `<=`, `>=`) check for `?` — parse as `ConstraintVar(Op, var_name)`. Compiler validates variable scope. Negated constraint-vars rejected. |
+| `compose::rename_vars` | Correctly renames `*Var` variable references during pattern composition (sequence/repeat). |
+| 22 new tests | DSL parse/compile (4), lifecycle batch/incremental (10), DSL roundtrip eval (3), golden scenarios (5). Boundary values, range check, negation body, type mismatch. |
 
 ---
 
-#### 5.4 Repeat with range (`min..max`)
+### Repeat with Range (DONE — 2026-04-03)
 
-Extend `compose::repeat()` to accept a minimum and maximum repetition
-count instead of exact N. The pattern completes when `min` repetitions
-have matched; the engine continues accepting up to `max`.
+Looping engine for "at least N, up to M" repetition with first/last
+binding bookends. True unbounded support (`* N..`) — no arbitrary caps.
 
-Threshold patterns are ubiquitous across non-narrative domains:
-- Security: "At least 5 failed logins" (brute force)
-- Finance: "3+ sub-threshold deposits within window" (structuring)
-- IoT: "Sensor anomaly repeats 3+ times" (not a transient glitch)
-- Gaming: "Player died 3+ times within 60s" (frustration detection)
-- Epidemiology: "5+ downstream infections from same case" (super-spreader)
+**Design: Looping engine (neither Option A nor B from original plan).**
+The pattern stores `first_` + `last_` prefixed stages. The `last_`
+segment loops: when a PM advances past it, the engine clears non-shared
+bindings, resets `next_stage` to the segment start, and increments
+`repetition_count`. First/last bookends give consumers the initial and
+most recent match without intermediate bloat.
 
-Currently `repeat(name, pattern, count, shared)` only supports exact N
-by concatenating N copies of the pattern's stages. This is too rigid for
-threshold detection.
-
-**Changes required:**
-
-1. **`compose::repeat()` signature** (`fabula/src/compose.rs`): Change
-   from `count: usize` to `min: usize, max: usize` (or accept
-   `Range<usize>` / `RangeInclusive<usize>`).
-
-2. **Stage generation**: Generate `max` repetitions of stages (same as
-   current behavior for the upper bound). This sets the structural
-   maximum.
-
-3. **Early completion**: The engine needs to know that this pattern can
-   complete at stage `min * stages_per_rep` instead of requiring all
-   `max * stages_per_rep` stages. Options:
-
-   **Option A — `min_complete_stage` on Pattern**: Add a field
-   `pub min_complete_stage: Option<usize>`. When a PM advances to this
-   stage, emit `Completed` but keep the PM alive as `Active` to
-   potentially match more stages (up to the full stage count). This
-   allows "at least 3, up to 5" semantics.
-
-   **Option B — multiple patterns**: Generate `max - min + 1` separate
-   patterns (one for exactly-min, one for min+1, etc.) in an exclusive
-   choice group. Simpler engine changes but pattern proliferation.
-
-   Recommend **Option A** — one pattern, one PM, with early completion.
-   Engine change is localized: in Phase 3 (advancement), check if
-   `next_stage == min_complete_stage` and emit `Completed` without
-   transitioning to `MatchState::Complete` (PM stays `Active`).
-
-4. **DSL** (`fabula-dsl/`):
-   ```
-   compose strikes = offense * 3..5 sharing(target)    // 3 to 5
-   compose brute = login_fail * 5.. sharing(account)   // 5 or more (unbounded)
-   ```
-   `* N` (exact) remains valid as shorthand for `* N..N`.
-
-5. **Builder API**: `compose::repeat_range(name, pattern, min, max, shared)`.
-
-**Files**: `fabula/src/compose.rs`, `pattern.rs`, `engine/eval.rs`,
-`fabula-dsl/src/{parser,compiler}.rs`
-**Tests**: Min-match completion, continued advancement after min,
-stop at max, unbounded max, DSL parse/compile, golden test
-**Effort**: Small-medium (~80-120 LoC)
+| Item | Summary |
+|------|---------|
+| `RepeatRange` on `Pattern` | `stage_start`, `stage_end`, `min_reps`, `max_reps: Option<usize>`, `shared_vars: HashSet<String>`. `None` max = unlimited. |
+| `repetition_count: u32` on `PartialMatch` | Incremented each loop. Included in fingerprint via `compute_fingerprint_with_rep`. |
+| `compose::repeat_range()` | Generates `first_` + `last_` stage copies. Shared vars unprefixed across both. Sets `repeat_range` on pattern. |
+| Engine Phase 3 loop logic | When PM passes segment end: emit Completed (if `rep >= min`), create looping Active PM with cleared non-shared bindings (if `rep < max` or unbounded). Intervals kept for temporal ordering. |
+| DSL `* N..M` and `* N..` | Parser handles `DotDot` token between numbers. `* N` (exact) unchanged — routes to old unrolled `repeat()`. Compiler validates min >= 1, max >= min. |
+| Backward compatible | `* N` (exact count) still uses fully-unrolled `repeat()` with distinct `repN_` prefixes. No behavior change for existing patterns. |
+| 9 new tests | Lifecycle: complete at min, continue after min, stops at max, unbounded, first/last bindings, backward compat. DSL: parse range, parse unbounded, parse exact unchanged. |
 
 ---
 
@@ -687,14 +586,14 @@ Items explicitly deferred with conditions for reconsideration.
 | 3 | Composition | **DONE** | Pattern algebra, DSL compose syntax, surprise scoring (Shannon + StU) |
 | 4 | Narrative Scoring | **DONE** | Thread tracker, tension tracker, pivot detector, MCTS scorer |
 | — | Salience Integration | **DONE** | Free functions, Match intervals, early termination, serde, Eq+Hash, composable parser, MemGraph utilities |
-| **5** | **Platform Generalization** | **NEXT** | Metadata, timeout events, cross-stage comparison, repeat range, unordered stages |
+| **5** | **Platform Generalization** | **NEXT** | Metadata ✓, timeout events ✓, cross-stage comparison ✓, repeat range ✓, unordered stages |
 | **6** | **Narrative Stack** | PLANNED | Causality tracing, character appraisal, knowledge propagation |
 | **7** | **Scoring & DSL** | PLANNED | StU refinements, nested compose, non-exclusive choice, private patterns |
 | **8** | **Research** | FUTURE | Formal semantics (30%), scalability paper (60%), expressiveness hierarchy (20%) |
 
 **Recommended execution for Phase 5:**
-Sprint 1 (quick wins): 5.1 (metadata) → 5.2 (timeout) → 5.3 (cross-stage comparison)
-Sprint 2 (thresholds): 5.4 (repeat range)
+Sprint 1 (quick wins): 5.1 (metadata) ✓ → 5.2 (timeout) ✓ → 5.3 (cross-stage comparison) ✓
+Sprint 2 (thresholds): 5.4 (repeat range) ✓
 Sprint 3 (concurrency): 5.5 (unordered stages)
 Evaluate: 5.6 (windowed aggregation) after 5.4
 
