@@ -122,6 +122,7 @@ pub struct TemporalConstraint {
     pub left: Var,
     pub relation: AllenRelation,
     pub right: Var,
+    pub gap: Option<MetricGap>,
 }
 ```
 
@@ -130,6 +131,7 @@ pub struct TemporalConstraint {
 | `left` | `Var` | Variable whose interval should come first. |
 | `relation` | `AllenRelation` | Required Allen relation (typically `Before` or `Meets`). |
 | `right` | `Var` | Variable whose interval should come second. |
+| `gap` | `Option<MetricGap>` | Optional metric bound (STN-style bounded difference). Set via `temporal_with_gap` on the builder or `gap min..max` in the DSL. |
 
 #### Trait implementations
 
@@ -171,6 +173,9 @@ pub struct Pattern<L, V> {
     pub stages: Vec<Stage<L, V>>,
     pub temporal: Vec<TemporalConstraint>,
     pub negations: Vec<Negation<L, V>>,
+    pub group: Option<String>,
+    pub metadata: HashMap<String, String>,
+    pub deadline_ticks: Option<u64>,
 }
 ```
 
@@ -180,6 +185,9 @@ pub struct Pattern<L, V> {
 | `stages` | `Vec<Stage<L, V>>` | Ordered event stages. Temporally ordered left-to-right. |
 | `temporal` | `Vec<TemporalConstraint>` | Explicit temporal constraints beyond implicit ordering. |
 | `negations` | `Vec<Negation<L, V>>` | Negation windows. |
+| `group` | `Option<String>` | Mutual-exclusion group. When one pattern in a group completes, the engine kills active PMs for all other patterns in the same group. Set by `choice` composition. |
+| `metadata` | `HashMap<String, String>` | Arbitrary key-value pairs propagated to `Match`, `SiftEvent`, and scored match types. Use for tagging patterns with narrative roles, priorities, or domain-specific attributes. |
+| `deadline_ticks` | `Option<u64>` | If set, active partial matches for this pattern are expired (killed with `SiftEvent::Expired`) when they have been alive for more than this many ticks without completing. Checked during `end_tick()`. |
 
 #### Methods
 
@@ -338,6 +346,39 @@ pub fn unless_global(
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `build` | `FnOnce(NegationBuilder) -> NegationBuilder` | yes | -- | Callback that adds clauses. |
+
+**Returns:** `PatternBuilder<L, V>` (chainable)
+
+---
+
+#### `metadata`
+
+Adds a key-value metadata pair to the pattern. Metadata is propagated to `Match`, `SiftEvent`, and scored match types. Call multiple times for multiple pairs. If the same key is set twice, the last value wins.
+
+```rust
+pub fn metadata(self, key: impl Into<String>, value: impl Into<String>) -> Self
+```
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `key` | `impl Into<String>` | yes | -- | Metadata key. |
+| `value` | `impl Into<String>` | yes | -- | Metadata value. |
+
+**Returns:** `PatternBuilder<L, V>` (chainable)
+
+---
+
+#### `deadline`
+
+Sets a deadline (in ticks) for partial match expiration. Active partial matches that have been alive for more than `ticks` ticks without completing are killed with `SiftEvent::Expired` during `end_tick()`. The deadline measures total PM lifecycle from first initiation -- when a PM advances to a new stage, `created_at_tick` is inherited, not reset.
+
+```rust
+pub fn deadline(self, ticks: u64) -> Self
+```
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `ticks` | `u64` | yes | -- | Maximum ticks before expiry. Must be >= 1. |
 
 **Returns:** `PatternBuilder<L, V>` (chainable)
 

@@ -238,6 +238,61 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
         self
     }
 
+    /// Add a clause comparing edge target against a bound variable: `source --[label]--> (== ?var)`.
+    pub fn edge_eq_var(mut self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self {
+        self.clauses.push(Clause {
+            source: Var::new(source),
+            label,
+            target: Target::Constraint(crate::datasource::ValueConstraint::EqVar(var_name.into())),
+            negated: false,
+        });
+        self
+    }
+
+    /// Add a clause: `source --[label]--> (< ?var)`.
+    pub fn edge_lt_var(mut self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self {
+        self.clauses.push(Clause {
+            source: Var::new(source),
+            label,
+            target: Target::Constraint(crate::datasource::ValueConstraint::LtVar(var_name.into())),
+            negated: false,
+        });
+        self
+    }
+
+    /// Add a clause: `source --[label]--> (> ?var)`.
+    pub fn edge_gt_var(mut self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self {
+        self.clauses.push(Clause {
+            source: Var::new(source),
+            label,
+            target: Target::Constraint(crate::datasource::ValueConstraint::GtVar(var_name.into())),
+            negated: false,
+        });
+        self
+    }
+
+    /// Add a clause: `source --[label]--> (<= ?var)`.
+    pub fn edge_lte_var(mut self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self {
+        self.clauses.push(Clause {
+            source: Var::new(source),
+            label,
+            target: Target::Constraint(crate::datasource::ValueConstraint::LteVar(var_name.into())),
+            negated: false,
+        });
+        self
+    }
+
+    /// Add a clause: `source --[label]--> (>= ?var)`.
+    pub fn edge_gte_var(mut self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self {
+        self.clauses.push(Clause {
+            source: Var::new(source),
+            label,
+            target: Target::Constraint(crate::datasource::ValueConstraint::GteVar(var_name.into())),
+            negated: false,
+        });
+        self
+    }
+
     /// Add a negated clause: the edge must NOT exist.
     pub fn not_edge(
         mut self,

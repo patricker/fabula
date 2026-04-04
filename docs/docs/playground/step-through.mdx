@@ -7,14 +7,14 @@ import StepThrough from '@site/src/components/wasm/StepThrough';
 
 # Step-Through Debugger
 
-Watch how the engine processes edges incrementally. Each timestamp is a step — click through to see which partial matches advance, complete, or get negated.
+Watch how the engine processes edges incrementally. Each timestamp is a step — click through to see which partial matches advance, complete, get negated, or expire.
 
 <StepThrough />
 
 ## How to read this
 
 - **Edges Added**: the edges that arrived at this timestamp
-- **Events**: what the engine emitted (`advanced`, `completed`, or `negated`)
+- **Events**: what the engine emitted (`advanced`, `completed`, `negated`, or `expired`)
 - **Partial Matches**: the current pool of partial matches with their state and bindings
 
 Try editing the graph to add a `leaveTown` event between the hospitality and harm — watch the negation kill the match.

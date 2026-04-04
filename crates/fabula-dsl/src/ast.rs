@@ -133,11 +133,14 @@ pub enum ClauseTarget {
     NodeRef(String),
     /// A value constraint: `< 0.5`, `> 10`, `<= 100`, `>= 0`
     Constraint(ConstraintOp, ConstraintValue),
+    /// A constraint comparing against a bound variable: `> ?var`, `= ?var`
+    ConstraintVar(ConstraintOp, String),
 }
 
 /// Constraint operator.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum ConstraintOp {
+    Eq,
     Lt,
     Gt,
     Lte,

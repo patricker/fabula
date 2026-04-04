@@ -60,6 +60,27 @@ pub fn rename_vars<L: Clone, V: Clone>(
         }
     };
 
+    let rename_str = |s: &str| -> String {
+        if keep.contains(s) {
+            s.to_string()
+        } else {
+            format!("{}_{}", prefix, s)
+        }
+    };
+
+    let rename_constraint =
+        |c: &crate::datasource::ValueConstraint<V>| -> crate::datasource::ValueConstraint<V> {
+            use crate::datasource::ValueConstraint;
+            match c {
+                ValueConstraint::EqVar(v) => ValueConstraint::EqVar(rename_str(v)),
+                ValueConstraint::LtVar(v) => ValueConstraint::LtVar(rename_str(v)),
+                ValueConstraint::GtVar(v) => ValueConstraint::GtVar(rename_str(v)),
+                ValueConstraint::LteVar(v) => ValueConstraint::LteVar(rename_str(v)),
+                ValueConstraint::GteVar(v) => ValueConstraint::GteVar(rename_str(v)),
+                other => other.clone(),
+            }
+        };
+
     let rename_clause = |c: &Clause<L, V>| -> Clause<L, V> {
         Clause {
             source: rename(&c.source),
@@ -67,7 +88,7 @@ pub fn rename_vars<L: Clone, V: Clone>(
             target: match &c.target {
                 Target::Bind(v) => Target::Bind(rename(v)),
                 Target::Literal(v) => Target::Literal(v.clone()),
-                Target::Constraint(c) => Target::Constraint(c.clone()),
+                Target::Constraint(c) => Target::Constraint(rename_constraint(c)),
             },
             negated: c.negated,
         }
@@ -459,5 +480,61 @@ mod tests {
             .build();
         let rep = repeat("three_strikes", &p, 3, &[]);
         assert_eq!(rep.metadata.get("category").unwrap(), "offense");
+    }
+
+    #[test]
+    fn rename_vars_renames_bound_var_constraints() {
+        use crate::datasource::ValueConstraint;
+
+        let p = PatternBuilder::<String, String>::new("test")
+            .stage("e1", |s| {
+                s.edge_bind("e1", "price".into(), "base_price")
+            })
+            .stage("e2", |s| {
+                s.edge_gt_var("e2", "price".into(), "base_price")
+            })
+            .build();
+
+        let keep = HashSet::new();
+        let renamed = rename_vars(&p, "a", &keep);
+
+        // The GtVar variable reference should be renamed
+        match &renamed.stages[1].clauses[0].target {
+            Target::Constraint(ValueConstraint::GtVar(v)) => {
+                assert_eq!(v, "a_base_price", "GtVar variable should be prefixed");
+            }
+            other => panic!("expected GtVar, got {:?}", other),
+        }
+
+        // The Bind target should also be renamed
+        match &renamed.stages[0].clauses[0].target {
+            Target::Bind(v) => assert_eq!(v.0, "a_base_price"),
+            other => panic!("expected Bind, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn rename_vars_keeps_shared_var_constraints() {
+        use crate::datasource::ValueConstraint;
+
+        let p = PatternBuilder::<String, String>::new("test")
+            .stage("e1", |s| {
+                s.edge_bind("e1", "price".into(), "shared_val")
+            })
+            .stage("e2", |s| {
+                s.edge_gt_var("e2", "price".into(), "shared_val")
+            })
+            .build();
+
+        let mut keep = HashSet::new();
+        keep.insert("shared_val");
+        let renamed = rename_vars(&p, "a", &keep);
+
+        match &renamed.stages[1].clauses[0].target {
+            Target::Constraint(ValueConstraint::GtVar(v)) => {
+                assert_eq!(v, "shared_val", "shared GtVar should NOT be renamed");
+            }
+            other => panic!("expected GtVar, got {:?}", other),
+        }
     }
 }

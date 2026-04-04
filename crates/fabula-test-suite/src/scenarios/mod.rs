@@ -20,6 +20,7 @@ mod winnow_replay;
 mod allen_temporal;
 mod consistency;
 mod composition;
+mod cross_stage_constraints;
 
 pub use hospitality::*;
 pub use romantic_arc::*;
@@ -34,3 +35,4 @@ pub use winnow_replay::*;
 pub use allen_temporal::*;
 pub use consistency::*;
 pub use composition::*;
+pub use cross_stage_constraints::*;

@@ -782,3 +782,103 @@ fn compose_no_sharing_clause() {
     assert_eq!(composed.stages[0].anchor.0, "a_e1");
     assert_eq!(composed.stages[1].anchor.0, "b_e2");
 }
+
+// ===========================================================================
+// Cross-stage value comparison (ConstraintVar)
+// ===========================================================================
+
+#[test]
+fn roundtrip_constraint_var_gt() {
+    use fabula_memory::MemGraph;
+
+    let dsl = r#"
+        pattern escalation {
+            stage e1 {
+                e1.type = "order"
+                e1.price -> ?base_price
+            }
+            stage e2 {
+                e2.type = "order"
+                e2.price > ?base_price
+            }
+        }
+        graph {
+            @1 ev1.type = "order"
+            @1 ev1.price = 100
+            @2 ev2.type = "order"
+            @2 ev2.price = 150
+            now = 10
+        }
+    "#;
+    let doc = parse_document(dsl).unwrap();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    for p in &doc.patterns {
+        engine.register(p.clone());
+    }
+    let matches = engine.evaluate(&doc.graphs[0]);
+    assert_eq!(matches.len(), 1, "150 > 100 should match via DSL roundtrip");
+}
+
+#[test]
+fn roundtrip_constraint_var_no_match() {
+    use fabula_memory::MemGraph;
+
+    let dsl = r#"
+        pattern escalation {
+            stage e1 {
+                e1.type = "order"
+                e1.price -> ?base_price
+            }
+            stage e2 {
+                e2.type = "order"
+                e2.price > ?base_price
+            }
+        }
+        graph {
+            @1 ev1.type = "order"
+            @1 ev1.price = 100
+            @2 ev2.type = "order"
+            @2 ev2.price = 50
+            now = 10
+        }
+    "#;
+    let doc = parse_document(dsl).unwrap();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    for p in &doc.patterns {
+        engine.register(p.clone());
+    }
+    let matches = engine.evaluate(&doc.graphs[0]);
+    assert_eq!(matches.len(), 0, "50 > 100 should NOT match");
+}
+
+#[test]
+fn roundtrip_constraint_var_eq() {
+    use fabula_memory::MemGraph;
+
+    let dsl = r#"
+        pattern exact_match {
+            stage e1 {
+                e1.type = "invoice"
+                e1.amount -> ?expected
+            }
+            stage e2 {
+                e2.type = "payment"
+                e2.amount = ?expected
+            }
+        }
+        graph {
+            @1 ev1.type = "invoice"
+            @1 ev1.amount = 500
+            @2 ev2.type = "payment"
+            @2 ev2.amount = 500
+            now = 10
+        }
+    "#;
+    let doc = parse_document(dsl).unwrap();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    for p in &doc.patterns {
+        engine.register(p.clone());
+    }
+    let matches = engine.evaluate(&doc.graphs[0]);
+    assert_eq!(matches.len(), 1, "500 == 500 should match via EqVar");
+}

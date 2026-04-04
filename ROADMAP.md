@@ -117,6 +117,24 @@ deadline (in engine ticks) without completing, `end_tick()` emits
 | Composition | `rename_vars` preserves, `sequence`/`repeat` set `None` (composed patterns set their own), `choice` preserves per-alternative via Clone. |
 | 11 new tests | Expiry timing, no-expiry without deadline, completion preempts expiry, negation preempts expiry, `created_at_tick` inheritance, `SiftEvent::Expired` field validation, DSL parse/compile, zero-deadline rejection. |
 
+### Documentation Update (DONE — 2026-04-03)
+
+Two-pass audit and update of the Docusaurus documentation site to reflect
+all changes from Phases 1–5 and Salience integration.
+
+| Item | Summary |
+|------|---------|
+| reference/patterns.md | Added `group`, `metadata`, `deadline_ticks` fields to `Pattern`. Added `gap` field to `TemporalConstraint`. Added `.metadata()` and `.deadline()` builder methods. |
+| reference/engine.md | `Match<N,V>` → `Match<N,V,T>` with `pattern_idx`, `intervals`, `metadata`. `SiftEvent::Expired` variant. All variants carry `metadata`. `end_tick()` → `(TickDelta, Vec<SiftEvent>)`. `TickDelta.expired`. `PartialMatch.created_at_tick`. Updated `drain_completed`/`evaluate` return types. |
+| reference/scoring.md | `ScoredMatch`/`StuScoredMatch` → 3 type params, added `pattern_idx`, `intervals`, `metadata`. |
+| reference/dsl.md | `meta("key", "value")` syntax, `deadline N` syntax. Full Composable Parser API section: `PatternBody`, `parse_pattern_body`, `from_tokens_at`, `pos`, `into_inner`, `compile_pattern_body[_with]`. |
+| reference/narratives.md | Clarified `observe_delta` ignores `expired`/`negated`/`stalled` delta fields. |
+| guides/incremental-integration.md | `end_tick()` tuple destructuring. `SiftEvent::Expired` in all match arms. Deadline mention in memory management. |
+| guides/debugging-patterns.md | 3 new failure mode rows: immediate expiry, unexpected expiry, empty expired events. |
+| concepts/how-the-engine-works.md | New "Deadline expiry" subsection explaining `end_tick()` scan, `created_at_tick` inheritance, tuple return. |
+| concepts/overview.md | Mentioned metadata and deadline features in "Beyond matching" section. |
+| playground/step-through.mdx | Added "expired" to event type lists. |
+
 ---
 
 ## Active Roadmap

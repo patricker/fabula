@@ -19,6 +19,8 @@ pattern <name> {
   [unless after <start_var> { <clause>+ }]*
   [unless { <clause>+ }]*
   [temporal <left_var> <relation> <right_var>]*
+  [meta("<key>", "<value>")]*
+  [deadline <ticks>]
 }
 ```
 
@@ -83,6 +85,37 @@ temporal e1 during e2 gap 5..50         // start margin in [5, 50]
 All 13 Allen relations are supported: `before`, `after`, `meets`, `met_by`, `overlaps`, `overlapped_by`, `during`, `contains`, `starts`, `started_by`, `finishes`, `finished_by`, `equals`.
 
 The optional `gap` keyword adds a metric bound (STN-style bounded difference constraint). The meaning of "gap" depends on the Allen relation — for `before` it's the separation between end(A) and start(B); for `during` it's the start margin; for `overlaps` it's the overlap duration. See the [Temporal Model](/docs/concepts/temporal-model) for details.
+
+### Metadata
+
+Attach key-value metadata to a pattern with `meta`. Metadata is propagated to `Match`, `SiftEvent`, and scored match types. Place `meta` directives inside the pattern body, alongside stages, negations, and temporal constraints.
+
+```
+pattern betrayal {
+  stage e1 {
+    e1.eventType = "betray"
+    e1.actor -> ?char
+  }
+  meta("thread_type", "conflict")
+  meta("priority", "high")
+}
+```
+
+Multiple `meta` directives are allowed. If the same key appears twice, the last value wins. Maps to `PatternBuilder::metadata(key, value)`.
+
+### Deadline
+
+Set a tick deadline for partial match expiration with `deadline`. If a partial match has been alive for more than this many ticks without completing, it is killed with `SiftEvent::Expired` during `end_tick()`.
+
+```
+pattern time_sensitive {
+  stage e1 { e1.type = "offer" }
+  stage e2 { e2.type = "accept" }
+  deadline 10
+}
+```
+
+The deadline must be a positive integer (>= 1). The compiler rejects `deadline 0` and negative values. Maps to `PatternBuilder::deadline(ticks)`.
 
 ## Graph Syntax
 
@@ -307,3 +340,88 @@ pub struct ParsedDocument<L = String, V = MemValue> {
 | `parse_graph(input)` | `Result<MemGraph>` | Parse a graph definition. |
 | `parse_document(input)` | `Result<ParsedDocument>` | Parse a full document (patterns + graphs + composes) with `MemMapper`. |
 | `parse_document_with(input, mapper)` | `Result<ParsedDocument<M::L, M::V>>` | Parse a full document with a custom mapper. |
+| `compile_pattern_body(name, body)` | `Result<Pattern<String, MemValue>>` | Compile a `PatternBody` (from `parse_pattern_body()`) with a name, using `MemMapper`. |
+| `compile_pattern_body_with(name, body, mapper)` | `Result<Pattern<M::L, M::V>>` | Compile a `PatternBody` with a custom mapper. |
+
+---
+
+## Composable Parser API
+
+The parser exposes entry points for downstream DSLs that embed fabula pattern syntax within their own blocks. This lets a salience-DSL or storylet-DSL tokenize with fabula's lexer, delegate pattern parsing to fabula's parser, and resume parsing its own syntax afterward.
+
+### `PatternBody`
+
+The interior of a pattern — stages, negations, temporal constraints, metadata, and deadline — without the `pattern name { }` wrapper.
+
+```rust
+pub struct PatternBody {
+    pub stages: Vec<StageAst>,
+    pub negations: Vec<NegationAst>,
+    pub temporals: Vec<TemporalAst>,
+    pub metadata: Vec<(String, String)>,
+    pub deadline: Option<f64>,
+}
+```
+
+### Parser methods
+
+#### `Parser::parse_pattern_body`
+
+Parse the body of a pattern — stages, negations, temporal constraints, metadata, and deadline — without the `pattern name { }` wrapper. Stops when it sees `}` or EOF but does NOT consume the closing brace.
+
+This is the primary composability entry point for downstream DSLs.
+
+```rust
+pub fn parse_pattern_body(&mut self) -> Result<PatternBody, ParseError>
+```
+
+#### `Parser::from_tokens_at`
+
+Create a parser starting at a specific position in a token stream. Use this to resume parsing from where a previous parser left off.
+
+```rust
+pub fn from_tokens_at(tokens: Vec<Token>, pos: usize) -> Self
+```
+
+#### `Parser::pos`
+
+Current cursor position in the token stream.
+
+```rust
+pub fn pos(&self) -> usize
+```
+
+#### `Parser::into_inner`
+
+Consume the parser, returning the token stream and cursor position. Use this to recover the tokens after parsing a sub-section.
+
+```rust
+pub fn into_inner(self) -> (Vec<Token>, usize)
+```
+
+### Downstream usage example
+
+```rust
+use fabula_dsl::lexer::Lexer;
+use fabula_dsl::parser::Parser;
+use fabula_dsl::compiler::compile_pattern_body_with;
+
+// 1. Tokenize everything with fabula's lexer
+let tokens = Lexer::new(storylet_source).tokenize()?;
+let mut parser = Parser::new(tokens);
+
+// 2. Parse your own DSL syntax up to the embedded pattern body
+//    (using parser.peek(), parser.advance(), parser.expect(), etc.)
+
+// 3. Hand off to fabula's parser for the pattern body
+let body = parser.parse_pattern_body()?;
+parser.expect(TokenKind::RBrace)?; // consume closing brace
+
+// 4. Compile the pattern body with a name
+let pattern = compile_pattern_body_with("my_pattern", &body, &my_mapper)?;
+
+// 5. Resume parsing your own DSL syntax
+//    The parser cursor is right after the pattern body
+```
+
+All parsing primitives (`parse_stage`, `parse_negation`, `parse_temporal`, `parse_clause`, `peek`, `advance`, `at_eof`, `check`, `expect`, `expect_ident`, `error`) are public for fine-grained control.

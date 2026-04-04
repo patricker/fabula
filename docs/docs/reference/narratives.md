@@ -81,7 +81,7 @@ pub fn record_close(&mut self, thread_name: &str)
 
 #### `observe_delta`
 
-Update from a `TickDelta` -- automatically records opens (from `delta.advanced`) and closes (from `delta.completed`) matching the `{name}_open` / `{name}_close` convention.
+Update from a `TickDelta` -- automatically records opens (from `delta.advanced`) and closes (from `delta.completed`) matching the `{name}_open` / `{name}_close` convention. Ignores `delta.negated`, `delta.expired`, and `delta.stalled`.
 
 ```rust
 pub fn observe_delta(&mut self, delta: &TickDelta)

@@ -701,6 +701,291 @@ fn deadline_created_at_tick_inherited_on_advance() {
 }
 
 // ===========================================================================
-// 5d. Metric temporal constraints
+// 5d. Cross-stage value comparison (BoundVar)
+// ===========================================================================
+
+#[test]
+fn batch_cross_stage_gt_var_matches() {
+    let mut g = MemGraph::new();
+    g.add_str("ev1", "type", "order", 1);
+    g.add_num("ev1", "price", 100.0, 1);
+    g.add_str("ev2", "type", "order", 2);
+    g.add_num("ev2", "price", 150.0, 2);
+    g.set_time(10);
+
+    let pattern = PatternBuilder::new("escalation")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("order".into()))
+                .edge_bind("e1", "price".into(), "base_price")
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("order".into()))
+                .edge_gt_var("e2", "price".into(), "base_price")
+        })
+        .build();
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    let matches = engine.evaluate(&g);
+    assert_eq!(matches.len(), 1, "150 > 100 should match");
+}
+
+#[test]
+fn batch_cross_stage_gt_var_no_match() {
+    let mut g = MemGraph::new();
+    g.add_str("ev1", "type", "order", 1);
+    g.add_num("ev1", "price", 100.0, 1);
+    g.add_str("ev2", "type", "order", 2);
+    g.add_num("ev2", "price", 80.0, 2);
+    g.set_time(10);
+
+    let pattern = PatternBuilder::new("escalation")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("order".into()))
+                .edge_bind("e1", "price".into(), "base_price")
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("order".into()))
+                .edge_gt_var("e2", "price".into(), "base_price")
+        })
+        .build();
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    assert_eq!(engine.evaluate(&g).len(), 0, "80 > 100 should not match");
+}
+
+#[test]
+fn incremental_cross_stage_gt_var() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("escalation")
+            .stage("e1", |s| {
+                s.edge("e1", "type".into(), MemValue::Str("bid".into()))
+                    .edge_bind("e1", "price".into(), "prev_price")
+            })
+            .stage("e2", |s| {
+                s.edge("e2", "type".into(), MemValue::Str("bid".into()))
+                    .edge_gt_var("e2", "price".into(), "prev_price")
+            })
+            .build(),
+    );
+
+    // Tick 1: bid at 100
+    g.add_str("ev1", "type", "bid", 1);
+    g.add_num("ev1", "price", 100.0, 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("bid".into()), &Interval::open(1));
+
+    // Tick 2: bid at 150 — should complete
+    g.add_str("ev2", "type", "bid", 2);
+    g.add_num("ev2", "price", 150.0, 2);
+    g.set_time(2);
+    let events = engine.on_edge_added(&g, &"ev2".into(), &"type".into(),
+        &MemValue::Str("bid".into()), &Interval::open(2));
+
+    let completed = events.iter()
+        .filter(|e| matches!(e, SiftEvent::Completed { .. }))
+        .count();
+    assert_eq!(completed, 1, "150 > 100 should complete incrementally");
+}
+
+#[test]
+fn cross_stage_eq_var_matches() {
+    let mut g = MemGraph::new();
+    g.add_str("ev1", "type", "invoice", 1);
+    g.add_num("ev1", "amount", 500.0, 1);
+    g.add_str("ev2", "type", "payment", 2);
+    g.add_num("ev2", "amount", 500.0, 2);
+    g.set_time(10);
+
+    let pattern = PatternBuilder::new("exact_match")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("invoice".into()))
+                .edge_bind("e1", "amount".into(), "expected")
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("payment".into()))
+                .edge_eq_var("e2", "amount".into(), "expected")
+        })
+        .build();
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    assert_eq!(engine.evaluate(&g).len(), 1, "500 == 500 should match");
+}
+
+#[test]
+fn cross_stage_var_node_type_mismatch_no_match() {
+    // Variable bound to a Node, not a Value — GtVar should fail resolution
+    let mut g = MemGraph::new();
+    g.add_str("ev1", "type", "action", 1);
+    g.add_ref("ev1", "actor", "alice", 1);
+    g.add_str("ev2", "type", "action", 2);
+    g.add_num("ev2", "score", 50.0, 2);
+    g.set_time(10);
+
+    // actor is bound to Node("alice"), but GtVar expects a Value
+    let pattern = PatternBuilder::new("bad_comparison")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("action".into()))
+                .edge_bind("e1", "actor".into(), "actor_ref")
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("action".into()))
+                .edge_gt_var("e2", "score".into(), "actor_ref")
+        })
+        .build();
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    assert_eq!(engine.evaluate(&g).len(), 0, "Node vs Value comparison should not match");
+}
+
+#[test]
+fn cross_stage_gt_boundary_equality_no_match() {
+    // 100 > 100 should NOT match (strict >)
+    let mut g = MemGraph::new();
+    g.add_str("ev1", "type", "order", 1);
+    g.add_num("ev1", "price", 100.0, 1);
+    g.add_str("ev2", "type", "order", 2);
+    g.add_num("ev2", "price", 100.0, 2);
+    g.set_time(10);
+
+    let pattern = PatternBuilder::new("escalation")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("order".into()))
+                .edge_bind("e1", "price".into(), "base")
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("order".into()))
+                .edge_gt_var("e2", "price".into(), "base")
+        })
+        .build();
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    assert_eq!(engine.evaluate(&g).len(), 0, "100 > 100 should not match (strict >)");
+}
+
+#[test]
+fn cross_stage_gte_boundary_equality_matches() {
+    // 100 >= 100 SHOULD match
+    let mut g = MemGraph::new();
+    g.add_str("ev1", "type", "order", 1);
+    g.add_num("ev1", "price", 100.0, 1);
+    g.add_str("ev2", "type", "order", 2);
+    g.add_num("ev2", "price", 100.0, 2);
+    g.set_time(10);
+
+    let pattern = PatternBuilder::new("at_least")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("order".into()))
+                .edge_bind("e1", "price".into(), "base")
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("order".into()))
+                .edge_gte_var("e2", "price".into(), "base")
+        })
+        .build();
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    assert_eq!(engine.evaluate(&g).len(), 1, "100 >= 100 should match");
+}
+
+#[test]
+fn cross_stage_lte_matches() {
+    let mut g = MemGraph::new();
+    g.add_str("ev1", "type", "check", 1);
+    g.add_num("ev1", "limit", 50.0, 1);
+    g.add_str("ev2", "type", "check", 2);
+    g.add_num("ev2", "val", 30.0, 2);
+    g.set_time(10);
+
+    let pattern = PatternBuilder::new("under_limit")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("check".into()))
+                .edge_bind("e1", "limit".into(), "cap")
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("check".into()))
+                .edge_lte_var("e2", "val".into(), "cap")
+        })
+        .build();
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    assert_eq!(engine.evaluate(&g).len(), 1, "30 <= 50 should match");
+}
+
+#[test]
+fn cross_stage_var_range_check() {
+    // Two *Var constraints: val > ?low AND val < ?high
+    let mut g = MemGraph::new();
+    g.add_str("ev1", "type", "bounds", 1);
+    g.add_num("ev1", "low", 10.0, 1);
+    g.add_num("ev1", "high", 90.0, 1);
+    g.add_str("ev2", "type", "reading", 2);
+    g.add_num("ev2", "val", 50.0, 2);
+    g.set_time(10);
+
+    let pattern = PatternBuilder::new("in_range")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("bounds".into()))
+                .edge_bind("e1", "low".into(), "lo")
+                .edge_bind("e1", "high".into(), "hi")
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("reading".into()))
+                .edge_gt_var("e2", "val".into(), "lo")
+                .edge_lt_var("e2", "val".into(), "hi")
+        })
+        .build();
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    assert_eq!(engine.evaluate(&g).len(), 1, "50 > 10 AND 50 < 90 should match");
+}
+
+#[test]
+fn cross_stage_var_in_negation_body() {
+    // *Var inside unless_between — negation kills if edge > ?threshold
+    let mut g = MemGraph::new();
+    g.add_str("ev1", "type", "set_limit", 1);
+    g.add_num("ev1", "limit", 50.0, 1);
+    g.add_str("ev2", "type", "violation", 2);
+    g.add_num("ev2", "amount", 80.0, 2); // 80 > 50 — triggers negation
+    g.add_str("ev3", "type", "audit", 3);
+    g.set_time(10);
+
+    let pattern = PatternBuilder::new("clean_audit")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("set_limit".into()))
+                .edge_bind("e1", "limit".into(), "threshold")
+        })
+        .stage("e3", |s| {
+            s.edge("e3", "type".into(), MemValue::Str("audit".into()))
+        })
+        .unless_between("e1", "e3", |neg| {
+            neg.edge("mid", "type".into(), MemValue::Str("violation".into()))
+                .edge_constrained(
+                    "mid",
+                    "amount".into(),
+                    ValueConstraint::GtVar("threshold".to_string()),
+                )
+        })
+        .build();
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    assert_eq!(engine.evaluate(&g).len(), 0, "negation should kill — 80 > 50");
+}
+
+// ===========================================================================
+// 5e. Metric temporal constraints
 // ===========================================================================
 

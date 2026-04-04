@@ -127,10 +127,10 @@ pub fn active_matches_for(&self, name: &str) -> Vec<&PartialMatch<N, V, T>>
 Removes all completed matches from internal storage and returns them.
 
 ```rust
-pub fn drain_completed(&mut self) -> Vec<Match<N, V>>
+pub fn drain_completed(&mut self) -> Vec<Match<N, V, T>>
 ```
 
-**Returns:** `Vec<Match<N, V>>` -- completed matches removed from the engine.
+**Returns:** `Vec<Match<N, V, T>>` -- completed matches removed from the engine.
 
 ---
 
@@ -166,27 +166,34 @@ pub fn tick(&mut self)
 
 #### `end_tick`
 
-End the current tick: increments the tick counter, builds a `TickDelta` from accumulated events, and clears the accumulators.
+End the current tick: increments the tick counter, scans for expired partial matches (deadline exceeded), builds a `TickDelta` from accumulated events, and clears the accumulators.
 
-This is the happy-path API for GM consumers. Call `on_edge_added()` for each edge in the tick (events accumulate internally), then call `end_tick()` to get the summary.
+This is the happy-path API for GM consumers. Call `on_edge_added()` for each edge in the tick (events accumulate internally), then call `end_tick()` to get the summary and any expiry events.
 
 ```rust
-pub fn end_tick(&mut self, stale_threshold: u64) -> TickDelta
+pub fn end_tick(&mut self, stale_threshold: u64) -> (TickDelta, Vec<SiftEvent<N, V>>)
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `stale_threshold` | `u64` | Ticks since last advancement to consider a pattern "stalled." |
 
-**Returns:** `TickDelta`
+**Returns:** `(TickDelta, Vec<SiftEvent<N, V>>)` -- the tick summary and any `SiftEvent::Expired` events for partial matches that exceeded their pattern's `deadline_ticks`.
+
+The expiry scan runs before the delta is built: for each active PM whose pattern has a `deadline_ticks`, if `current_tick - pm.created_at_tick > deadline_ticks`, the PM is killed and an `Expired` event is emitted. The expired PM's pattern name is included in `TickDelta.expired`.
 
 ```rust
 // Example: simulation loop
 for edge in new_edges {
     engine.on_edge_added(&ds, &src, &label, &val, &interval);
 }
-let delta = engine.end_tick(50);
+let (delta, expired_events) = engine.end_tick(50);
 if !delta.stalled.is_empty() { /* alert GM about stale plants */ }
+for ev in &expired_events {
+    if let SiftEvent::Expired { pattern, stage_reached, ticks_elapsed, .. } = ev {
+        println!("{} expired at stage {} after {} ticks", pattern, stage_reached, ticks_elapsed);
+    }
+}
 ```
 
 ---
@@ -318,14 +325,14 @@ These methods require the full bounds: `T: Sub<Output=T> + NumericTime`. They ta
 Batch evaluation: finds all complete matches in the current graph state. Does not modify engine state.
 
 ```rust
-pub fn evaluate(&self, ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized)) -> Vec<Match<N, V>>
+pub fn evaluate(&self, ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized)) -> Vec<Match<N, V, T>>
 ```
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `ds` | `&impl DataSource` | The data source to evaluate against. |
 
-**Returns:** `Vec<Match<N, V>>` -- all complete matches found.
+**Returns:** `Vec<Match<N, V, T>>` -- all complete matches found.
 
 ---
 
@@ -412,21 +419,27 @@ pub fn tick_delta(
 
 ---
 
-## `Match<N, V>`
+## `Match<N, V, T>`
 
 A complete match -- all stages satisfied, temporal constraints met, negation windows clear.
 
 ```rust
-pub struct Match<N: Debug, V: Debug> {
+pub struct Match<N: Debug, V: Debug, T> {
     pub pattern: String,
+    pub pattern_idx: Option<usize>,
     pub bindings: HashMap<String, BoundValue<N, V>>,
+    pub intervals: HashMap<String, Interval<T>>,
+    pub metadata: HashMap<String, String>,
 }
 ```
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `pattern` | `String` | Name of the matched pattern. |
+| `pattern_idx` | `Option<usize>` | Index of the pattern in the engine's pattern list. `Some` for engine-produced matches, `None` for manually constructed ones. |
 | `bindings` | `HashMap<String, BoundValue<N, V>>` | Variable name to bound value. |
+| `intervals` | `HashMap<String, Interval<T>>` | Intervals of matched stage anchors (keyed by anchor variable name). Same as `PartialMatch::intervals`. |
+| `metadata` | `HashMap<String, String>` | Metadata copied from the pattern at match time. Lets consumers inspect pattern tags without looking up the pattern by name. |
 
 ---
 
@@ -463,6 +476,7 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
     pub state: MatchState,
     pub id: usize,
     pub created_at: T,
+    pub created_at_tick: u64,
     pub fingerprint: u64,
 }
 ```
@@ -476,6 +490,7 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
 | `state` | `MatchState` | Current state of this partial match. |
 | `id` | `usize` | Unique identifier for tracking. |
 | `created_at` | `T` | Timestamp when this partial match was first initiated. Set from the initiating edge's interval start; inherited from parent on fork. Only meaningful in incremental mode. |
+| `created_at_tick` | `u64` | Engine tick when this partial match was first initiated. Inherited from parent on advancement (not reset). Used by `end_tick()` for deadline expiry checks: `current_tick - created_at_tick > deadline_ticks`. |
 | `fingerprint` | `u64` | Precomputed dedup hash of `(pattern_idx, next_stage, bindings, intervals)`. Computed once at creation using order-independent XOR hashing. |
 
 ---
@@ -504,7 +519,7 @@ Trait implementations: `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`.
 
 ## `SiftEvent<N, V>`
 
-Events emitted by incremental matching via `on_edge_added`.
+Events emitted by incremental matching via `on_edge_added` and deadline expiry via `end_tick`.
 
 ```rust
 pub enum SiftEvent<N: Debug, V: Debug> {
@@ -512,26 +527,40 @@ pub enum SiftEvent<N: Debug, V: Debug> {
         pattern: String,
         match_id: usize,
         stage_index: usize,
+        metadata: HashMap<String, String>,
     },
     Completed {
         pattern: String,
         match_id: usize,
         bindings: HashMap<String, BoundValue<N, V>>,
+        metadata: HashMap<String, String>,
     },
     Negated {
         pattern: String,
         match_id: usize,
         clause_label: String,
         trigger_source: N,
+        metadata: HashMap<String, String>,
+    },
+    Expired {
+        pattern: String,
+        match_id: usize,
+        bindings: HashMap<String, BoundValue<N, V>>,
+        stage_reached: usize,
+        ticks_elapsed: u64,
+        metadata: HashMap<String, String>,
     },
 }
 ```
 
 | Variant | Fields | Description |
 |---------|--------|-------------|
-| `Advanced` | `pattern`, `match_id`, `stage_index` | A partial match advanced (new stage satisfied). |
-| `Completed` | `pattern`, `match_id`, `bindings` | A pattern fully matched. |
-| `Negated` | `pattern`, `match_id`, `clause_label`, `trigger_source` | A partial match was killed by a negation. |
+| `Advanced` | `pattern`, `match_id`, `stage_index`, `metadata` | A partial match advanced (new stage satisfied). |
+| `Completed` | `pattern`, `match_id`, `bindings`, `metadata` | A pattern fully matched. |
+| `Negated` | `pattern`, `match_id`, `clause_label`, `trigger_source`, `metadata` | A partial match was killed by a negation. |
+| `Expired` | `pattern`, `match_id`, `bindings`, `stage_reached`, `ticks_elapsed`, `metadata` | A partial match exceeded its pattern's `deadline_ticks`. Emitted by `end_tick()`, not `on_edge_added()`. `stage_reached` is the index of the last matched stage. `ticks_elapsed` is `current_tick - created_at_tick`. |
+
+All variants carry `metadata` copied from the pattern at event creation time.
 
 ---
 
@@ -576,6 +605,7 @@ Summary of what changed in one tick. Returned by `end_tick()` or `tick_delta()`.
 | `advanced` | `Vec<String>` | Patterns that had at least one PM advance this tick. |
 | `completed` | `Vec<String>` | Patterns that completed this tick. |
 | `negated` | `Vec<String>` | Patterns that had PMs negated this tick. |
+| `expired` | `Vec<String>` | Patterns that had PMs expire (deadline exceeded) this tick. |
 | `stalled` | `Vec<String>` | Patterns with active PMs that haven't advanced for `stale_threshold` ticks. |
 | `active_pm_count` | `usize` | Total active PM count across all patterns. |
 

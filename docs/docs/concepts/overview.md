@@ -89,7 +89,9 @@ Fabula's core engine finds pattern matches. Two optional layers add higher-level
 
 **Narrative scoring** (`fabula-narratives` crate). Scoring signals for MCTS-based narrative management: thread lifecycle tracking (MICE-style open/close with FILO nesting validation), tension trajectory sampling (rising/falling/plateau), event distribution shift detection (JSD pivot measure), and a composite quality function with configurable weights.
 
-Both are optional. The core engine works fine without them.
+**Pattern metadata and deadlines.** Patterns can carry arbitrary key-value metadata (propagated to matches and events) and an optional tick deadline. Partial matches that exceed their deadline are killed with `SiftEvent::Expired`, providing automatic garbage collection of stale match threads.
+
+All of these are optional. The core engine works fine without them.
 
 ## Where to go next
 

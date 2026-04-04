@@ -25,6 +25,16 @@ pub enum ValueConstraint<V> {
     Between(V, V),
     /// Any value matches.
     Any,
+    /// Must equal the value bound to this variable name.
+    EqVar(String),
+    /// Must be less than the value bound to this variable name.
+    LtVar(String),
+    /// Must be greater than the value bound to this variable name.
+    GtVar(String),
+    /// Must be less than or equal to the value bound to this variable name.
+    LteVar(String),
+    /// Must be greater than or equal to the value bound to this variable name.
+    GteVar(String),
 }
 
 impl<V: PartialOrd + PartialEq> ValueConstraint<V> {
@@ -38,6 +48,13 @@ impl<V: PartialOrd + PartialEq> ValueConstraint<V> {
             Self::Gte(v) => value >= v,
             Self::Between(lo, hi) => value >= lo && value <= hi,
             Self::Any => true,
+            // *Var variants must be resolved before matching. If they reach here,
+            // it's a bug — fail closed (no match).
+            Self::EqVar(_) | Self::LtVar(_) | Self::GtVar(_)
+            | Self::LteVar(_) | Self::GteVar(_) => {
+                debug_assert!(false, "BoundVar constraint reached matches() without resolution");
+                false
+            }
         }
     }
 }
@@ -53,7 +70,21 @@ impl<V> ValueConstraint<V> {
             Self::Gte(v) => ValueConstraint::Gte(f(v)),
             Self::Between(lo, hi) => ValueConstraint::Between(f(lo), f(hi)),
             Self::Any => ValueConstraint::Any,
+            Self::EqVar(s) => ValueConstraint::EqVar(s.clone()),
+            Self::LtVar(s) => ValueConstraint::LtVar(s.clone()),
+            Self::GtVar(s) => ValueConstraint::GtVar(s.clone()),
+            Self::LteVar(s) => ValueConstraint::LteVar(s.clone()),
+            Self::GteVar(s) => ValueConstraint::GteVar(s.clone()),
         }
+    }
+
+    /// Returns `true` if this constraint references a bound variable.
+    pub fn is_var(&self) -> bool {
+        matches!(
+            self,
+            Self::EqVar(_) | Self::LtVar(_) | Self::GtVar(_)
+                | Self::LteVar(_) | Self::GteVar(_)
+        )
     }
 }
 

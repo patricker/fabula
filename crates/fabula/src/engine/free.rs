@@ -13,6 +13,52 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 // ---------------------------------------------------------------------------
+// BoundVar resolution helpers
+// ---------------------------------------------------------------------------
+
+/// Resolve a `*Var` constraint against a bindings map, producing a concrete constraint.
+///
+/// Returns `None` if the variable is not bound or is bound to a `Node`
+/// (type mismatch — comparisons require `Value`, not `Node`).
+fn resolve_constraint<N: Debug, V: Clone + PartialEq + PartialOrd + Debug>(
+    constraint: &ValueConstraint<V>,
+    bindings: &HashMap<String, BoundValue<N, V>>,
+) -> Option<ValueConstraint<V>> {
+    match constraint {
+        ValueConstraint::EqVar(var) => extract_value(bindings, var).map(|v| ValueConstraint::Eq(v.clone())),
+        ValueConstraint::LtVar(var) => extract_value(bindings, var).map(|v| ValueConstraint::Lt(v.clone())),
+        ValueConstraint::GtVar(var) => extract_value(bindings, var).map(|v| ValueConstraint::Gt(v.clone())),
+        ValueConstraint::LteVar(var) => extract_value(bindings, var).map(|v| ValueConstraint::Lte(v.clone())),
+        ValueConstraint::GteVar(var) => extract_value(bindings, var).map(|v| ValueConstraint::Gte(v.clone())),
+        other => Some(other.clone()),
+    }
+}
+
+fn extract_value<'a, N: Debug, V: Debug>(
+    bindings: &'a HashMap<String, BoundValue<N, V>>,
+    var: &str,
+) -> Option<&'a V> {
+    match bindings.get(var) {
+        Some(BoundValue::Value(v)) => Some(v),
+        _ => None, // Not bound, or bound to Node (type mismatch)
+    }
+}
+
+/// Resolve `*Var` constraints in a Target, returning the resolved target.
+/// Returns `None` if a `*Var` constraint cannot be resolved.
+fn resolve_target<N: Debug, V: Clone + PartialEq + PartialOrd + Debug>(
+    target: &Target<V>,
+    bindings: &HashMap<String, BoundValue<N, V>>,
+) -> Option<Target<V>> {
+    match target {
+        Target::Constraint(c) if c.is_var() => {
+            resolve_constraint(c, bindings).map(Target::Constraint)
+        }
+        other => Some(other.clone()),
+    }
+}
+
+// ---------------------------------------------------------------------------
 // Public API
 // ---------------------------------------------------------------------------
 
@@ -277,10 +323,16 @@ where
     let first = &stage.clauses[0];
     let mut candidates = Vec::new();
 
+    // Resolve *Var constraints in the first clause before matching
+    let resolved_first_target = match resolve_target(&first.target, existing) {
+        Some(t) => t,
+        None => return Vec::new(),
+    };
+
     if let Some(bound) = existing.get(&first.source.0) {
         if let BoundValue::Node(ref node) = bound {
             for e in ds.edges_from(node, &first.label, now) {
-                if target_matches_ds(ds, &first.target, &e.target, existing) {
+                if target_matches_ds(ds, &resolved_first_target, &e.target, existing) {
                     let mut b = HashMap::new();
                     if !bind_target(ds, &first.target, &e.target, &mut b) {
                         continue;
@@ -292,7 +344,7 @@ where
             }
         }
     } else {
-        let constraint = match &first.target {
+        let constraint = match &resolved_first_target {
             Target::Literal(v) => ValueConstraint::Eq(v.clone()),
             Target::Constraint(c) => c.clone(),
             Target::Bind(_) => ValueConstraint::Any,
@@ -363,7 +415,17 @@ where
 {
     match target {
         Target::Literal(v) => value == v,
-        Target::Constraint(c) => c.matches(value),
+        Target::Constraint(c) => {
+            if c.is_var() {
+                // Resolve *Var constraints before matching
+                match resolve_constraint(c, bindings) {
+                    Some(resolved) => resolved.matches(value),
+                    None => false,
+                }
+            } else {
+                c.matches(value)
+            }
+        }
         Target::Bind(var) => {
             if let Some(bound) = bindings.get(&var.0) {
                 bound.matches_value(&|v| ds.value_as_node(v), value)
@@ -502,7 +564,12 @@ where
         let first = &negation.clauses[0];
         let constraint = match &first.target {
             Target::Literal(v) => ValueConstraint::Eq(v.clone()),
-            Target::Constraint(c) => c.clone(),
+            Target::Constraint(c) => {
+                match resolve_constraint(c, match_bindings) {
+                    Some(resolved) => resolved,
+                    None => continue, // Variable unbound → skip negation
+                }
+            }
             _ => ValueConstraint::Any,
         };
         let candidates = ds.scan_any_time(&first.label, &constraint);
@@ -523,7 +590,11 @@ where
                     return false;
                 };
                 let edges = ds.edges_from(&src, &clause.label, &now);
-                edges.iter().any(|e| match &clause.target {
+                let resolved_target = match resolve_target(&clause.target, match_bindings) {
+                    Some(t) => t,
+                    None => return false,
+                };
+                edges.iter().any(|e| match &resolved_target {
                     Target::Literal(v) => &e.target == v,
                     Target::Constraint(c) => c.matches(&e.target),
                     Target::Bind(var) => {
@@ -580,7 +651,16 @@ where
             }
             let target_ok = match &clause.target {
                 Target::Literal(v) => value == v,
-                Target::Constraint(c) => c.matches(value),
+                Target::Constraint(c) => {
+                    if c.is_var() {
+                        match resolve_constraint(c, &pm.bindings) {
+                            Some(resolved) => resolved.matches(value),
+                            None => false,
+                        }
+                    } else {
+                        c.matches(value)
+                    }
+                }
                 Target::Bind(_) => true,
             };
             if !target_ok {
@@ -615,7 +695,11 @@ where
                 };
 
                 let edges = ds.edges_from(&src, &other.label, &now);
-                let found = edges.iter().any(|e| match &other.target {
+                let resolved_other_target = match resolve_target(&other.target, &pm.bindings) {
+                    Some(t) => t,
+                    None => { all_others_ok = false; break; }
+                };
+                let found = edges.iter().any(|e| match &resolved_other_target {
                     Target::Literal(v) => &e.target == v,
                     Target::Constraint(c) => c.matches(&e.target),
                     Target::Bind(var) => {
@@ -668,7 +752,9 @@ where
         }
     }
 
-    let target_ok = match &first.target {
+    // Resolve *Var constraints in the first clause
+    let resolved_first_target = resolve_target(&first.target, existing)?;
+    let target_ok = match &resolved_first_target {
         Target::Literal(v) => value == v,
         Target::Constraint(c) => c.matches(value),
         Target::Bind(var) => {
@@ -712,7 +798,9 @@ where
             _ => return None,
         };
         let edges = ds.edges_from(&src_node, &clause.label, event_time);
-        let matching_edge = edges.iter().find(|e| match &clause.target {
+        // Resolve *Var constraints against current bindings
+        let resolved_clause_target = resolve_target(&clause.target, &merged)?;
+        let matching_edge = edges.iter().find(|e| match &resolved_clause_target {
             Target::Literal(v) => &e.target == v,
             Target::Constraint(c) => c.matches(&e.target),
             Target::Bind(var) => {

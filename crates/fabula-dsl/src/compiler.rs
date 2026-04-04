@@ -242,11 +242,26 @@ fn validate_clause_sources(
                 ),
             });
         }
+        // Validate ConstraintVar references are in scope
+        if let ClauseTarget::ConstraintVar(_, ref var) = clause.target {
+            if !scope.contains(var) {
+                return Err(ParseError {
+                    line: 0,
+                    column: 0,
+                    span: (0, 0),
+                    message: format!(
+                        "variable '?{}' used in constraint but not yet bound. \
+                         Bind it with '-> ?{}' in a prior clause or stage.",
+                        var, var
+                    ),
+                });
+            }
+        }
         // Negation (!) is only valid with literal values and node references.
         // Constraints and bindings cannot be negated.
         if clause.negated {
             match &clause.target {
-                ClauseTarget::Constraint(..) => {
+                ClauseTarget::Constraint(..) | ClauseTarget::ConstraintVar(..) => {
                     return Err(ParseError {
                         line: 0,
                         column: 0,
@@ -330,6 +345,10 @@ fn add_clause_to_stage<M: TypeMapper>(
             let constraint = make_constraint_with(mapper, *op, val);
             s.edge_constrained(source, label, constraint)
         }
+        ClauseTarget::ConstraintVar(op, var) => {
+            let constraint = make_var_constraint(*op, var);
+            s.edge_constrained(source, label, constraint)
+        }
     }
 }
 
@@ -376,6 +395,10 @@ fn add_clause_to_negation<M: TypeMapper>(
             let constraint = make_constraint_with(mapper, *op, val);
             n.edge_constrained(source, label, constraint)
         }
+        ClauseTarget::ConstraintVar(op, var) => {
+            let constraint = make_var_constraint(*op, var);
+            n.edge_constrained(source, label, constraint)
+        }
     }
 }
 
@@ -389,10 +412,21 @@ fn make_constraint_with<M: TypeMapper>(
         ConstraintValue::Str(s) => mapper.string_value(s).expect("string_value mapping failed in constraint"),
     };
     match op {
+        ConstraintOp::Eq => ValueConstraint::Eq(v),
         ConstraintOp::Lt => ValueConstraint::Lt(v),
         ConstraintOp::Gt => ValueConstraint::Gt(v),
         ConstraintOp::Lte => ValueConstraint::Lte(v),
         ConstraintOp::Gte => ValueConstraint::Gte(v),
+    }
+}
+
+fn make_var_constraint<V>(op: ConstraintOp, var: &str) -> ValueConstraint<V> {
+    match op {
+        ConstraintOp::Eq => ValueConstraint::EqVar(var.to_string()),
+        ConstraintOp::Lt => ValueConstraint::LtVar(var.to_string()),
+        ConstraintOp::Gt => ValueConstraint::GtVar(var.to_string()),
+        ConstraintOp::Lte => ValueConstraint::LteVar(var.to_string()),
+        ConstraintOp::Gte => ValueConstraint::GteVar(var.to_string()),
     }
 }
 
@@ -782,5 +816,84 @@ mod tests {
         let result = compile_pattern(&parse_ast(input));
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("positive integer"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Cross-stage value comparison (ConstraintVar)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn constraint_var_gt_parsed_and_compiled() {
+        let input = r#"pattern escalation {
+            stage e1 {
+                e1.type = "order"
+                e1.price -> ?base_price
+            }
+            stage e2 {
+                e2.type = "order"
+                e2.price > ?base_price
+            }
+        }"#;
+        let ast = parse_ast(input);
+        assert!(matches!(
+            &ast.stages[1].clauses[1].target,
+            ClauseTarget::ConstraintVar(ConstraintOp::Gt, var) if var == "base_price"
+        ));
+
+        let pattern = compile_pattern(&ast).unwrap();
+        match &pattern.stages[1].clauses[1].target {
+            fabula::pattern::Target::Constraint(ValueConstraint::GtVar(v)) => {
+                assert_eq!(v, "base_price");
+            }
+            other => panic!("expected GtVar, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn constraint_var_all_operators() {
+        for (op_str, expected_op) in [
+            ("<", ConstraintOp::Lt),
+            (">", ConstraintOp::Gt),
+            ("<=", ConstraintOp::Lte),
+            (">=", ConstraintOp::Gte),
+            ("=", ConstraintOp::Eq),
+        ] {
+            let input = format!(
+                r#"pattern test {{
+                    stage e1 {{ e1.val -> ?v }}
+                    stage e2 {{ e2.val {} ?v }}
+                }}"#,
+                op_str
+            );
+            let ast = parse_ast(&input);
+            assert!(matches!(
+                &ast.stages[1].clauses[0].target,
+                ClauseTarget::ConstraintVar(op, var) if *op == expected_op && var == "v"
+            ), "failed for operator {}", op_str);
+        }
+    }
+
+    #[test]
+    fn constraint_var_unbound_rejected() {
+        let input = r#"pattern bad {
+            stage e1 {
+                e1.type = "x"
+                e1.score > ?unbound
+            }
+        }"#;
+        let result = compile_pattern(&parse_ast(input));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("not yet bound"));
+    }
+
+    #[test]
+    fn constraint_var_negated_rejected() {
+        let input = r#"pattern bad {
+            stage e1 { e1.val -> ?v }
+            stage e2 { ! e2.val > ?v }
+        }"#;
+        let result = compile_pattern(&parse_ast(input));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("negated constraints"));
     }
 }

@@ -77,7 +77,19 @@ Complete partial matches accumulate until you drain them. Dead partial matches a
 
 Call `drain_completed` to harvest complete matches and remove them from the engine's storage. This is the primary memory management mechanism. In a long-running simulation, drain periodically to prevent unbounded growth.
 
-Active partial matches that will never complete (because the simulation has moved past the point where their next stage could match) are not automatically garbage-collected. This is a known trade-off: the engine does not know whether a future edge might still arrive with an earlier timestamp.
+Active partial matches that will never complete (because the simulation has moved past the point where their next stage could match) are not automatically garbage-collected unless the pattern has a deadline. This is a known trade-off: the engine does not know whether a future edge might still arrive with an earlier timestamp.
+
+### Deadline expiry
+
+Patterns can declare a `deadline_ticks` — the maximum number of ticks a partial match may remain active before being killed. The expiry scan runs inside `end_tick()`, after the tick counter is incremented but before the delta is built:
+
+1. For each active PM, check if its pattern has a `deadline_ticks`.
+2. If `current_tick - pm.created_at_tick > deadline_ticks`, kill the PM (mark Dead) and emit a `SiftEvent::Expired`.
+3. Dead PMs are removed from the pool. Their pattern names are added to `TickDelta.expired`.
+
+The `created_at_tick` is set when a PM is first initiated (Phase 2) and inherited unchanged when the PM advances (Phase 3). This means the deadline measures the total lifecycle of a match thread from its first initiation, not from its most recent advancement. A 3-stage pattern with a 10-tick deadline will expire 10 ticks after stage 1 matched, regardless of when stages 2 or 3 matched.
+
+`end_tick()` returns `(TickDelta, Vec<SiftEvent>)` — the second element contains the full `Expired` events with bindings, stage reached, and elapsed ticks, so callers can inspect which partial matches timed out and how far they got.
 
 ## Batch vs incremental: when to use each
 

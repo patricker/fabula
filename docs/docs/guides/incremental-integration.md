@@ -66,19 +66,23 @@ let events = engine.on_edge_added(
 
 for event in &events {
     match event {
-        SiftEvent::Advanced { pattern, match_id, stage_index } => {
+        SiftEvent::Advanced { pattern, match_id, stage_index, .. } => {
             println!("Pattern '{}' advanced to stage {} (match #{})",
                      pattern, stage_index, match_id);
         }
-        SiftEvent::Completed { pattern, match_id, bindings } => {
+        SiftEvent::Completed { pattern, match_id, bindings, .. } => {
             println!("Pattern '{}' completed (match #{})", pattern, match_id);
             for (var, val) in bindings {
                 println!("  {} = {:?}", var, val);
             }
         }
-        SiftEvent::Negated { pattern, match_id, clause_label, trigger_source } => {
+        SiftEvent::Negated { pattern, match_id, clause_label, trigger_source, .. } => {
             println!("Pattern '{}' negated (match #{}) by {} from {:?}",
                      pattern, match_id, clause_label, trigger_source);
+        }
+        SiftEvent::Expired { pattern, stage_reached, ticks_elapsed, .. } => {
+            println!("Pattern '{}' expired at stage {} after {} ticks",
+                     pattern, stage_reached, ticks_elapsed);
         }
     }
 }
@@ -161,6 +165,10 @@ fn main() {
                 SiftEvent::Advanced { pattern, stage_index, .. } => {
                     println!("[t={}] ADVANCED: {} to stage {}", time, pattern, stage_index);
                 }
+                SiftEvent::Expired { pattern, stage_reached, ticks_elapsed, .. } => {
+                    println!("[t={}] EXPIRED: {} at stage {} after {} ticks",
+                             time, pattern, stage_reached, ticks_elapsed);
+                }
             }
         }
     }
@@ -225,22 +233,30 @@ The number of active partial matches grows as events arrive and patterns partial
 
 - **Drain completed matches** regularly (see above).
 - **Dead matches are cleaned automatically** -- the engine removes them at the end of each `on_edge_added` call.
-- **Active partial matches that will never complete** (stale matches) are not automatically garbage-collected. If you know a partial match can never complete (e.g., the simulation has moved far past the temporal window), there is currently no API to prune them.
-- **Monitor `partial_matches().len()`** to track growth. If it grows without bound, you may have patterns with very common first stages that create many partial matches.
+- **Active partial matches that will never complete** (stale matches) are not automatically garbage-collected unless you set a `deadline_ticks` on the pattern. Use `PatternBuilder::deadline(ticks)` or the DSL `deadline N` syntax to automatically expire PMs that have been alive too long.
+- **Monitor `partial_matches().len()`** to track growth. If it grows without bound, you may have patterns with very common first stages that create many partial matches. Consider adding deadlines to these patterns.
 
 ## Tick deltas and scoring
 
-For GM-style integration (MCTS evaluation, narrative quality scoring), use `end_tick()` to get a per-tick summary:
+For GM-style integration (MCTS evaluation, narrative quality scoring), use `end_tick()` to get a per-tick summary and any expiry events:
 
 ```rust
 // After processing all edges for this tick:
-let delta = engine.end_tick(50); // stale threshold = 50 ticks
+let (delta, expired_events) = engine.end_tick(50); // stale threshold = 50 ticks
 
 // delta.advanced — patterns that progressed this tick
 // delta.completed — patterns that fully matched
 // delta.negated — patterns that were killed
+// delta.expired — patterns that had PMs expire (deadline exceeded)
 // delta.stalled — patterns with active PMs that haven't advanced in 50+ ticks
 // delta.active_pm_count — total active partial matches
+
+// Handle expired partial matches
+for ev in &expired_events {
+    if let SiftEvent::Expired { pattern, stage_reached, ticks_elapsed, .. } = ev {
+        println!("{} expired at stage {} after {} ticks", pattern, stage_reached, ticks_elapsed);
+    }
+}
 ```
 
 Feed the delta into `fabula-narratives` for composite scoring:

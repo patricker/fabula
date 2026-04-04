@@ -142,14 +142,17 @@ pub fn count_for(&self, pattern_idx: usize) -> u64
 
 ---
 
-## `ScoredMatch<N, V>`
+## `ScoredMatch<N, V, T>`
 
 A match annotated with a surprise score.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `pattern` | `String` | Pattern name. |
+| `pattern_idx` | `Option<usize>` | Pattern index in the engine's pattern list. |
 | `bindings` | `HashMap<String, BoundValue<N, V>>` | Variable bindings from the match. |
+| `intervals` | `HashMap<String, Interval<T>>` | Intervals of matched stage anchors. |
+| `metadata` | `HashMap<String, String>` | Metadata propagated from the pattern. |
 | `surprise` | `f64` | Surprise score in bits. Higher = more unexpected. Negative = fires more often than baseline. |
 
 Trait implementations: `Debug`, `Clone`.
@@ -273,14 +276,17 @@ pub fn reset(&mut self)
 
 ---
 
-## `StuScoredMatch<N, V>`
+## `StuScoredMatch<N, V, T>`
 
 A match annotated with property-level (StU) surprise score.
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `pattern` | `String` | Pattern name. |
+| `pattern_idx` | `Option<usize>` | Pattern index in the engine's pattern list. |
 | `bindings` | `HashMap<String, BoundValue<N, V>>` | Variable bindings from the match. |
+| `intervals` | `HashMap<String, Interval<T>>` | Intervals of matched stage anchors. |
+| `metadata` | `HashMap<String, String>` | Metadata propagated from the pattern. |
 | `property_frequencies` | `Vec<(String, f64)>` | Per-property frequencies, sorted ascending (rarest first). |
 | `stu_score` | `f64` | Mean of property frequencies. **Lower = more surprising.** |
 

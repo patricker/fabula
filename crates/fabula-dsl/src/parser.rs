@@ -348,10 +348,16 @@ impl Parser {
         self.expect(TokenKind::Dot)?;
         let label = self.expect_ident_or_string()?;
 
-        // Now: = value, -> ?var, -> node, < num, > num, <= num, >= num
+        // Now: = value, = ?var, -> ?var, -> node, < num, < ?var, > num, > ?var, <= num, <= ?var, >= num, >= ?var
         let target = if self.check(TokenKind::Eq) {
             self.advance();
-            self.parse_literal_target()?
+            if self.check(TokenKind::Question) {
+                self.advance();
+                let var = self.expect_ident()?;
+                ClauseTarget::ConstraintVar(ConstraintOp::Eq, var)
+            } else {
+                self.parse_literal_target()?
+            }
         } else if self.check(TokenKind::Arrow) {
             self.advance();
             if self.check(TokenKind::Question) {
@@ -364,20 +370,16 @@ impl Parser {
             }
         } else if self.check(TokenKind::Lt) {
             self.advance();
-            let val = self.parse_constraint_value()?;
-            ClauseTarget::Constraint(ConstraintOp::Lt, val)
+            self.parse_constraint_target(ConstraintOp::Lt)?
         } else if self.check(TokenKind::Gt) {
             self.advance();
-            let val = self.parse_constraint_value()?;
-            ClauseTarget::Constraint(ConstraintOp::Gt, val)
+            self.parse_constraint_target(ConstraintOp::Gt)?
         } else if self.check(TokenKind::Lte) {
             self.advance();
-            let val = self.parse_constraint_value()?;
-            ClauseTarget::Constraint(ConstraintOp::Lte, val)
+            self.parse_constraint_target(ConstraintOp::Lte)?
         } else if self.check(TokenKind::Gte) {
             self.advance();
-            let val = self.parse_constraint_value()?;
-            ClauseTarget::Constraint(ConstraintOp::Gte, val)
+            self.parse_constraint_target(ConstraintOp::Gte)?
         } else {
             return Err(self.error("expected '=', '->', '<', '>', '<=', or '>='"));
         };
@@ -410,6 +412,17 @@ impl Parser {
                 Ok(ClauseTarget::LiteralBool(false))
             }
             _ => Err(self.error("expected a string, number, or boolean value")),
+        }
+    }
+
+    fn parse_constraint_target(&mut self, op: ConstraintOp) -> Result<ClauseTarget, ParseError> {
+        if self.check(TokenKind::Question) {
+            self.advance();
+            let var = self.expect_ident()?;
+            Ok(ClauseTarget::ConstraintVar(op, var))
+        } else {
+            let val = self.parse_constraint_value()?;
+            Ok(ClauseTarget::Constraint(op, val))
         }
     }
 

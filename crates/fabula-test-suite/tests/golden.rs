@@ -151,4 +151,11 @@ golden_tests! {
     incremental_choice_exclusive_multistage,
     batch_repeat_shared_binding,
     batch_repeat_different_actors_no_match,
+
+    // --- Cross-stage value comparison ---
+    batch_cross_stage_gt_matches,
+    batch_cross_stage_gt_no_match,
+    batch_cross_stage_lt_matches,
+    batch_cross_stage_eq_matches,
+    incremental_cross_stage_gt,
 }
