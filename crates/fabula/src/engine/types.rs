@@ -124,7 +124,7 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
     pub id: usize,
     /// Timestamp when this partial match was first initiated.
     pub created_at: T,
-    /// Precomputed dedup hash of (pattern_idx, next_stage, bindings, intervals).
+    /// Precomputed dedup hash of (pattern_idx, next_stage, bindings, intervals, repetition_count, matched_stages).
     pub fingerprint: u64,
     /// Engine tick at which this partial match was first created.
     /// Used for deadline-based expiration. Inherited on advancement.
