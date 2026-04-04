@@ -245,12 +245,12 @@ impl Parser {
             self.advance();
             let max = self.expect_number()?;
             Ok((None, Some(max)))
-        } else if matches!(self.peek().kind, TokenKind::Number(_)) {
+        } else if matches!(self.peek().kind, TokenKind::Number(_) | TokenKind::Minus) {
             let first = self.expect_number()?;
             if self.check(TokenKind::DotDot) {
                 self.advance();
                 // min.. or min..max
-                if matches!(self.peek().kind, TokenKind::Number(_)) {
+                if matches!(self.peek().kind, TokenKind::Number(_) | TokenKind::Minus) {
                     let second = self.expect_number()?;
                     Ok((Some(first), Some(second)))
                 } else {
@@ -299,7 +299,7 @@ impl Parser {
             let max = if self.check(TokenKind::DotDot) {
                 self.advance();
                 // Check for explicit max or unbounded
-                if matches!(self.peek().kind, TokenKind::Number(_)) {
+                if matches!(self.peek().kind, TokenKind::Number(_) | TokenKind::Minus) {
                     Some(Some(self.expect_number()? as usize))
                 } else {
                     Some(None) // unbounded: N..
@@ -408,6 +408,14 @@ impl Parser {
     }
 
     fn parse_literal_target(&mut self) -> Result<ClauseTarget, ParseError> {
+        // Handle optional leading minus for negative number literals
+        if self.check(TokenKind::Minus) {
+            self.advance();
+            if let TokenKind::Number(n) = &self.advance().kind {
+                return Ok(ClauseTarget::LiteralNum(-n));
+            }
+            return Err(self.error("expected number after '-'"));
+        }
         match &self.peek().kind {
             TokenKind::String(_) => {
                 if let TokenKind::String(s) = &self.advance().kind {
@@ -447,15 +455,21 @@ impl Parser {
     }
 
     fn parse_constraint_value(&mut self) -> Result<ConstraintValue, ParseError> {
+        let negative = if self.check(TokenKind::Minus) {
+            self.advance();
+            true
+        } else {
+            false
+        };
         match &self.peek().kind {
             TokenKind::Number(_) => {
                 if let TokenKind::Number(n) = &self.advance().kind {
-                    Ok(ConstraintValue::Num(*n))
+                    Ok(ConstraintValue::Num(if negative { -*n } else { *n }))
                 } else {
                     unreachable!()
                 }
             }
-            TokenKind::String(_) => {
+            TokenKind::String(_) if !negative => {
                 if let TokenKind::String(s) = &self.advance().kind {
                     Ok(ConstraintValue::Str(s.clone()))
                 } else {
@@ -524,6 +538,13 @@ impl Parser {
     }
 
     fn parse_edge_target_literal(&mut self) -> Result<EdgeTarget, ParseError> {
+        if self.check(TokenKind::Minus) {
+            self.advance();
+            if let TokenKind::Number(n) = &self.advance().kind {
+                return Ok(EdgeTarget::Num(-n));
+            }
+            return Err(self.error("expected number after '-'"));
+        }
         match &self.peek().kind {
             TokenKind::String(_) => {
                 if let TokenKind::String(s) = &self.advance().kind {
@@ -627,12 +648,18 @@ impl Parser {
         }
     }
 
-    /// Expect and consume a number literal token.
+    /// Expect and consume a number literal token, with optional leading `-`.
     pub fn expect_number(&mut self) -> Result<f64, ParseError> {
+        let negative = if self.check(TokenKind::Minus) {
+            self.advance();
+            true
+        } else {
+            false
+        };
         match &self.peek().kind {
             TokenKind::Number(_) => {
                 if let TokenKind::Number(n) = &self.advance().kind {
-                    Ok(*n)
+                    Ok(if negative { -*n } else { *n })
                 } else {
                     unreachable!()
                 }

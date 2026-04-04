@@ -39,6 +39,10 @@ pub enum TokenKind {
     LParen,    // (
     RParen,    // )
     Comma,     // ,
+    Plus,      // +
+    Minus,     // -
+    Colon,     // :
+    Semicolon, // ;
 
     // Literals
     Ident(String),
@@ -191,13 +195,20 @@ impl<'a> Lexer<'a> {
                     self.advance();
                     Ok(Token { kind: TokenKind::Arrow, line, column: col, offset: start, len: 2 })
                 } else {
-                    // Negative number
-                    if self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
-                        self.read_number(start, line, col, true)
-                    } else {
-                        Err(self.error_at(line, col, start, "unexpected character '-'"))
-                    }
+                    Ok(Token { kind: TokenKind::Minus, line, column: col, offset: start, len: 1 })
                 }
+            }
+            b'+' => {
+                self.advance();
+                Ok(Token { kind: TokenKind::Plus, line, column: col, offset: start, len: 1 })
+            }
+            b':' => {
+                self.advance();
+                Ok(Token { kind: TokenKind::Colon, line, column: col, offset: start, len: 1 })
+            }
+            b';' => {
+                self.advance();
+                Ok(Token { kind: TokenKind::Semicolon, line, column: col, offset: start, len: 1 })
             }
             b'=' => {
                 self.advance();
@@ -229,7 +240,7 @@ impl<'a> Lexer<'a> {
                 }
             }
             b'"' => self.read_string(line, col),
-            b'0'..=b'9' => self.read_number(start, line, col, false),
+            b'0'..=b'9' => self.read_number(start, line, col),
             b'a'..=b'z' | b'A'..=b'Z' | b'_' => self.read_ident(start, line, col),
             _ => Err(self.error_at(line, col, start, &format!("unexpected character '{}'", ch as char))),
         }
@@ -242,7 +253,19 @@ impl<'a> Lexer<'a> {
 
     fn read_string(&mut self, line: usize, col: usize) -> Result<Token, ParseError> {
         let start = self.pos;
-        self.advance(); // skip opening "
+        self.advance(); // skip first "
+
+        // Check for triple-quoted string: """..."""
+        if self.pos + 1 < self.bytes.len()
+            && self.bytes[self.pos] == b'"'
+            && self.bytes[self.pos + 1] == b'"'
+        {
+            self.advance(); // skip second "
+            self.advance(); // skip third "
+            return self.read_triple_string(start, line, col);
+        }
+
+        // Single-quoted string: "..."
         let content_start = self.pos;
         while self.pos < self.bytes.len() && self.bytes[self.pos] != b'"' {
             if self.bytes[self.pos] == b'\n' {
@@ -265,8 +288,41 @@ impl<'a> Lexer<'a> {
         })
     }
 
-    fn read_number(&mut self, start: usize, line: usize, col: usize, already_negated: bool) -> Result<Token, ParseError> {
-        // pos is already past the optional '-' if already_negated
+    fn read_triple_string(&mut self, start: usize, line: usize, col: usize) -> Result<Token, ParseError> {
+        let content_start = self.pos;
+        loop {
+            if self.pos >= self.bytes.len() {
+                return Err(self.error_at(line, col, start, "unterminated triple-quoted string"));
+            }
+            if self.pos + 2 < self.bytes.len()
+                && self.bytes[self.pos] == b'"'
+                && self.bytes[self.pos + 1] == b'"'
+                && self.bytes[self.pos + 2] == b'"'
+            {
+                let s = self.source[content_start..self.pos].to_string();
+                self.advance(); // skip first closing "
+                self.advance(); // skip second closing "
+                self.advance(); // skip third closing "
+                return Ok(Token {
+                    kind: TokenKind::String(s),
+                    line,
+                    column: col,
+                    offset: start,
+                    len: self.pos - start,
+                });
+            }
+            if self.bytes[self.pos] == b'\n' {
+                self.line += 1;
+                self.col = 1;
+                self.pos += 1;
+            } else {
+                self.pos += 1;
+                self.col += 1;
+            }
+        }
+    }
+
+    fn read_number(&mut self, start: usize, line: usize, col: usize) -> Result<Token, ParseError> {
         while self.pos < self.bytes.len() && self.bytes[self.pos].is_ascii_digit() {
             self.pos += 1;
             self.col += 1;
@@ -288,7 +344,6 @@ impl<'a> Lexer<'a> {
         let val: f64 = num_str.parse().map_err(|_| {
             self.error_at(line, col, start, &format!("invalid number '{}'", num_str))
         })?;
-        let _ = already_negated; // sign is included in the slice
         Ok(Token {
             kind: TokenKind::Number(val),
             line,
@@ -380,5 +435,74 @@ mod tests {
         assert!(matches!(tokens[3].kind, TokenKind::Arrow));
         assert!(matches!(tokens[4].kind, TokenKind::Question));
         assert!(matches!(tokens[5].kind, TokenKind::Ident(ref s) if s == "guest"));
+    }
+
+    #[test]
+    fn tokenize_new_symbols() {
+        let src = "+ - : ;";
+        let tokens = Lexer::new(src).tokenize().unwrap();
+        assert!(matches!(tokens[0].kind, TokenKind::Plus));
+        assert!(matches!(tokens[1].kind, TokenKind::Minus));
+        assert!(matches!(tokens[2].kind, TokenKind::Colon));
+        assert!(matches!(tokens[3].kind, TokenKind::Semicolon));
+    }
+
+    #[test]
+    fn tokenize_minus_not_folded_into_number() {
+        let src = "-5";
+        let tokens = Lexer::new(src).tokenize().unwrap();
+        assert!(matches!(tokens[0].kind, TokenKind::Minus));
+        assert!(matches!(tokens[1].kind, TokenKind::Number(n) if n == 5.0));
+    }
+
+    #[test]
+    fn tokenize_arrow_still_works() {
+        let src = "-> -5";
+        let tokens = Lexer::new(src).tokenize().unwrap();
+        assert!(matches!(tokens[0].kind, TokenKind::Arrow));
+        assert!(matches!(tokens[1].kind, TokenKind::Minus));
+        assert!(matches!(tokens[2].kind, TokenKind::Number(n) if n == 5.0));
+    }
+
+    #[test]
+    fn tokenize_triple_quoted_string() {
+        let src = r#""""hello
+world""""#;
+        let tokens = Lexer::new(src).tokenize().unwrap();
+        assert!(matches!(tokens[0].kind, TokenKind::String(ref s) if s == "hello\nworld"));
+    }
+
+    #[test]
+    fn tokenize_triple_quoted_empty() {
+        let src = "\"\"\"\"\"\""; // 6 quote chars: """  """
+        let tokens = Lexer::new(src).tokenize().unwrap();
+        assert!(matches!(tokens[0].kind, TokenKind::String(ref s) if s.is_empty()));
+    }
+
+    #[test]
+    fn tokenize_triple_quoted_with_single_quotes_inside() {
+        let src = r#""""say "hello" to them""""#;
+        let tokens = Lexer::new(src).tokenize().unwrap();
+        assert!(matches!(tokens[0].kind, TokenKind::String(ref s) if s == r#"say "hello" to them"#));
+    }
+
+    #[test]
+    fn tokenize_triple_quoted_double_quotes_inside() {
+        let src = r#""""has ""two"" inside""""#;
+        let tokens = Lexer::new(src).tokenize().unwrap();
+        assert!(matches!(tokens[0].kind, TokenKind::String(ref s) if s == r#"has ""two"" inside"#));
+    }
+
+    #[test]
+    fn tokenize_salience_style() {
+        // lifecycle: oneshot, priority: normal, adjust ?e2.depth + 1
+        let src = r#"lifecycle: oneshot; priority: normal; adjust ?e2.depth + 1"#;
+        let tokens = Lexer::new(src).tokenize().unwrap();
+        assert!(matches!(tokens[0].kind, TokenKind::Ident(ref s) if s == "lifecycle"));
+        assert!(matches!(tokens[1].kind, TokenKind::Colon));
+        assert!(matches!(tokens[2].kind, TokenKind::Ident(ref s) if s == "oneshot"));
+        assert!(matches!(tokens[3].kind, TokenKind::Semicolon));
+        assert!(matches!(tokens[13].kind, TokenKind::Plus));
+        assert!(matches!(tokens[14].kind, TokenKind::Number(n) if n == 1.0));
     }
 }
