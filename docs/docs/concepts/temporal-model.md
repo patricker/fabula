@@ -69,7 +69,7 @@ Explicit constraints are additive -- they layer on top of implicit stage orderin
 
 For explicit constraints to work, both intervals must be bounded. If either interval is open-ended and the constraint is not Before or Meets, the check fails and the candidate is rejected.
 
-For the full list of Allen relations and their semantics, see the [Interval reference](../reference/interval.md).
+For the full list of Allen relations and their semantics, see the [Interval reference](../reference/interval). You can also explore the relations interactively with the [Allen Interval Visualizer](../playground/allen-visualizer).
 
 ## When you need explicit constraints
 

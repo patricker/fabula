@@ -43,7 +43,7 @@ Winnow orders events by comparing DataScript entity IDs: lower ID means earlier 
 
 **What you gain.** Duration-aware matching. You can find events that happen *during* other events, or that *overlap* with them. This is impossible with ID-based ordering.
 
-See [Temporal Model](./temporal-model.md) for the full analysis.
+See [Temporal Model](./temporal-model) for the full analysis.
 
 ## 4. Direct graph traversal, not Datalog
 
@@ -63,11 +63,11 @@ The `fabula` crate has zero external dependencies. Not even `serde`, `log`, or `
 
 **How adapters work.** Graph store integrations live in separate crates that depend on both `fabula` and the store's crate:
 
-- `fabula-memory` -- in-memory graph (no external deps beyond `fabula`)
-- `fabula-petgraph` -- petgraph adapter (depends on `petgraph`)
-- `fabula-grafeo` -- grafeo adapter (depends on `grafeo`)
+- [`fabula-memory`](../reference/adapters/memory) -- in-memory graph (no external deps beyond `fabula`)
+- [`fabula-petgraph`](../reference/adapters/petgraph) -- petgraph adapter (depends on `petgraph`)
+- [`fabula-grafeo`](../reference/adapters/grafeo) -- grafeo adapter (depends on `grafeo`)
 
-Your application depends on `fabula` plus whichever adapter crate matches your store. If none do, you implement `DataSource` yourself. See [Custom Adapter](../guides/custom-adapter.md).
+Your application depends on `fabula` plus whichever adapter crate matches your store. If none do, you implement `DataSource` yourself. See [Custom Adapter](../guides/custom-adapter).
 
 ## 6. Scoring as post-processing, not engine modification
 
@@ -135,6 +135,6 @@ Fabula is a Rust port and extension of two research systems:
 
 - **Winnow** (Kreminski et al., AIIDE 2021) -- ~500 lines of JavaScript. A higher-level DSL that compiles to Felt/DataScript queries and adds incremental matching via partial match tracking. Introduced the `tryAdvance` algorithm: check negation first, then try to advance, then keep the original.
 
-Fabula preserves Winnow's incremental matching semantics (the 4-phase algorithm, forking, negation priority) while replacing the DataScript/Datalog substrate with a generic graph trait and Allen interval algebra.
+Fabula preserves Winnow's incremental matching semantics (the 4-phase algorithm, forking, negation priority) while replacing the DataScript/Datalog substrate with a generic graph trait and Allen interval algebra. See [Research Lineage](../research) for citations and further reading.
 
-For the full feature-by-feature mapping between Felt, Winnow, and fabula, see [DESIGN.md](https://github.com/your-repo/fabula/blob/main/DESIGN.md) in the repository root.
+For the full feature-by-feature mapping between Felt, Winnow, and fabula, see [DESIGN.md](https://github.com/patricker/fabula/blob/main/DESIGN.md) in the repository root.

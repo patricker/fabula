@@ -7,10 +7,11 @@ title: Scoring
 
 `fabula::scoring` -- statistical surprise scoring for pattern matches. Operates as post-processing: the engine finds matches, the scorers rank them.
 
-Two independent scorers:
+Three independent scorers:
 
 - **`SurpriseScorer`** -- pattern-level Shannon surprise (how often does this pattern fire vs. baseline?)
 - **`StuScorer`** -- property-level surprise using the StU heuristic (how rare are the properties in this match?)
+- **`SequentialScorer`** -- transition surprise using bigram model (how unexpected is this pattern after the previous one?)
 
 ---
 
@@ -67,7 +68,7 @@ pub fn set_baseline(&mut self, pattern_idx: usize, baseline: f64)
 Record one round of observations from batch evaluation results. Call once per `evaluate()` call. Increments the round counter and counts each pattern at most once per round.
 
 ```rust
-pub fn observe<N, V, L, VV>(&mut self, matches: &[Match<N, V>], patterns: &[Pattern<L, VV>])
+pub fn observe<N, V, T, L, VV>(&mut self, matches: &[Match<N, V, T>], patterns: &[Pattern<L, VV>])
 ```
 
 ---
@@ -77,7 +78,7 @@ pub fn observe<N, V, L, VV>(&mut self, matches: &[Match<N, V>], patterns: &[Patt
 Record observations from incremental matching events. Only counts `Completed` events. Does NOT increment the round counter -- call `tick()` manually for incremental mode.
 
 ```rust
-pub fn observe_events<N, V, L, VV>(&mut self, events: &[SiftEvent<N, V>], patterns: &[Pattern<L, VV>])
+pub fn observe_events<N: Debug, V: Debug, L, VV>(&mut self, events: &[SiftEvent<N, V>], patterns: &[Pattern<L, VV>])
 ```
 
 ---
@@ -97,7 +98,7 @@ pub fn tick(&mut self)
 Compute surprise scores for a set of matches. Returns one `ScoredMatch` per input. Patterns without a baseline get score 0.0.
 
 ```rust
-pub fn score<N, V, L, VV>(&self, matches: &[Match<N, V>], patterns: &[Pattern<L, VV>]) -> Vec<ScoredMatch<N, V>>
+pub fn score<N, V, T, L, VV>(&self, matches: &[Match<N, V, T>], patterns: &[Pattern<L, VV>]) -> Vec<ScoredMatch<N, V, T>>
 ```
 
 ---
@@ -144,7 +145,7 @@ pub fn count_for(&self, pattern_idx: usize) -> u64
 
 ## `ScoredMatch<N, V, T>`
 
-A match annotated with a surprise score.
+A match annotated with a surprise score. `N`, `V`, `T` are the node, value, and time types from your `DataSource`.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -159,18 +160,46 @@ Trait implementations: `Debug`, `Clone`.
 
 ---
 
+## `StuAggregation`
+
+Aggregation strategy for combining per-property frequencies into a single StU score. Each variant implements a different "theory of surprise."
+
+```rust
+pub enum StuAggregation {
+    ArithmeticMean,  // default
+    TfIdf,
+    GeometricMean,
+    Min,
+}
+```
+
+| Variant | Formula | Polarity | Use when |
+|---------|---------|----------|----------|
+| `ArithmeticMean` | `sum(freq) / k` | Lower = more surprising | Default. Original StU heuristic. |
+| `TfIdf` | `sum(-log2(freq))` | **Higher = more surprising** | You want total information content. Rare properties dominate via log weighting. |
+| `GeometricMean` | `exp(sum(ln(freq)) / k)` | Lower = more surprising | A single rare property should pull the entire score down multiplicatively. |
+| `Min` | `min(freq)` | Lower = more surprising | Only the single most surprising property matters. |
+
+Implements `Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Default` (default: `ArithmeticMean`).
+
+---
+
 ## `StuScorer`
 
-Property-level surprise scorer using the StU heuristic (Kreminski et al. 2022 ICIDS). Scores individual matches by the mean empirical frequency of their *properties*. Two matches of the same pattern score differently if one involves rarer attributes.
+Property-level surprise scorer using the StU heuristic (Kreminski et al. 2022 ICIDS). Scores individual matches by the empirical frequency of their *properties*. Two matches of the same pattern score differently if one involves rarer attributes.
 
-**Lower `stu_score` = more surprising.**
+Score polarity depends on the aggregation mode — **lower = more surprising** for `ArithmeticMean`, `GeometricMean`, and `Min`; **higher = more surprising** for `TfIdf`.
+
+The scorer applies **cold-start confidence weighting**: with few observations, scores are attenuated toward "unsurprising" (1.0 for lower-is-surprising modes, 0.0 for TfIdf). Confidence formula: `1 - 1/(total_matches + 1)`. At 1 match, confidence is 0.5. At 10 matches, ~0.91. At 100, ~0.99.
 
 The scorer only does frequency math. Property extraction is the caller's responsibility.
 
 ```rust
-use fabula::scoring::StuScorer;
+use fabula::scoring::{StuScorer, StuAggregation};
 
-let mut stu = StuScorer::new();
+let mut stu = StuScorer::new()
+    .with_aggregation(StuAggregation::TfIdf)
+    .with_pmi_correction();
 
 // Observe properties for completed matches
 stu.observe_one("betrayal", &["actor_trait=ambitious", "target_role=king"]);
@@ -224,6 +253,26 @@ pub fn observe_batch(&mut self, observations: &[(&str, &[String])])
 
 ---
 
+#### `with_aggregation`
+
+Set the aggregation strategy. Default is `ArithmeticMean`. Returns `self` for builder chaining.
+
+```rust
+pub fn with_aggregation(self, aggregation: StuAggregation) -> Self
+```
+
+---
+
+#### `with_pmi_correction`
+
+Enable PMI-based correction for correlated properties. When two properties frequently co-occur (high PMI), their individual rarities would be double-counted. This correction replaces the less-rare member's frequency with its conditional frequency given the partner. Adds O(k^2) pair counting per `observe_one` call where k is the number of properties per match (typically 2-8).
+
+```rust
+pub fn with_pmi_correction(self) -> Self
+```
+
+---
+
 #### `property_frequency`
 
 Compute the Laplace-smoothed frequency of a property within a pattern's matches. Returns `None` if the pattern has never been observed.
@@ -238,10 +287,10 @@ pub fn property_frequency(&self, pattern: &str, property: &str) -> Option<f64>
 
 #### `score`
 
-Score a set of matches given their pre-extracted properties. Score = mean of per-property Laplace-smoothed frequencies. **Lower = more surprising.** Matches whose pattern has not been observed get `stu_score = 1.0`.
+Score a set of matches given their pre-extracted properties. Score interpretation depends on the aggregation mode: **lower = more surprising** for `ArithmeticMean`, `GeometricMean`, and `Min`; **higher = more surprising** for `TfIdf`. Matches whose pattern has not been observed get `stu_score = 1.0`. Cold-start confidence weighting is applied automatically.
 
 ```rust
-pub fn score<N, V>(&self, matches_with_props: &[(Match<N, V>, Vec<String>)]) -> Vec<StuScoredMatch<N, V>>
+pub fn score<N, V, T>(&self, matches_with_props: &[(Match<N, V, T>, Vec<String>)]) -> Vec<StuScoredMatch<N, V, T>>
 ```
 
 ---
@@ -266,6 +315,22 @@ pub fn vocabulary_size(&self, pattern: &str) -> usize
 
 ---
 
+#### `pmi_for`
+
+Pointwise Mutual Information between two properties for a pattern. `PMI(pi, pj) = log2(P(pi,pj) / (P(pi) * P(pj)))`. High PMI means the properties co-occur more than expected by chance. Returns `None` if the pattern has never been observed. Returns `Some(0.0)` if the properties never co-occurred (including when PMI correction is disabled, since pair counts are not tracked).
+
+```rust
+pub fn pmi_for(&self, pattern: &str, pi: &str, pj: &str) -> Option<f64>
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `pattern` | `&str` | Pattern name. |
+| `pi` | `&str` | First property string. |
+| `pj` | `&str` | Second property string. Order does not matter (canonical sorted internally). |
+
+---
+
 #### `reset`
 
 Reset all observations.
@@ -278,7 +343,7 @@ pub fn reset(&mut self)
 
 ## `StuScoredMatch<N, V, T>`
 
-A match annotated with property-level (StU) surprise score.
+A match annotated with property-level (StU) surprise score. `N`, `V`, `T` are the node, value, and time types from your `DataSource`.
 
 | Field | Type | Description |
 |-------|------|-------------|
@@ -288,6 +353,104 @@ A match annotated with property-level (StU) surprise score.
 | `intervals` | `HashMap<String, Interval<T>>` | Intervals of matched stage anchors. |
 | `metadata` | `HashMap<String, String>` | Metadata propagated from the pattern. |
 | `property_frequencies` | `Vec<(String, f64)>` | Per-property frequencies, sorted ascending (rarest first). |
-| `stu_score` | `f64` | Mean of property frequencies. **Lower = more surprising.** |
+| `stu_score` | `f64` | Aggregated property frequencies. Interpretation depends on the aggregation mode: **lower = more surprising** for `ArithmeticMean`, `GeometricMean`, `Min`; **higher = more surprising** for `TfIdf`. Includes cold-start confidence weighting. |
 
 Trait implementations: `Debug`, `Clone`.
+
+---
+
+## `SequentialScorer`
+
+Sequential surprise scorer using bigram pattern transitions. Tracks which pattern completed after which, and scores transitions by their conditional surprise: `-log2(P(current | previous))`.
+
+A common betrayal after a rare alliance is surprising; a common betrayal after another common betrayal is not.
+
+```rust
+use fabula::scoring::SequentialScorer;
+
+let mut seq = SequentialScorer::new();
+seq.observe_transition("alliance", "betrayal");
+seq.observe_transition("alliance", "betrayal");
+seq.observe_transition("alliance", "trade");
+
+// betrayal after alliance: common (2/3)
+let common = seq.score_transition("alliance", "betrayal");
+// trade after alliance: rarer (1/3)
+let rare = seq.score_transition("alliance", "trade");
+assert!(rare > common, "rarer transition should be more surprising");
+```
+
+### Methods
+
+#### `SequentialScorer::new`
+
+Create a new empty scorer.
+
+```rust
+pub fn new() -> Self
+```
+
+---
+
+#### `observe_transition`
+
+Record a transition: `prev` pattern completed, then `current` completed.
+
+```rust
+pub fn observe_transition(&mut self, prev: &str, current: &str)
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `prev` | `&str` | Pattern that completed previously. |
+| `current` | `&str` | Pattern that completed now. |
+
+---
+
+#### `transition_probability`
+
+Laplace-smoothed transition probability `P(current | prev)`. Returns `None` if `prev` has never been observed as a predecessor. Uses Laplace smoothing: `(count + 1) / (total + V)` where V is the number of distinct successors seen after `prev`.
+
+```rust
+pub fn transition_probability(&self, prev: &str, current: &str) -> Option<f64>
+```
+
+---
+
+#### `score_transition`
+
+Sequential surprise in bits: `-log2(P(current | prev))`. **Higher = more surprising.** Returns `0.0` if `prev` has never been observed (no data to judge surprise).
+
+```rust
+pub fn score_transition(&self, prev: &str, current: &str) -> f64
+```
+
+---
+
+#### `total_transitions_from`
+
+Total transitions observed from a predecessor.
+
+```rust
+pub fn total_transitions_from(&self, prev: &str) -> u64
+```
+
+---
+
+#### `vocabulary_size`
+
+Number of distinct successors observed after a predecessor.
+
+```rust
+pub fn vocabulary_size(&self, prev: &str) -> usize
+```
+
+---
+
+#### `reset`
+
+Reset all observations.
+
+```rust
+pub fn reset(&mut self)
+```

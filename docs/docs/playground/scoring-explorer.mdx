@@ -1,0 +1,248 @@
+---
+sidebar_position: 4
+title: Scoring Explorer
+---
+
+# Scoring Explorer
+
+Scoring ranks pattern matches by how surprising they are. This page walks through how the three scorers work with concrete numbers.
+
+The scoring module is a post-processing layer. The engine finds matches; the scorers rank them. Each scorer answers a different question:
+
+| Scorer | Question | Unit |
+|--------|----------|------|
+| `SurpriseScorer` | How often does this pattern fire relative to my expectations? | bits (higher = rarer) |
+| `StuScorer` | How rare are the *properties* of this particular match? | frequency (lower = rarer, except TfIdf) |
+| `SequentialScorer` | How unexpected is this pattern *given what just happened*? | bits (higher = rarer) |
+
+---
+
+## 1. Pattern-Level Surprise (`SurpriseScorer`)
+
+Shannon surprise compares observed frequency against a baseline expectation. The formula:
+
+```
+p = (match_count + 1) / (total_rounds + 1)       # Laplace smoothing
+surprise = -log2(p / baseline)                     # bits
+```
+
+The `+1` terms are Laplace smoothing -- they prevent division by zero and give novel patterns a small nonzero probability rather than undefined surprise.
+
+### Worked example
+
+You set a baseline of 0.5 for the "betrayal" pattern (you expect it to fire about half the time). After 10 observation rounds, betrayal matched in 3 of them.
+
+```
+p = (3 + 1) / (10 + 1) = 4/11 = 0.364
+surprise = -log2(0.364 / 0.5) = -log2(0.727) = 0.459 bits
+```
+
+Positive surprise: the pattern fires less often than expected.
+
+### Building intuition
+
+This table shows how surprise changes as the match count varies across 10 rounds, with baseline = 0.5:
+
+| Matches (of 10) | p = (n+1)/11 | p / baseline | surprise (bits) | Interpretation |
+|:---:|:---:|:---:|:---:|:---|
+| 0 | 0.091 | 0.182 | **2.46** | Much rarer than expected |
+| 1 | 0.182 | 0.364 | **1.46** | Notably rare |
+| 2 | 0.273 | 0.545 | **0.87** | Somewhat rare |
+| 3 | 0.364 | 0.727 | **0.46** | Slightly rare |
+| 5 | 0.545 | 1.091 | **-0.13** | About as expected |
+| 7 | 0.727 | 1.455 | **-0.54** | Slightly common |
+| 10 | 1.000 | 2.000 | **-1.00** | Fires every round |
+
+Key observations:
+
+- Surprise is **zero** when observed frequency equals baseline. The Laplace smoothing shifts this slightly.
+- **Positive** surprise means rarer than expected. **Negative** means more common.
+- The scale is logarithmic: 1 bit of surprise means the pattern fires at half the expected rate.
+
+### What the baseline means
+
+The baseline is your prior expectation, not a frequency computed from data. It encodes domain knowledge:
+
+- A common social interaction in a simulation might get baseline 0.5.
+- A betrayal event might get baseline 0.1.
+- A once-per-playthrough climax might get baseline 0.01.
+
+If you set baseline = 0.1 for betrayal and it fires 3 out of 10 rounds:
+
+```
+p = (3 + 1) / (10 + 1) = 0.364
+surprise = -log2(0.364 / 0.1) = -log2(3.636) = -1.86 bits
+```
+
+Negative surprise -- betrayal is firing *more* than expected. The pattern is unsurprising relative to this baseline.
+
+---
+
+## 2. Property-Level Surprise (`StuScorer`)
+
+The StU heuristic (Kreminski et al., ICIDS 2022) goes deeper than pattern identity. Two matches of the same "betrayal" pattern might differ in who is involved. A betrayal by a loyal character is more surprising than one by a known schemer.
+
+The scorer tracks **properties** -- categorical attributes like `"actor_trait=ambitious"` or `"target_role=king"`. The frequency of each property within a pattern's match history determines how surprising it is.
+
+### Frequency formula
+
+```
+freq(property) = (count + 1) / (total_matches + V)    # Laplace smoothing
+```
+
+Where `V` is the vocabulary size (number of distinct properties observed for this pattern). The vocabulary-scaled denominator prevents novel properties from collapsing to zero probability.
+
+### Worked example
+
+20 matches of the "betrayal" pattern have been observed. Two properties to track:
+
+| Property | Matches containing it | Count |
+|----------|:---:|:---:|
+| `actor_trait=ambitious` | 3 | 3 |
+| `actor_trait=loyal` | 15 | 15 |
+
+The vocabulary size V = 2 (two distinct properties observed).
+
+```
+freq(ambitious) = (3 + 1) / (20 + 2) = 4/22  = 0.182
+freq(loyal)     = (15 + 1) / (20 + 2) = 16/22 = 0.727
+```
+
+Now score a match with both properties, using `ArithmeticMean` (the default):
+
+```
+raw_score = (0.182 + 0.727) / 2 = 0.455
+```
+
+Lower = more surprising. A match where both the actor is ambitious AND the target is loyal is middling -- one rare property, one common.
+
+### Aggregation modes
+
+The same property frequencies can be combined four ways. Using the values above (ambitious = 0.182, loyal = 0.727):
+
+| Mode | Formula | Result | Polarity |
+|------|---------|:---:|:---|
+| `ArithmeticMean` | (0.182 + 0.727) / 2 | **0.455** | Lower = more surprising |
+| `GeometricMean` | exp((ln(0.182) + ln(0.727)) / 2) | **0.364** | Lower = more surprising |
+| `Min` | min(0.182, 0.727) | **0.182** | Lower = more surprising |
+| `TfIdf` | -log2(0.182) + (-log2(0.727)) | **2.919** | **Higher** = more surprising |
+
+The modes encode different "theories of surprise":
+
+- **ArithmeticMean** -- the original StU heuristic. Average rarity.
+- **GeometricMean** -- a single rare property pulls the score down multiplicatively. More sensitive to outliers than arithmetic mean.
+- **Min** -- only the single rarest property matters. If any one property is unusual, the whole match is surprising.
+- **TfIdf** -- total information content. Sums the self-information of each property. Reversed polarity: higher values mean more surprise.
+
+### Cold-start confidence
+
+With only a few observations, the frequency estimates are noisy. The scorer attenuates scores toward "unsurprising" when data is sparse.
+
+```
+confidence = 1 - 1 / (total_matches + 1)
+```
+
+| Matches observed | Confidence | Effect |
+|:---:|:---:|:---|
+| 1 | 0.500 | Heavy attenuation -- scores halfway to unsurprising |
+| 3 | 0.750 | Moderate attenuation |
+| 10 | 0.909 | Mild attenuation |
+| 50 | 0.980 | Negligible |
+| 100 | 0.990 | Near-transparent |
+
+For `ArithmeticMean`/`GeometricMean`/`Min` (lower = more surprising), the lerp pushes toward 1.0:
+
+```
+final_score = 1.0 - (1.0 - raw_score) * confidence
+```
+
+For `TfIdf` (higher = more surprising), it pushes toward 0.0:
+
+```
+final_score = raw_score * confidence
+```
+
+**Concrete example**: using the ArithmeticMean raw score of 0.455 from above:
+
+| Observations | Confidence | Final score | vs. raw 0.455 |
+|:---:|:---:|:---:|:---|
+| 3 | 0.750 | 1.0 - (1.0 - 0.455) * 0.75 = **0.591** | Pushed toward 1.0 (less surprising) |
+| 10 | 0.909 | 1.0 - (1.0 - 0.455) * 0.909 = **0.505** | Closer to raw |
+| 100 | 0.990 | 1.0 - (1.0 - 0.455) * 0.990 = **0.460** | Nearly raw |
+
+The intuition: with 3 observations you do not yet know whether "ambitious" is truly rare or just hasn't shown up yet. The confidence weight hedges against premature conclusions.
+
+---
+
+## 3. Sequential Surprise (`SequentialScorer`)
+
+Sequential surprise uses a bigram model: given that pattern A just completed, how unexpected is it that pattern B completes next?
+
+```
+P(current | prev) = (count + 1) / (total + V)    # Laplace smoothing
+surprise = -log2(P(current | prev))                # bits
+```
+
+Where `V` is the number of distinct successors observed after `prev`, and `total` is the total number of transitions observed from `prev`.
+
+### Worked example
+
+Over a simulation run, you observe these transitions after "betrayal" completes:
+
+| Successor | Count |
+|-----------|:---:|
+| betrayal | 8 |
+| reconciliation | 2 |
+| exile | 1 |
+
+Total transitions from "betrayal" = 11. Vocabulary V = 3 (three distinct successors).
+
+Compute each transition probability with Laplace smoothing:
+
+```
+P(betrayal | betrayal)       = (8 + 1) / (11 + 3)  = 9/14  = 0.643
+P(reconciliation | betrayal) = (2 + 1) / (11 + 3)  = 3/14  = 0.214
+P(exile | betrayal)          = (1 + 1) / (11 + 3)  = 2/14  = 0.143
+```
+
+Now compute sequential surprise:
+
+| Transition | P(next \| betrayal) | Surprise (bits) | Interpretation |
+|------------|:---:|:---:|:---|
+| betrayal -> betrayal | 0.643 | **0.64** | Common follow-up, low surprise |
+| betrayal -> reconciliation | 0.214 | **2.22** | Uncommon, narratively interesting |
+| betrayal -> exile | 0.143 | **2.81** | Rare, potentially dramatic |
+
+A novel successor (never seen before) also gets nonzero probability via Laplace smoothing:
+
+```
+P(forgiveness | betrayal) = (0 + 1) / (11 + 3) = 1/14 = 0.071
+surprise = -log2(0.071) = 3.81 bits
+```
+
+The never-before-seen transition is the most surprising of all.
+
+### Combining with pattern-level surprise
+
+Sequential surprise and pattern-level surprise are independent measurements. A pattern can be common overall but surprising *in context* (or vice versa). Composing them is up to the caller -- for example, summing bits from `SurpriseScorer` and `SequentialScorer` gives joint information content.
+
+---
+
+## Putting it together
+
+A typical scoring pipeline:
+
+1. Engine produces matches (batch or incremental).
+2. `SurpriseScorer` ranks by pattern-level rarity: "betrayal is rare this run."
+3. `StuScorer` ranks by property-level rarity: "*this* betrayal is unusual because of who is involved."
+4. `SequentialScorer` ranks by contextual surprise: "a betrayal right *after* reconciliation is unexpected."
+
+Each scorer operates independently. The caller decides how to weight and combine them -- there is no built-in composite score.
+
+---
+
+## Further reading
+
+- [Scoring Reference](/docs/reference/scoring) -- full API for all three scorers
+- [Scoring and Surprise](/docs/concepts/scoring-and-surprise) -- conceptual foundations and research context
+- [Scoring Matches guide](/docs/guides/scoring-matches) -- integration walkthrough with code

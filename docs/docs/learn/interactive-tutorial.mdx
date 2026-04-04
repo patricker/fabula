@@ -1,0 +1,276 @@
+---
+sidebar_position: 5
+title: Interactive Tutorial
+---
+
+# Interactive Tutorial
+
+import PatternPlayground from '@site/src/components/wasm/PatternPlayground';
+
+Five exercises. Each one gives you a graph and an incomplete pattern. Your job: complete the pattern to produce the expected matches. The playground evaluates as you type.
+
+| | |
+|---|---|
+| **Time** | ~30 minutes |
+| **Prerequisites** | [Patterns from First Principles](/docs/learn/patterns-from-first-principles) |
+
+---
+
+## Exercise 1: Your First Pattern
+
+**Task:** The graph contains three events: a login by alice, a trade by bob, and a login by charlie. Write a clause inside the empty stage that matches all login events.
+
+**Expected:** 2 matches (alice's login and charlie's login).
+
+<PatternPlayground
+  defaultPattern={`pattern find_logins {
+  stage e1 {
+    // TODO: add a clause that matches login events
+  }
+}`}
+  defaultGraph={`graph {
+  @1 e1.type = "login"
+  @1 e1.user -> alice
+  @2 e2.type = "trade"
+  @2 e2.user -> bob
+  @3 e3.type = "login"
+  @3 e3.user -> charlie
+  now = 5
+}`}
+  compact
+/>
+
+<details>
+<summary>Show Solution</summary>
+
+```
+pattern find_logins {
+  stage e1 {
+    e1.type = "login"
+  }
+}
+```
+
+**Explanation:** The clause `e1.type = "login"` anchors the stage to any event whose `type` label equals `"login"`. The engine scans every event in the graph and returns those that satisfy the clause. The trade event has `type = "trade"`, so it is excluded.
+
+</details>
+
+---
+
+## Exercise 2: Variable Joins
+
+**Task:** Four events: alice logs in at t=1, bob logs in at t=2, alice logs in again at t=3, bob logs in again at t=5. Complete the pattern so that both stages bind the same user. The variable `?user` must appear in both stages to create a join.
+
+**Expected:** 2 matches (alice: t=1 then t=3, bob: t=2 then t=5).
+
+<PatternPlayground
+  defaultPattern={`pattern repeat_login {
+  stage e1 {
+    e1.type = "login"
+    // TODO: bind e1.user to ?user
+  }
+  stage e2 {
+    e2.type = "login"
+    // TODO: bind e2.user to ?user
+  }
+}`}
+  defaultGraph={`graph {
+  @1 e1.type = "login"
+  @1 e1.user -> alice
+  @2 e2.type = "login"
+  @2 e2.user -> bob
+  @3 e3.type = "login"
+  @3 e3.user -> alice
+  @5 e4.type = "login"
+  @5 e4.user -> bob
+  now = 10
+}`}
+  compact
+/>
+
+<details>
+<summary>Show Solution</summary>
+
+```
+pattern repeat_login {
+  stage e1 {
+    e1.type = "login"
+    e1.user -> ?user
+  }
+  stage e2 {
+    e2.type = "login"
+    e2.user -> ?user
+  }
+}
+```
+
+**Explanation:** When `?user` appears in both stages, the engine requires the bound value to be identical. Alice's first login binds `?user = alice`, so the second stage only matches events where `user -> alice`. This is a join. Without the shared variable, every login would pair with every later login (4 matches instead of 2).
+
+</details>
+
+---
+
+## Exercise 3: Negation
+
+**Task:** Alice logs in at t=1 and again at t=5 with no logout between. Bob logs in at t=2, logs out at t=3, then logs in again at t=4. The pattern already has two stages with a shared `?user` variable. Add an `unless between` clause that excludes matches where the user logged out between the two logins.
+
+**Expected:** 1 match (alice only). Bob's match is killed because he logged out at t=3.
+
+<PatternPlayground
+  defaultPattern={`pattern no_logout_between {
+  stage e1 {
+    e1.type = "login"
+    e1.user -> ?user
+  }
+  stage e2 {
+    e2.type = "login"
+    e2.user -> ?user
+  }
+  // TODO: add unless between e1 e2 that checks for logout by ?user
+}`}
+  defaultGraph={`graph {
+  @1 e1.type = "login"
+  @1 e1.user -> alice
+  @2 e2.type = "login"
+  @2 e2.user -> bob
+  @3 e3.type = "logout"
+  @3 e3.user -> bob
+  @4 e4.type = "login"
+  @4 e4.user -> bob
+  @5 e5.type = "login"
+  @5 e5.user -> alice
+  now = 10
+}`}
+  compact
+/>
+
+<details>
+<summary>Show Solution</summary>
+
+```
+pattern no_logout_between {
+  stage e1 {
+    e1.type = "login"
+    e1.user -> ?user
+  }
+  stage e2 {
+    e2.type = "login"
+    e2.user -> ?user
+  }
+  unless between e1 e2 {
+    mid.type = "logout"
+    mid.user -> ?user
+  }
+}
+```
+
+**Explanation:** `unless between e1 e2` defines a negation window: if any event between stages e1 and e2 matches the inner clauses, the partial match is killed. The `mid.user -> ?user` clause ensures the negation only fires for the same user. Bob has a logout at t=3 (between t=2 and t=4), so his match dies. Alice has no logout between t=1 and t=5, so her match survives.
+
+</details>
+
+---
+
+## Exercise 4: Value Constraints
+
+**Task:** Two sensors report readings. sensor_a reads 2.0 at t=1 and 8.0 at t=2. sensor_b reads 3.0 at t=1 and 4.0 at t=2. The pattern already matches reading events and binds the sensor. Add a value constraint so only readings above 5.0 match.
+
+**Expected:** 1 match (sensor_a at t=2, value 8.0).
+
+<PatternPlayground
+  defaultPattern={`pattern high_reading {
+  stage e1 {
+    e1.type = "reading"
+    e1.sensor -> ?sensor
+    // TODO: add a constraint on e1.value
+  }
+}`}
+  defaultGraph={`graph {
+  @1 e1.type = "reading"
+  @1 e1.sensor -> sensor_a
+  @1 e1.value = 2.0
+  @2 e2.type = "reading"
+  @2 e2.sensor -> sensor_a
+  @2 e2.value = 8.0
+  @1 e3.type = "reading"
+  @1 e3.sensor -> sensor_b
+  @1 e3.value = 3.0
+  @2 e4.type = "reading"
+  @2 e4.sensor -> sensor_b
+  @2 e4.value = 4.0
+  now = 5
+}`}
+  compact
+/>
+
+<details>
+<summary>Show Solution</summary>
+
+```
+pattern high_reading {
+  stage e1 {
+    e1.type = "reading"
+    e1.sensor -> ?sensor
+    e1.value > 5.0
+  }
+}
+```
+
+**Explanation:** `e1.value > 5.0` is a numeric comparison clause. The engine checks the `value` label on the event and only matches if the number exceeds 5.0. Of the four readings (2.0, 8.0, 3.0, 4.0), only 8.0 passes. Other operators (`<`, `>=`, `<=`) work the same way. You can also combine multiple constraints to define a range, e.g., `e1.value > 5.0` and `e1.value < 10.0`.
+
+</details>
+
+---
+
+## Exercise 5: Temporal Relations
+
+**Task:** A siege runs from t=1 to t=10 (a bounded interval). A sortie happens at t=3 (point event, during the siege). A battle happens at t=12 (point event, after the siege ends). The pattern has two stages but no temporal constraint. Add an explicit Allen relation so only events that occur *during* the siege match.
+
+**Expected:** 1 match (the sortie during the siege). The battle at t=12 is after the siege, not during it.
+
+<PatternPlayground
+  defaultPattern={`pattern during_siege {
+  stage outer {
+    outer.type = "siege"
+  }
+  stage inner {
+    inner.type = "event"
+  }
+  // TODO: add a temporal constraint: inner during outer
+}`}
+  defaultGraph={`graph {
+  @1..10 siege.type = "siege"
+  @3 sortie.type = "event"
+  @3 sortie.kind = "sortie"
+  @12 battle.type = "event"
+  @12 battle.kind = "battle"
+  now = 15
+}`}
+  compact
+/>
+
+<details>
+<summary>Show Solution</summary>
+
+```
+pattern during_siege {
+  stage outer {
+    outer.type = "siege"
+  }
+  stage inner {
+    inner.type = "event"
+  }
+  temporal inner during outer
+}
+```
+
+**Explanation:** `temporal inner during outer` applies the Allen interval relation *during*: the inner event's interval must be strictly contained within the outer event's interval. The sortie at t=3 falls within [1, 10), so it matches. The battle at t=12 falls outside, so it does not. Note that the `temporal` directive overrides the default stage ordering (which would require `outer` before `inner` in time). With `during`, the inner event can start after the outer event starts but must end before the outer event ends.
+
+</details>
+
+---
+
+## Where to go next
+
+- [Pattern Cookbook](/docs/guides/pattern-cookbook) -- common patterns with full solutions
+- [Use Cases](/docs/use-cases) -- domain-specific applications
+- [Getting Started](/docs/getting-started) -- integrate fabula into your project

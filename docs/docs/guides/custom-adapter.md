@@ -1,5 +1,5 @@
 ---
-sidebar_position: 4
+sidebar_position: 8
 title: Custom Adapter
 ---
 
@@ -102,7 +102,7 @@ impl MyGraph {
 
 ## Step 3: Implement DataSource
 
-The trait has 4 associated types and 6 methods. Here is a complete implementation:
+The trait has 4 associated types and 6 methods. See the [DataSource Reference](../reference/datasource) for full API documentation. Here is a complete implementation:
 
 ```rust
 impl DataSource for MyGraph {
@@ -291,7 +291,7 @@ impl TestGraph for MyGraph {
 }
 ```
 
-Then run the golden tests against your adapter. See [Golden Tests](./golden-tests.md) for details.
+Then run the golden tests against your adapter. See [Golden Tests](./golden-tests) for details. For reference implementations, see the built-in adapters: [MemGraph](../reference/adapters/memory), [PetGraph](../reference/adapters/petgraph), and [Grafeo](../reference/adapters/grafeo).
 
 ## Pitfalls
 

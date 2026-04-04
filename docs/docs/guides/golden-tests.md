@@ -1,5 +1,5 @@
 ---
-sidebar_position: 5
+sidebar_position: 9
 title: Golden Tests
 ---
 
@@ -154,3 +154,8 @@ The golden test suite has three layers:
 3. **`golden_tests!` macro** (`tests/golden.rs`) -- stamps out `#[test]` functions for every (scenario, adapter) pair. Uses the `paste` crate to generate unique test names like `mem__batch_hospitality_matches`.
 
 The suite covers batch evaluation, incremental matching, negation windows, value constraints, temporal ordering, Allen relations, gap analysis, multi-pattern interaction, and batch/incremental consistency.
+
+## Next steps
+
+- [Custom Adapter](./custom-adapter) -- implement `DataSource` for your own graph store and validate it against the golden suite.
+- [Pattern Playground](../playground/pattern-playground) -- prototype patterns interactively before writing golden test scenarios.

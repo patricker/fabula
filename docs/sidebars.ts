@@ -5,11 +5,48 @@ const sidebars: SidebarsConfig = {
     'getting-started',
     {
       type: 'category',
+      label: 'Learn Sifting',
+      items: [
+        'learn/what-is-sifting',
+        'learn/sifting-by-example',
+        'learn/patterns-from-first-principles',
+        'learn/thinking-in-time',
+        'learn/interactive-tutorial',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Build a Simulation Monitor',
+      items: [
+        'build/overview',
+        'build/simulation-loop',
+        'build/define-patterns',
+        'build/incremental-matching',
+        'build/react-to-events',
+        'build/score-and-rank',
+        'build/speculate-with-mcts',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Use Cases',
+      items: [
+        'use-cases/narrative-sifting',
+        'use-cases/observability',
+        'use-cases/process-mining',
+        'use-cases/compliance-checking',
+        'use-cases/cybersecurity',
+        'use-cases/simulation-monitoring',
+      ],
+    },
+    {
+      type: 'category',
       label: 'Playground',
       items: [
         'playground/pattern-playground',
         'playground/step-through',
         'playground/allen-visualizer',
+        'playground/scoring-explorer',
       ],
     },
     {
@@ -20,6 +57,9 @@ const sidebars: SidebarsConfig = {
         'concepts/how-the-engine-works',
         'concepts/temporal-model',
         'concepts/design-decisions',
+        'concepts/composition',
+        'concepts/scoring-and-surprise',
+        'concepts/narrative-quality',
       ],
     },
     {
@@ -28,6 +68,10 @@ const sidebars: SidebarsConfig = {
       items: [
         'guides/pattern-cookbook',
         'guides/incremental-integration',
+        'guides/scoring-matches',
+        'guides/composing-patterns',
+        'guides/forking-for-mcts',
+        'guides/dsl-in-rust',
         'guides/debugging-patterns',
         'guides/custom-adapter',
         'guides/golden-tests',
@@ -55,6 +99,8 @@ const sidebars: SidebarsConfig = {
         },
       ],
     },
+    'glossary',
+    'learning-paths',
     'research',
   ],
 };

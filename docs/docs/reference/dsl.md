@@ -15,6 +15,12 @@ pattern <name> {
     <clause>+
   }+
 
+  [concurrent {
+    stage <event_var> { <clause>+ }
+    stage <event_var> { <clause>+ }
+    ...
+  }]*
+
   [unless between <start_var> <end_var> { <clause>+ }]*
   [unless after <start_var> { <clause>+ }]*
   [unless { <clause>+ }]*
@@ -70,6 +76,46 @@ stage e1 {
 **Important**: `= ?var` (equality comparison against a bound variable's value) is distinct from `-> ?var` (bind or join). Use `=` when you want to compare a numeric/string value against a previously bound value. Use `->` when you want to traverse and bind a node reference.
 
 Negation (`!`) works with literal values (`= "value"`, `= 42`, `= true`) and node references (`-> node`). It is **not** supported with value constraints (`<`, `>`, `<=`, `>=`), variable comparisons (`> ?var`), or variable bindings (`-> ?var`) — rewrite as the inverse constraint instead (e.g., `! e.x < 0.5` becomes `e.x >= 0.5`).
+
+### Concurrent Groups
+
+Stages inside a `concurrent { }` block can match in any order. The engine tracks which stages in the group have been satisfied using a bitmask and advances the pattern past the group when all stages are matched.
+
+```
+pattern multi_signal_alert {
+  stage e1 {
+    e1.type = "anomaly_detected"
+    e1.sensor -> ?sensor
+  }
+  concurrent {
+    stage e2 {
+      e2.type = "temperature_spike"
+      e2.sensor -> ?sensor
+    }
+    stage e3 {
+      e3.type = "pressure_drop"
+      e3.sensor -> ?sensor
+    }
+  }
+  stage e4 {
+    e4.type = "shutdown"
+    e4.sensor -> ?sensor
+  }
+}
+```
+
+In this pattern, after `e1` matches, both `e2` and `e3` must match (in either order) before `e4` can match. The shared variable `?sensor` ensures all stages refer to the same sensor.
+
+**Rules:**
+- A concurrent group must contain at least 2 stages.
+- Stages in the group can be interleaved with stages outside the group (the overall pattern order is: stages before the group, then the group stages in any order, then stages after the group).
+- Temporal ordering within a concurrent group is relaxed — stages in the same group are not required to be time-ordered relative to each other.
+- `unless between` cannot use two anchors that are both inside the same concurrent group (undefined temporal ordering). The compiler rejects this with an error.
+- Variables bound in any stage of a concurrent group are visible to all sibling stages in the same group (symmetric scoping).
+
+Maps to `PatternBuilder::unordered_group()` in the Rust builder API.
+
+---
 
 ### Negation Windows
 
@@ -389,6 +435,7 @@ pub struct PatternBody {
     pub temporals: Vec<TemporalAst>,
     pub metadata: Vec<(String, String)>,
     pub deadline: Option<f64>,
+    pub unordered_groups: Vec<Vec<usize>>,
 }
 ```
 
@@ -459,7 +506,7 @@ All parsing primitives (`parse_stage`, `parse_negation`, `parse_temporal`, `pars
 
 The `Lexer` produces a stream of `Token` values. Downstream DSLs that reuse fabula's lexer (via `Lexer::new(source).tokenize()`) have access to all token types. The tokens used by fabula's own parser are marked; unmarked tokens exist for downstream DSL consumers.
 
-**Keywords**: `Pattern`, `Stage`, `Unless`, `Between`, `After`, `Graph`, `Now`, `Temporal`, `True`, `False`, `Compose`, `Sharing`
+**Keywords**: `Pattern`, `Stage`, `Unless`, `Between`, `After`, `Graph`, `Now`, `Temporal`, `True`, `False`, `Compose`, `Sharing`, `Concurrent`
 
 **Symbols** (used by fabula):
 

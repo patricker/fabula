@@ -157,6 +157,10 @@ Here is what each piece does:
 - **Stage `login_b`**: Finds a *later* event (stages are implicitly time-ordered) that is also a login. The `user` variable is already bound from stage 1, so this clause acts as a **join** — it only matches if the same user appears.  The `location` binds to `loc_b`.
 - **`unless_between`**: Between `login_a` and `login_b`, there must be no event with `type = "logout"` whose `user` matches the bound `user` variable. If such an event exists, the match is killed.
 
+:::tip
+Want to experiment without a Rust project? Try this pattern in the [Pattern Playground](/docs/playground/pattern-playground).
+:::
+
 Run:
 
 ```bash
@@ -498,3 +502,4 @@ fn main() {
 
 - [Concepts overview](concepts/overview) — understand the core model (edges, patterns, intervals, negation) in depth.
 - [Pattern cookbook](guides/pattern-cookbook) — worked recipes for common pattern types: repeated behavior, numeric thresholds, overlapping events, absence detection.
+- [Pattern reference](reference/patterns) — full API details for `Pattern`, `Stage`, `Clause`, and `PatternBuilder`.

@@ -407,3 +407,64 @@ For exactly 3 attempts (fully unrolled, distinct per-repetition bindings):
 ```
 compose three_strikes = login_fail * 3 sharing(account)
 ```
+
+## Recipe 9: Concurrent signals (unordered stages)
+
+**Problem:** Detect when multiple signals occur in any order before a confirmation. A sensor triggers an alarm, then both a temperature spike AND a pressure drop happen (in either order), then a shutdown occurs.
+
+### DSL
+
+```
+pattern multi_signal_shutdown {
+  stage e1 {
+    e1.type = "alarm"
+    e1.sensor -> ?sensor
+  }
+  concurrent {
+    stage e2 {
+      e2.type = "temperature_spike"
+      e2.sensor -> ?sensor
+    }
+    stage e3 {
+      e3.type = "pressure_drop"
+      e3.sensor -> ?sensor
+    }
+  }
+  stage e4 {
+    e4.type = "shutdown"
+    e4.sensor -> ?sensor
+  }
+}
+```
+
+Stages `e2` and `e3` are in a `concurrent { }` block — they can match in any order. The shared variable `?sensor` ensures all stages refer to the same sensor. Stage `e1` must come before both concurrent stages, and `e4` must come after both.
+
+### Builder API equivalent
+
+```rust
+let pattern = PatternBuilder::<String, MemValue>::new("multi_signal_shutdown")
+    .stage("e1", |s| s
+        .edge("e1", "type".into(), MemValue::Str("alarm".into()))
+        .edge_bind("e1", "sensor".into(), "sensor"))
+    .unordered_group(|g| g
+        .stage("e2", |s| s
+            .edge("e2", "type".into(), MemValue::Str("temperature_spike".into()))
+            .edge_bind("e2", "sensor".into(), "sensor"))
+        .stage("e3", |s| s
+            .edge("e3", "type".into(), MemValue::Str("pressure_drop".into()))
+            .edge_bind("e3", "sensor".into(), "sensor")))
+    .stage("e4", |s| s
+        .edge("e4", "type".into(), MemValue::Str("shutdown".into()))
+        .edge_bind("e4", "sensor".into(), "sensor"))
+    .build();
+```
+
+Note: `unless_between` cannot use two anchors that are both inside the same concurrent group (undefined temporal ordering). The compiler rejects this at compile time.
+
+## Next steps
+
+- [Pattern Playground](../playground/pattern-playground) -- try these recipes interactively in the browser without a Rust project.
+- [Composing Patterns](./composing-patterns) -- build complex patterns from reusable parts with sequence, choice, and repeat.
+- [Incremental Integration](./incremental-integration) -- wire patterns into a live simulation loop.
+- [Scoring Reference](../reference/scoring) -- rank matches by surprise or narrative quality after evaluation.
+- [Pattern Reference](../reference/patterns) -- full API details for `Pattern`, `Stage`, `Clause`, and `PatternBuilder`.

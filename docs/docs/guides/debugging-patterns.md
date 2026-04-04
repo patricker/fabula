@@ -1,5 +1,5 @@
 ---
-sidebar_position: 3
+sidebar_position: 7
 title: Debugging Patterns
 ---
 
@@ -97,3 +97,8 @@ This shows you exactly where each partial match is stuck.
 | `SiftEvent::Expired` fires immediately | `deadline_ticks` is too small relative to tick frequency, or `created_at_tick` is much earlier than expected. Deadline uses strict `>`: a PM with `deadline_ticks=1` expires after 2 ticks (created at tick 0, expired when tick 2 starts). | Increase the deadline value. Inspect `pm.created_at_tick` to verify when the PM was initiated. Remember that `created_at_tick` is inherited on advancement, not reset. |
 | PM expires but shouldn't | The PM advanced to a later stage but still expired because `created_at_tick` measures total lifecycle from first initiation, not from last advancement. A 3-stage pattern with `deadline 5` expires 5 ticks after stage 1 matched, even if stage 2 matched at tick 4. | Use a larger deadline that accounts for the full multi-stage lifecycle, or remove the deadline and use `stale_patterns()` for softer staleness detection. |
 | `end_tick()` returns empty expired events | Patterns don't have `deadline_ticks` set. Expiry only fires for patterns with an explicit deadline. | Add `.deadline(ticks)` to the pattern builder or `deadline N` in the DSL. |
+
+## Next steps
+
+- [Step-Through Debugger](../playground/step-through) -- watch incremental matching unfold visually, step by step.
+- [Pattern Cookbook](./pattern-cookbook) -- worked recipes with `why_not` output for each failure case.

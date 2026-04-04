@@ -413,6 +413,7 @@ pub fn assemble_signals(
     desired_trajectory: Trajectory,
     pivot_magnitude: f64,
     surprise: f64,
+    sequential_surprise: f64,
 ) -> NarrativeSignals
 ```
 
@@ -425,6 +426,7 @@ pub fn assemble_signals(
 | `desired_trajectory` | `Trajectory` | What the GM wants tension to do. |
 | `pivot_magnitude` | `f64` | From `pivot.last_pivot()`. |
 | `surprise` | `f64` | From `scorer.surprise_for()` or similar. |
+| `sequential_surprise` | `f64` | From `SequentialScorer::score_transition()`. |
 
 ---
 
@@ -443,6 +445,7 @@ Configurable weights for each scoring signal. All have sensible defaults.
 | `tension_fit` | `f64` | 2.0 | Reward when tension matches desired trajectory. |
 | `pivot_reward` | `f64` | 1.5 | Reward scaled by pivot magnitude. |
 | `surprise_reward` | `f64` | 1.0 | Reward scaled by surprise score. |
+| `sequential_surprise_reward` | `f64` | 1.0 | Reward scaled by sequential surprise score. |
 
 ---
 
@@ -461,6 +464,7 @@ Input signals for the scorer. Assemble manually or use `assemble_signals()`.
 | `tension_fit` | `f64` | 1.0 (match), -1.0 (opposite), 0.0 (neutral). |
 | `pivot_magnitude` | `f64` | JSD from PivotDetector (0-1). |
 | `surprise` | `f64` | Pattern-level surprise. |
+| `sequential_surprise` | `f64` | Sequential transition surprise (from `SequentialScorer`). |
 
 Trait implementations: `Debug`, `Clone`, `Default`.
 
@@ -492,5 +496,6 @@ Per-signal contribution to the total score.
 | `tension` | `f64` | From tension_fit * weight. |
 | `pivot` | `f64` | From pivot_magnitude * weight. |
 | `surprise` | `f64` | From surprise * weight. |
+| `sequential_surprise` | `f64` | From sequential_surprise * weight. |
 
 Trait implementations: `Debug`, `Clone`, `Default`.

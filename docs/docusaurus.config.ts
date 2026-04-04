@@ -11,10 +11,10 @@ const config: Config = {
     v4: true,
   },
 
-  // GitHub Pages — will be updated when repo is created
-  url: 'https://your-org.github.io',
+  // GitHub Pages
+  url: 'https://patricker.github.io',
   baseUrl: '/fabula/',
-  organizationName: 'your-org',
+  organizationName: 'patricker',
   projectName: 'fabula',
   trailingSlash: false,
 
@@ -31,7 +31,7 @@ const config: Config = {
       {
         docs: {
           sidebarPath: './sidebars.ts',
-          editUrl: 'https://github.com/your-org/fabula/tree/main/docs/',
+          editUrl: 'https://github.com/patricker/fabula/tree/main/docs/',
         },
         blog: false, // No blog for a library
         theme: {
@@ -65,7 +65,7 @@ const config: Config = {
           position: 'left',
         },
         {
-          href: 'https://github.com/your-org/fabula',
+          href: 'https://github.com/patricker/fabula',
           label: 'GitHub',
           position: 'right',
         },
@@ -85,7 +85,7 @@ const config: Config = {
         {
           title: 'More',
           items: [
-            { label: 'GitHub', href: 'https://github.com/your-org/fabula' },
+            { label: 'GitHub', href: 'https://github.com/patricker/fabula' },
             { label: 'crates.io', href: 'https://crates.io/crates/fabula' },
             { label: 'docs.rs', href: 'https://docs.rs/fabula' },
           ],

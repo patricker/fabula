@@ -5,7 +5,7 @@ title: How the Engine Works
 
 # How the Engine Works
 
-Fabula has two evaluation modes: **batch** and **incremental**. Batch evaluation scans the entire graph and returns all complete matches. Incremental evaluation processes one edge at a time and emits events as patterns advance, complete, or get negated.
+Fabula has two evaluation modes: **batch** and **incremental**. Batch evaluation scans the entire graph and returns all complete matches. Incremental evaluation processes one edge at a time and emits events as patterns advance, complete, or get negated. For the full API, see the [Engine Reference](../reference/engine).
 
 Both modes use the same pattern representation and the same matching logic. The difference is how they iterate over the data.
 
@@ -25,7 +25,7 @@ The result is a list of complete matches, each with a full binding map.
 
 ## Incremental evaluation: the 4-phase algorithm
 
-When you call the engine with a new edge, it runs four phases in order:
+When you call the engine with a new edge, it runs four phases in order. See this in action with the [Step-Through Debugger](../playground/step-through).
 
 ### Phase 1: Negation check
 
@@ -39,9 +39,13 @@ The engine tries to start new partial matches by testing the new edge against th
 
 For single-stage patterns (rare but valid), a match that passes initiation is immediately complete -- but only after checking its negation windows.
 
+**Unordered groups:** If stage 0 is part of a [concurrent group](/docs/reference/dsl#concurrent-groups), the engine tries ALL stages in that group as potential initiators, not just stage 0. Each successful initiation creates a PM with the corresponding bit set in `matched_stages`.
+
 ### Phase 3: Advancement
 
 The engine tries to advance every existing active partial match. For each partial match, it tests the new edge against the partial match's next unmatched stage. If the edge satisfies all clauses in that stage, and the temporal ordering is valid (the new edge's start time is after all previously matched stages), the engine **forks** a new partial match with the extended bindings.
+
+**Unordered groups:** When a PM's next stage is in a concurrent group, the engine tries all unmatched stages in that group (checked via the `matched_stages` bitmask), not just the next sequential stage. Temporal ordering is relaxed within the group — stages in the same concurrent group are not required to be time-ordered relative to each other. When all bits for the group are set, the PM advances past the group to the next sequential stage.
 
 The key behavior here: **the original partial match survives**. When the engine forks, it creates a copy with the new bindings and advances the copy. The original stays in its current state, waiting for a potentially different edge to match the same stage. This is critical because the same stage can match multiple future events with different bindings.
 
@@ -99,6 +103,51 @@ The `created_at_tick` is set when a PM is first initiated (Phase 2) and inherite
 
 **Use incremental when** your data arrives over time -- a running simulation, a streaming event log, a game loop. Incremental evaluation lets you react to matches as they happen rather than waiting for the simulation to finish.
 
-**Use both** to debug. If a pattern matches in batch but not incrementally (or vice versa), the discrepancy usually points to a temporal ordering issue or a negation window boundary problem. See [Debugging Patterns](../guides/debugging-patterns.md) for a systematic approach.
+**Use both** to debug. If a pattern matches in batch but not incrementally (or vice versa), the discrepancy usually points to a temporal ordering issue or a negation window boundary problem. See [Debugging Patterns](../guides/debugging-patterns) for a systematic approach.
 
 You can also use batch evaluation as a correctness oracle: run the same pattern in both modes on the same data and assert the results agree. The golden test suite does exactly this for consistency scenarios.
+
+:::note Stages are patterns, not sequences
+Fabula stages are like CEP *patterns*, not *sequences*: other events can occur between matched stages. Stage 1 at time 1 and stage 2 at time 5 is a valid match even if hundreds of unrelated events happened at times 2, 3, and 4. If you need contiguity (no intervening events of a certain type), use a negation window.
+:::
+
+## Partial match lifecycle
+
+Every partial match follows this state machine:
+
+```
+                 ┌─── [Negated] (Phase 1: negation clause satisfied)
+                 │
+[Created] → [Active] ──→ [Complete] (all stages matched)
+                 │
+                 └─── [Expired] (end_tick: deadline exceeded)
+```
+
+- **Created → Active**: Phase 2 (initiation) creates the PM with stage 0 matched.
+- **Active → Active**: Phase 3 (advancement) forks the PM. The original stays Active; the fork has one more stage matched. Both are Active.
+- **Active → Complete**: Phase 3 advances to the final stage. The PM is marked Complete and a `SiftEvent::Completed` is emitted.
+- **Active → Negated**: Phase 1 finds an edge that satisfies all clauses in a negation window. The PM is marked Dead and a `SiftEvent::Negated` is emitted.
+- **Active → Expired**: `end_tick()` finds that `current_tick - created_at_tick > deadline_ticks`. The PM is marked Dead and a `SiftEvent::Expired` is emitted.
+
+Complete PMs accumulate until you call `drain_completed()`. Dead PMs are removed at the end of each `on_edge_added()` call. Active PMs live until they advance, get negated, or expire.
+
+## Worked example: the Winnow walkthrough
+
+The canonical incremental matching example, adapted from the Winnow paper (AIIDE 2021). Pattern: violation of hospitality (enter town → show hospitality → harm, unless the guest leaves).
+
+| Step | Event | Pool change | Active PMs |
+|------|-------|-------------|------------|
+| 0 | (initial) | 1 empty PM seed | 1 |
+| 1 | Yann enters town | PM advances to stage 1 (accept) | 1 |
+| 2 | Mia does something irrelevant | No change — edge doesn't match any stage | 1 |
+| 3 | Eve shows hospitality to Yann | PM forks: original stays at stage 1, fork advances to stage 2 | 2 |
+| 4 | Eve harms Yann | Fork completes: `SiftEvent::Completed` with `{guest: Yann, host: Eve}` | 1 + 1 complete |
+| 5 | Jake shows hospitality to Yann | New fork from the stage-1 PM | 2 |
+| 6 | Yann leaves town | All PMs with `guest=Yann` and an open negation window are killed | 0 |
+| 7 | Jake harms Yann | No active PMs to advance — Yann left | 0 |
+
+Key observations:
+- **Step 3**: The original PM survives alongside the fork. If a different character showed hospitality later, it could still match.
+- **Step 4**: Completion happens *because* negation (Phase 1) didn't fire — Yann hadn't left yet.
+- **Step 6**: Negation kills both remaining PMs simultaneously. The leave event satisfies the `unless between` clause for all PMs where Yann is the guest.
+- **Step 7**: Even though Jake harms Yann, there are no active PMs left to advance. The narrative thread was closed by the departure.

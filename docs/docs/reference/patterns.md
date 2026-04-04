@@ -177,6 +177,7 @@ pub struct Pattern<L, V> {
     pub metadata: HashMap<String, String>,
     pub deadline_ticks: Option<u64>,
     pub repeat_range: Option<RepeatRange>,
+    pub unordered_groups: Vec<Vec<usize>>,
 }
 ```
 
@@ -189,7 +190,8 @@ pub struct Pattern<L, V> {
 | `group` | `Option<String>` | Mutual-exclusion group. When one pattern in a group completes, the engine kills active PMs for all other patterns in the same group. Set by `choice` composition. |
 | `metadata` | `HashMap<String, String>` | Arbitrary key-value pairs propagated to `Match`, `SiftEvent`, and scored match types. Use for tagging patterns with narrative roles, priorities, or domain-specific attributes. |
 | `deadline_ticks` | `Option<u64>` | If set, active partial matches for this pattern are expired (killed with `SiftEvent::Expired`) when they have been alive for more than this many ticks without completing. Checked during `end_tick()`. |
-| `repeat_range` | `Option<RepeatRange>` | Looping repeat configuration. Set by `compose::repeat_range()` or DSL `* N..M` / `* N..`. When present, the engine loops over a segment of stages instead of completing after the last stage. See [DSL Reference — Repeat](dsl.md#repeat-). |
+| `repeat_range` | `Option<RepeatRange>` | Looping repeat configuration. Set by `compose::repeat_range()` or DSL `* N..M` / `* N..`. When present, the engine loops over a segment of stages instead of completing after the last stage. See [DSL Reference — Repeat](dsl#repeat-). |
+| `unordered_groups` | `Vec<Vec<usize>>` | Stage groups that can match in any order. Each inner `Vec<usize>` lists stage indices that form a concurrent group. Set by `PatternBuilder::unordered_group()` or DSL `concurrent { }`. See [DSL Reference — Concurrent Groups](dsl#concurrent-groups). |
 
 #### Methods
 
@@ -201,7 +203,49 @@ Returns all variables used in this pattern (across all stages and negations), so
 pub fn all_vars(&self) -> Vec<&Var>
 ```
 
-**Returns:** `Vec<&Var>`
+---
+
+##### `unordered_group_for`
+
+Returns the unordered group containing the given stage index, if any.
+
+```rust
+pub fn unordered_group_for(&self, stage_idx: usize) -> Option<&Vec<usize>>
+```
+
+---
+
+##### `same_unordered_group`
+
+Returns `true` if two stage indices are in the same unordered group.
+
+```rust
+pub fn same_unordered_group(&self, a: usize, b: usize) -> bool
+```
+
+---
+
+##### `condition_count`
+
+Total number of clauses across all stages in the pattern.
+
+```rust
+pub fn condition_count(&self) -> usize
+```
+
+---
+
+##### `map_types`
+
+Convert a pattern from one type system to another. Applies `label_fn` to all labels and `value_fn` to all values, producing a new pattern with different `L2`/`V2` types. All fields (stages, negations, temporal constraints, unordered groups, metadata, repeat range) are preserved.
+
+```rust
+pub fn map_types<L2, V2>(
+    &self,
+    label_fn: impl Fn(&L) -> L2,
+    value_fn: impl Fn(&V) -> V2,
+) -> Pattern<L2, V2>
+```
 
 #### Trait implementations
 
@@ -417,6 +461,31 @@ pub fn deadline(self, ticks: u64) -> Self
 
 ---
 
+#### `unordered_group`
+
+Adds a group of stages that can match in any order. The closure receives an `UnorderedGroupBuilder` and must add at least 2 stages. The group's stage indices are computed from the current stage count.
+
+```rust
+pub fn unordered_group(
+    self,
+    build: impl FnOnce(UnorderedGroupBuilder<L, V>) -> UnorderedGroupBuilder<L, V>,
+) -> Self
+```
+
+```rust
+let pattern = PatternBuilder::<String, String>::new("multi_signal")
+    .stage("e1", |s| s.edge("e1", "type".into(), "trigger".into()))
+    .unordered_group(|g| g
+        .stage("e2", |s| s.edge("e2", "type".into(), "signal_a".into()))
+        .stage("e3", |s| s.edge("e3", "type".into(), "signal_b".into())))
+    .stage("e4", |s| s.edge("e4", "type".into(), "confirm".into()))
+    .build();
+```
+
+**Returns:** `PatternBuilder<L, V>` (chainable)
+
+---
+
 #### `build`
 
 Consumes the builder and returns the compiled pattern. Resolves global negation bounds to first/last stage anchors.
@@ -426,6 +495,26 @@ pub fn build(self) -> Pattern<L, V>
 ```
 
 **Returns:** `Pattern<L, V>`
+
+---
+
+### `UnorderedGroupBuilder<L, V>`
+
+Builder for a concurrent stage group. Obtained from `PatternBuilder::unordered_group`. Must contain at least 2 stages. Maximum 64 stages total in the pattern (tracked via `u64` bitmask).
+
+#### `stage`
+
+Adds a stage to the concurrent group. Same parameters as `PatternBuilder::stage`.
+
+```rust
+pub fn stage(
+    self,
+    anchor: impl Into<String>,
+    build: impl FnOnce(StageBuilder<L, V>) -> StageBuilder<L, V>,
+) -> Self
+```
+
+**Returns:** `UnorderedGroupBuilder<L, V>` (chainable)
 
 ---
 

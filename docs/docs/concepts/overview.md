@@ -26,7 +26,7 @@ Fabula is not a general-purpose graph database or query engine. Specifically:
 - **OLAP / aggregation queries.** Fabula finds pattern instances; it does not compute sums, averages, or histograms across the graph.
 - **Non-temporal graphs.** Without time intervals on edges, fabula has no way to order stages or define negation windows. If your graph has no notion of time, fabula adds nothing over a regular graph query.
 - **Recursive patterns.** Fabula does not support recursive rules (no transitive closure, no "friend of a friend of a friend"). If you need recursion, consider Datalog.
-- **Action selection.** Fabula detects patterns; it does not generate events. The original Felt library combined sifting with an action system. Fabula deliberately omits the action side -- your simulation layer handles that. See [Design Decisions](./design-decisions.md) for why.
+- **Action selection.** Fabula detects patterns; it does not generate events. The original Felt library combined sifting with an action system. Fabula deliberately omits the action side -- your simulation layer handles that. See [Design Decisions](./design-decisions) for why.
 
 ## The 5 core concepts
 
@@ -38,7 +38,7 @@ An edge connects a source node to a target (another node or a value) through a l
 source --[label]--> target   during [start, end)
 ```
 
-Edges come from your graph store via the `DataSource` trait. Fabula never owns your data -- it queries it through the trait's six methods.
+Edges come from your graph store via the [`DataSource` trait](../reference/datasource). Fabula never owns your data -- it queries it through the trait's six methods.
 
 ### Pattern (stages and clauses)
 
@@ -55,7 +55,7 @@ PatternBuilder::new("broken_promise")
     .build();
 ```
 
-Stages are implicitly ordered by time -- stage 1 must occur before stage 2.
+Stages are implicitly ordered by time -- stage 1 must occur before stage 2. Try this in the [Pattern Playground](../playground/pattern-playground).
 
 ### Variable (joins)
 
@@ -67,7 +67,7 @@ In the pattern above, `"person"` appears in both stages. This forces both events
 
 Every edge has a time interval: `[start, end)` for bounded events, or `[start, infinity)` for ongoing ones. Fabula uses Allen's interval algebra to reason about temporal relationships between events -- before, during, overlaps, and 10 other relations.
 
-Most of the time you do not need explicit temporal constraints. Stage ordering is implicit: stage N must start before stage N+1. Explicit Allen constraints are for cases like "event A must happen *during* event B" (containment, overlap). See [Temporal Model](./temporal-model.md) for details.
+Most of the time you do not need explicit temporal constraints. Stage ordering is implicit: stage N must start before stage N+1. Explicit Allen constraints are for cases like "event A must happen *during* event B" (containment, overlap). See [Temporal Model](./temporal-model) for details.
 
 ### Negation
 
@@ -95,10 +95,11 @@ All of these are optional. The core engine works fine without them.
 
 ## Where to go next
 
-- [How the Engine Works](./how-the-engine-works.md) -- the 4-phase incremental algorithm
-- [Temporal Model](./temporal-model.md) -- Allen algebra, implicit ordering, open-ended intervals
-- [Design Decisions](./design-decisions.md) -- why fabula is built the way it is
-- [Pattern Cookbook](../guides/pattern-cookbook.md) -- worked recipes for common pattern types
-- [Incremental Integration](../guides/incremental-integration.md) -- wire fabula into a live simulation
-- [Scoring Reference](../reference/scoring.md) -- SurpriseScorer and StuScorer API
-- [Narrative Scoring Reference](../reference/narratives.md) -- thread, tension, pivot, and composite scorer API
+- [How the Engine Works](./how-the-engine-works) -- the 4-phase incremental algorithm
+- [Temporal Model](./temporal-model) -- Allen algebra, implicit ordering, open-ended intervals
+- [Design Decisions](./design-decisions) -- why fabula is built the way it is
+- [Pattern Cookbook](../guides/pattern-cookbook) -- worked recipes for common pattern types
+- [Incremental Integration](../guides/incremental-integration) -- wire fabula into a live simulation
+- [Scoring Reference](../reference/scoring) -- SurpriseScorer and StuScorer API
+- [Narrative Scoring Reference](../reference/narratives) -- thread, tension, pivot, and composite scorer API
+- [Research Lineage](../research) -- the Felt and Winnow papers behind fabula

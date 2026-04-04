@@ -10,7 +10,7 @@ title: Incremental Integration
 ## Prerequisites
 
 - `fabula` and `fabula-memory` (or your adapter) in `Cargo.toml`
-- Familiarity with `PatternBuilder` (see [Pattern Cookbook](./pattern-cookbook.md))
+- Familiarity with `PatternBuilder` (see [Pattern Cookbook](./pattern-cookbook))
 - A system that produces events one at a time (simulation tick loop, message queue, log tailer)
 
 ## Step 1: Create the engine and register patterns
@@ -44,7 +44,7 @@ engine.register(
 let mut graph = MemGraph::new();
 ```
 
-Register all patterns before feeding events. You can register patterns at any time, but patterns registered after events have been processed will not retroactively match those events.
+Register all patterns before feeding events. You can register patterns at any time, but patterns registered after events have been processed will not retroactively match those events. See the [Engine Reference](../reference/engine) for the full `SiftEngine` API.
 
 ## Step 2: Feed events one at a time
 
@@ -259,24 +259,60 @@ for ev in &expired_events {
 }
 ```
 
-Feed the delta into `fabula-narratives` for composite scoring:
+Feed the delta into `fabula-narratives` for composite scoring. This requires setting up the narrative trackers before the tick loop and updating them each tick:
 
 ```rust
+use fabula::prelude::*;
+use fabula_memory::{MemGraph, MemValue};
+use fabula_narratives::pivot::PivotDetector;
 use fabula_narratives::scorer::{assemble_signals, score, NarrativeWeights};
-use fabula_narratives::tension::Trajectory;
+use fabula_narratives::tension::{TensionTracker, Trajectory};
+use fabula_narratives::thread::ThreadTracker;
 
+let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+let mut graph = MemGraph::new();
+
+// Register patterns (elided — see Step 1 above)
+
+// Set up narrative trackers
+let mut thread_tracker = ThreadTracker::new();
+// thread_tracker.register("investigation", open_idx, close_idx);
+let mut tension = TensionTracker::new(10); // sliding window of 10 ticks
+let mut pivot = PivotDetector::new();
+
+// Inside your tick loop, after feeding edges with on_edge_added():
+let (delta, expired_events) = engine.end_tick(50);
+
+// Update trackers with this tick's data
+thread_tracker.observe_delta(&delta);
+tension.push(delta.completed.len() as u64, delta.active_pm_count as f64);
+for pattern_name in &delta.advanced {
+    pivot.push(pattern_name);
+}
+for pattern_name in &delta.completed {
+    pivot.push(pattern_name);
+}
+let pivot_magnitude = pivot.end_tick();
+
+// Assemble signals from all trackers
 let plant_statuses = engine.plant_status(50);
-let filo_violations = tracker.check_filo().len();
+let filo_violations = thread_tracker.check_filo().len();
 let signals = assemble_signals(
-    &delta, &plant_statuses, filo_violations,
-    tension.trajectory(), Trajectory::Rising, // desired trajectory
-    pivot.last_pivot(), surprise_score,
+    &delta,
+    &plant_statuses,
+    filo_violations,
+    tension.trajectory(),
+    Trajectory::Rising,   // desired trajectory for this story phase
+    pivot_magnitude,
+    0.0,                  // surprise score (from your own SurpriseScorer, if any)
+    0.0,                  // sequential surprise score
 );
 let result = score(&signals, &NarrativeWeights::default());
 // result.total — composite narrative quality score
+// result.breakdown — per-signal contributions for debugging
 ```
 
-See the [Scoring Reference](../reference/scoring.md) and [Narrative Scoring Reference](../reference/narratives.md) for full API details.
+See the [Scoring Reference](../reference/scoring) and [Narrative Scoring Reference](../reference/narratives) for full API details.
 
 ## Performance notes
 

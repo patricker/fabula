@@ -171,7 +171,7 @@ pub fn intersects(&self, other: &Interval<T>) -> bool
 
 ## `AllenRelation`
 
-Allen's 13 mutually exclusive temporal relations between two bounded intervals A and B.
+Allen's 13 mutually exclusive temporal relations between two bounded intervals A and B. Try them interactively in the [Allen Interval Visualizer](../playground/allen-visualizer).
 
 ```rust
 use fabula::interval::{Interval, AllenRelation};
