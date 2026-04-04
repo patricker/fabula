@@ -7,7 +7,7 @@ title: Pattern Cookbook
 
 **Learning objective:** Define and debug complex temporal graph patterns for common scenarios.
 
-Six worked recipes, each showing a problem, the pattern code, a matching graph, a non-matching graph, and the `why_not` output for the non-matching case. All examples use `MemGraph` and `MemValue`.
+Eight worked recipes, each showing a problem, the pattern code, and usage guidance. All examples use `MemGraph` and `MemValue`.
 
 ## Recipe 1: Repeated behavior by the same actor
 
@@ -312,3 +312,98 @@ g.set_time(10);
 ```
 
 The key insight: negation blocks fire only when ALL clauses in the block are satisfied by the same entity. Partial matches on a negation block (only some clauses match) do not trigger negation. This lets you write precise negation conditions that reference the pattern's bound variables.
+
+## Recipe 7: Cross-stage value comparison (escalation)
+
+**Problem:** Detect when a price increases between two orders — "price_B > price_A."
+
+### Pattern
+
+```rust
+let pattern = PatternBuilder::new("escalating_price")
+    .stage("e1", |s| s
+        .edge("e1", "type".into(), MemValue::Str("order".into()))
+        .edge_bind("e1", "price".into(), "base_price"))
+    .stage("e2", |s| s
+        .edge("e2", "type".into(), MemValue::Str("order".into()))
+        .edge_gt_var("e2", "price".into(), "base_price"))
+    .build();
+```
+
+Stage 1 binds the price to `?base_price`. Stage 2 uses `edge_gt_var` to require the second price is strictly greater. The engine resolves `GtVar("base_price")` to `Gt(value)` using the PM's bindings at match time.
+
+### DSL equivalent
+
+```
+pattern escalating_price {
+  stage e1 { e1.type = "order"  e1.price -> ?base_price }
+  stage e2 { e2.type = "order"  e2.price > ?base_price }
+}
+```
+
+All five comparison operators work: `> ?var`, `< ?var`, `>= ?var`, `<= ?var`, `= ?var`. The `= ?var` form compares the edge value against the bound variable's value — it is not a binding (use `-> ?var` for that).
+
+### Range check (two constraints)
+
+Combine two cross-stage constraints for range checks:
+
+```rust
+.stage("e2", |s| s
+    .edge("e2", "type".into(), MemValue::Str("reading".into()))
+    .edge_gt_var("e2", "value".into(), "low")
+    .edge_lt_var("e2", "value".into(), "high"))
+```
+
+This matches when `low < value < high`, where `low` and `high` were bound in a prior stage.
+
+## Recipe 8: Threshold detection with repeat range
+
+**Problem:** Detect 3 or more failed logins from the same account — brute force detection.
+
+### Pattern
+
+```rust
+let attempt = PatternBuilder::new("login_fail")
+    .stage("e", |s| s
+        .edge("e", "type".into(), MemValue::Str("login_fail".into()))
+        .edge_bind("e", "account".into(), "account"))
+    .build();
+
+let pattern = fabula::compose::repeat_range(
+    "brute_force", &attempt, 3, None, &["account"],
+);
+```
+
+`repeat_range` with `min=3, max=None` means "3 or more total occurrences." The `account` variable is shared across all iterations, so only failures for the same account are counted.
+
+### DSL equivalent
+
+```
+pattern login_fail {
+  stage e { e.type = "login_fail"  e.account -> ?account }
+}
+compose brute_force = login_fail * 3.. sharing(account)
+```
+
+### What you get in the match
+
+- `first_e`, `first_account` — the first failed login (where the attack started)
+- `last_e`, `last_account` — the most recent failed login
+- `account` — the shared target account (same across all iterations)
+- `repetition_count` on the `PartialMatch` — total number of matched occurrences
+
+### Bounded range
+
+For "between 3 and 5 attempts" (stop tracking after 5):
+
+```
+compose moderate_brute = login_fail * 3..5 sharing(account)
+```
+
+### Exact count (unchanged)
+
+For exactly 3 attempts (fully unrolled, distinct per-repetition bindings):
+
+```
+compose three_strikes = login_fail * 3 sharing(account)
+```

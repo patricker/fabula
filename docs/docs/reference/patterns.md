@@ -209,6 +209,37 @@ pub fn all_vars(&self) -> Vec<&Var>
 
 ---
 
+### `RepeatRange`
+
+Configuration for looping repeat patterns (DSL `* N..M` or `* N..`). The pattern's stages are laid out as `[first_... | last_...]`. The `last_` segment loops in the engine.
+
+```rust
+pub struct RepeatRange {
+    pub stage_start: usize,
+    pub stage_end: usize,
+    pub min_reps: usize,
+    pub max_reps: Option<usize>,
+    pub shared_vars: HashSet<String>,
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `stage_start` | `usize` | First stage index of the looping segment (inclusive). |
+| `stage_end` | `usize` | Last stage index of the looping segment (exclusive). |
+| `min_reps` | `usize` | Minimum total occurrences before the first completion. `* 3..` means 3. |
+| `max_reps` | `Option<usize>` | Maximum total occurrences. `None` = unlimited (`* N..`). |
+| `shared_vars` | `HashSet<String>` | Variables shared across repetitions (not prefixed, persist across loops). |
+
+Bindings in repeat-range matches:
+- `first_*` — variables from the first sub-pattern occurrence (preserved across loops)
+- `last_*` — variables from the most recent occurrence (overwritten each loop iteration)
+- Shared variables — unprefixed, consistent across all iterations
+
+Trait implementations: `Debug`, `Clone`, `PartialEq`.
+
+---
+
 ## Builders
 
 ### `PatternBuilder<L, V>`
@@ -466,6 +497,28 @@ pub fn edge_constrained(
 | `source` | `impl Into<String>` | yes | -- | Source variable name. |
 | `label` | `L` | yes | -- | Edge label. |
 | `constraint` | `ValueConstraint<V>` | yes | -- | Value constraint the target must satisfy. |
+
+**Returns:** `StageBuilder<L, V>` (chainable)
+
+---
+
+#### `edge_gt_var` / `edge_lt_var` / `edge_eq_var` / `edge_gte_var` / `edge_lte_var`
+
+Cross-stage value comparison: compare an edge's target against a previously-bound variable. The variable must have been bound by `edge_bind` in an earlier clause or stage. If the variable is bound to a `Node` (not a `Value`), the comparison silently fails (no match).
+
+```rust
+pub fn edge_gt_var(self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self
+pub fn edge_lt_var(self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self
+pub fn edge_eq_var(self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self
+pub fn edge_gte_var(self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self
+pub fn edge_lte_var(self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self
+```
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `source` | `impl Into<String>` | yes | -- | Source variable name. |
+| `label` | `L` | yes | -- | Edge label. |
+| `var_name` | `impl Into<String>` | yes | -- | Name of a previously-bound variable to compare against. |
 
 **Returns:** `StageBuilder<L, V>` (chainable)
 

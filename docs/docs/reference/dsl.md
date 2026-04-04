@@ -60,9 +60,16 @@ stage e1 {
 | `source.label > 10` | Value constraint (Gt) | `.edge_constrained(source, label, Gt(10))` |
 | `source.label <= 100` | Value constraint (Lte) | `.edge_constrained(source, label, Lte(100))` |
 | `source.label >= 0` | Value constraint (Gte) | `.edge_constrained(source, label, Gte(0))` |
+| `source.label > ?var` | Cross-stage comparison (Gt) — target must be greater than the value bound to `?var` | `.edge_gt_var(source, label, "var")` |
+| `source.label < ?var` | Cross-stage comparison (Lt) | `.edge_lt_var(source, label, "var")` |
+| `source.label = ?var` | Cross-stage comparison (Eq) — target must equal bound value (not a binding — use `->` to bind) | `.edge_eq_var(source, label, "var")` |
+| `source.label >= ?var` | Cross-stage comparison (Gte) | `.edge_gte_var(source, label, "var")` |
+| `source.label <= ?var` | Cross-stage comparison (Lte) | `.edge_lte_var(source, label, "var")` |
 | `! source.label = "value"` | Negated clause (literals/refs only) | `.not_edge(source, label, value)` |
 
-Negation (`!`) works with literal values (`= "value"`, `= 42`, `= true`) and node references (`-> node`). It is **not** supported with value constraints (`<`, `>`, `<=`, `>=`) or variable bindings (`-> ?var`) — rewrite as the inverse constraint instead (e.g., `! e.x < 0.5` becomes `e.x >= 0.5`).
+**Important**: `= ?var` (equality comparison against a bound variable's value) is distinct from `-> ?var` (bind or join). Use `=` when you want to compare a numeric/string value against a previously bound value. Use `->` when you want to traverse and bind a node reference.
+
+Negation (`!`) works with literal values (`= "value"`, `= 42`, `= true`) and node references (`-> node`). It is **not** supported with value constraints (`<`, `>`, `<=`, `>=`), variable comparisons (`> ?var`), or variable bindings (`-> ?var`) — rewrite as the inverse constraint instead (e.g., `! e.x < 0.5` becomes `e.x >= 0.5`).
 
 ### Negation Windows
 
@@ -446,4 +453,41 @@ let pattern = compile_pattern_body_with("my_pattern", &body, &my_mapper)?;
 //    The parser cursor is right after the pattern body
 ```
 
-All parsing primitives (`parse_stage`, `parse_negation`, `parse_temporal`, `parse_clause`, `peek`, `advance`, `at_eof`, `check`, `expect`, `expect_ident`, `error`) are public for fine-grained control.
+All parsing primitives (`parse_stage`, `parse_negation`, `parse_temporal`, `parse_clause`, `peek`, `advance`, `at_eof`, `check`, `expect`, `expect_ident`, `expect_number`, `error`) are public stable API for downstream DSL consumers.
+
+### Lexer Token Reference
+
+The `Lexer` produces a stream of `Token` values. Downstream DSLs that reuse fabula's lexer (via `Lexer::new(source).tokenize()`) have access to all token types. The tokens used by fabula's own parser are marked; unmarked tokens exist for downstream DSL consumers.
+
+**Keywords**: `Pattern`, `Stage`, `Unless`, `Between`, `After`, `Graph`, `Now`, `Temporal`, `True`, `False`, `Compose`, `Sharing`
+
+**Symbols** (used by fabula):
+
+| Token | Character(s) |
+|-------|-------------|
+| `LBrace` / `RBrace` | `{` `}` |
+| `LParen` / `RParen` | `(` `)` |
+| `Dot` / `DotDot` | `.` `..` |
+| `Arrow` | `->` |
+| `Eq` | `=` (also `==`) |
+| `Lt` / `Gt` / `Lte` / `Gte` | `<` `>` `<=` `>=` |
+| `GtGt` | `>>` |
+| `Bang` | `!` |
+| `At` | `@` |
+| `Question` | `?` |
+| `Pipe` | `\|` |
+| `Star` | `*` |
+| `Comma` | `,` |
+
+**Symbols** (for downstream DSLs — not consumed by fabula's parser):
+
+| Token | Character(s) | Intended use |
+|-------|-------------|-------------|
+| `Plus` | `+` | Delta semantics (`adjust ?e2.depth + 1`) |
+| `Minus` | `-` | Subtraction / negative prefix. Note: `-5` lexes as `Minus, Number(5.0)`, not `Number(-5.0)`. The parser's `expect_number()` handles optional leading `Minus`. |
+| `Colon` | `:` | Key-value syntax (`lifecycle: oneshot`) |
+| `Semicolon` | `;` | Statement separator |
+
+**Literals**: `Ident(String)`, `String(String)`, `Number(f64)`, `Eof`
+
+**Strings**: Both single-quoted (`"..."`) and triple-quoted (`"""..."""`) strings produce the same `TokenKind::String`. Triple-quoted strings allow newlines and embedded `"` characters — useful for multi-line content blocks like prompt templates.
