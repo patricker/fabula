@@ -52,7 +52,7 @@ use fabula_memory::{MemGraph, MemValue};
 use std::collections::HashMap;
 use std::fmt::Debug;
 
-pub use compiler::{TypeMapper, MemMapper, compile_pattern_body, compile_pattern_body_with};
+pub use compiler::{compile_pattern_body, compile_pattern_body_with, MemMapper, TypeMapper};
 
 /// Result of parsing a document with patterns, graphs, and compose directives.
 ///
@@ -147,4 +147,3 @@ pub fn parse_document_with<M: TypeMapper>(
 
     Ok(ParsedDocument { patterns, graphs })
 }
-

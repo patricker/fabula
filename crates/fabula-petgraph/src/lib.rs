@@ -64,7 +64,11 @@ where
     /// Add a temporal edge between two nodes.
     pub fn add_edge(&mut self, from: N, label: L, value: V, interval: Interval<T>) {
         let from_idx = self.add_node(from);
-        let edge = TemporalEdge { label, value, interval };
+        let edge = TemporalEdge {
+            label,
+            value,
+            interval,
+        };
         // We need a "to" node for petgraph. Use from_idx as a self-loop
         // since we store the target in the edge value, not as a graph edge target.
         // This is a design choice: petgraph edges connect NodeIndex pairs,
@@ -169,7 +173,12 @@ where
             .collect()
     }
 
-    fn scan(&self, label: &L, constraint: &ValueConstraint<PetValue<N>>, at: &T) -> Vec<Edge<N, PetValue<N>, T>> {
+    fn scan(
+        &self,
+        label: &L,
+        constraint: &ValueConstraint<PetValue<N>>,
+        at: &T,
+    ) -> Vec<Edge<N, PetValue<N>, T>> {
         let mut results = Vec::new();
         for idx in self.graph.node_indices() {
             let node_id = &self.graph[idx];
@@ -202,7 +211,11 @@ where
             .collect()
     }
 
-    fn scan_any_time(&self, label: &L, constraint: &ValueConstraint<PetValue<N>>) -> Vec<Edge<N, PetValue<N>, T>> {
+    fn scan_any_time(
+        &self,
+        label: &L,
+        constraint: &ValueConstraint<PetValue<N>>,
+    ) -> Vec<Edge<N, PetValue<N>, T>> {
         let mut results = Vec::new();
         for idx in self.graph.node_indices() {
             let node_id = &self.graph[idx];

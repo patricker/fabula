@@ -116,16 +116,24 @@ impl ThreadTracker {
     /// resolves).
     pub fn observe_delta(&mut self, delta: &fabula::engine::TickDelta) {
         // Collect matching thread names first to avoid borrow conflict
-        let opens: Vec<String> = self.threads.iter()
+        let opens: Vec<String> = self
+            .threads
+            .iter()
             .filter(|t| delta.advanced.contains(&format!("{}_open", t.name)))
             .map(|t| t.name.clone())
             .collect();
-        let closes: Vec<String> = self.threads.iter()
+        let closes: Vec<String> = self
+            .threads
+            .iter()
             .filter(|t| delta.completed.contains(&format!("{}_close", t.name)))
             .map(|t| t.name.clone())
             .collect();
-        for name in opens { self.record_open(&name); }
-        for name in closes { self.record_close(&name); }
+        for name in opens {
+            self.record_open(&name);
+        }
+        for name in closes {
+            self.record_close(&name);
+        }
     }
 
     /// Status of all registered threads.
@@ -191,8 +199,16 @@ impl ThreadTracker {
                 // Check: are there threads opened AFTER this one that are still open?
                 for &later_open in &still_open[pos + 1..] {
                     // Only a violation if the later thread hasn't been closed yet
-                    let later_closed_count = self.close_order.iter().filter(|c| c.as_str() == later_open).count();
-                    let later_open_count = self.open_order.iter().filter(|o| o.as_str() == later_open).count();
+                    let later_closed_count = self
+                        .close_order
+                        .iter()
+                        .filter(|c| c.as_str() == later_open)
+                        .count();
+                    let later_open_count = self
+                        .open_order
+                        .iter()
+                        .filter(|o| o.as_str() == later_open)
+                        .count();
                     if later_closed_count < later_open_count {
                         violations.push(FiloViolation {
                             closed_thread: closed.clone(),
@@ -212,7 +228,6 @@ impl ThreadTracker {
         self.open_order.clear();
         self.close_order.clear();
     }
-
 }
 
 #[cfg(test)]
@@ -231,7 +246,10 @@ mod tests {
         tracker.record_close("inquiry");
         tracker.record_close("milieu");
 
-        assert!(tracker.check_filo().is_empty(), "correct nesting should have no violations");
+        assert!(
+            tracker.check_filo().is_empty(),
+            "correct nesting should have no violations"
+        );
     }
 
     #[test]

@@ -38,7 +38,11 @@ pub fn batch_two_betrayals_match<G: TestGraph>() {
     let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(two_betrayals_pattern::<G>());
     let matches = engine.evaluate(&g);
-    assert_eq!(matches.len(), 1, "should match two betrayals by impulsive character");
+    assert_eq!(
+        matches.len(),
+        1,
+        "should match two betrayals by impulsive character"
+    );
     assert!(G::is_node_eq(&matches[0].bindings["char"], "alice"));
 }
 
@@ -56,7 +60,11 @@ pub fn batch_two_betrayals_intervening_blocks<G: TestGraph>() {
 
     let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(two_betrayals_pattern::<G>());
-    assert_eq!(engine.evaluate(&g).len(), 0, "reconcile between betrayals should block");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "reconcile between betrayals should block"
+    );
 }
 
 /// Batch: other actor's reconcile does not block.

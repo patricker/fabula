@@ -67,7 +67,7 @@ fn run_profile<G: TestGraph>(_adapter_name: &str) {
                     fabula::prelude::SiftEvent::Advanced { .. } => advanced += 1,
                     fabula::prelude::SiftEvent::Completed { .. } => completed += 1,
                     fabula::prelude::SiftEvent::Negated { .. } => negated += 1,
-                    fabula::prelude::SiftEvent::Expired { .. } => {},
+                    fabula::prelude::SiftEvent::Expired { .. } => {}
                 }
             }
         }

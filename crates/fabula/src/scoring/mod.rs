@@ -15,8 +15,8 @@
 //!   of their *properties* — two matches of the same pattern score differently
 //!   if one involves rarer attributes.
 
-mod surprise;
 mod stu;
+mod surprise;
 
-pub use surprise::{ScoredMatch, SurpriseScorer};
 pub use stu::{StuScoredMatch, StuScorer};
+pub use surprise::{ScoredMatch, SurpriseScorer};

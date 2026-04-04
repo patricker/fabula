@@ -36,7 +36,11 @@ pub fn batch_unless_after_blocks<G: TestGraph>() {
     // Add apology after promise -> should NOT match
     g.add_str_edge("ev_apology", "eventType", "apologize", 3);
     g.add_ref_edge("ev_apology", "actor", "alice", 3);
-    assert_eq!(engine.evaluate(&g).len(), 0, "apology exists — should not match");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "apology exists — should not match"
+    );
 }
 
 /// Batch: unless_global blocks match when negation event exists anywhere.
@@ -65,12 +69,20 @@ pub fn batch_unless_global<G: TestGraph>() {
 
     let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
-    assert_eq!(engine.evaluate(&g).len(), 1, "no reconciliation — should match");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        1,
+        "no reconciliation — should match"
+    );
 
     // Add reconciliation between betrayals -> no match
     g.add_str_edge("ev_rec", "eventType", "reconcile", 2);
     g.add_ref_edge("ev_rec", "actor", "alice", 2);
-    assert_eq!(engine.evaluate(&g).len(), 0, "reconciliation blocks double_betrayal");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "reconciliation blocks double_betrayal"
+    );
 }
 
 /// Batch: double negation — two unless_between windows. Either one blocks.

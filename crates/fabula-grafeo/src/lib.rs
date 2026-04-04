@@ -50,7 +50,11 @@ impl GrafeoValue {
         match val {
             GValue::String(s) => {
                 let s = s.to_string();
-                Some(if is_node_ref { GrafeoValue::Node(s) } else { GrafeoValue::Str(s) })
+                Some(if is_node_ref {
+                    GrafeoValue::Node(s)
+                } else {
+                    GrafeoValue::Str(s)
+                })
             }
             GValue::Float64(f) => Some(GrafeoValue::Num(*f)),
             GValue::Int64(i) => Some(GrafeoValue::Num(*i as f64)),
@@ -80,8 +84,12 @@ fn edge_interval(edge: &GEdge) -> Option<Interval<i64>> {
 
 /// Extract fabula value from a Grafeo edge.
 fn edge_value(edge: &GEdge) -> Option<GrafeoValue> {
-    let is_node_ref = edge.get_property("_is_node_ref")
-        .and_then(|v| match v { GValue::Bool(b) => Some(*b), _ => None })
+    let is_node_ref = edge
+        .get_property("_is_node_ref")
+        .and_then(|v| match v {
+            GValue::Bool(b) => Some(*b),
+            _ => None,
+        })
         .unwrap_or(false);
     edge.get_property("_value")
         .and_then(|v| GrafeoValue::from_grafeo(v, is_node_ref))
@@ -115,10 +123,8 @@ impl GrafeoGraph {
             return nid;
         }
         let session = self.db.session();
-        let nid = session.create_node_with_props(
-            &["Node"],
-            [("_id", GValue::String(id.to_string().into()))],
-        );
+        let nid = session
+            .create_node_with_props(&["Node"], [("_id", GValue::String(id.to_string().into()))]);
         self.node_map.insert(id.to_string(), nid);
         nid
     }
@@ -136,12 +142,24 @@ impl GrafeoGraph {
         let session = self.db.session();
         let eid = session.create_edge(from_nid, to_nid, label);
         self.db.set_edge_property(eid, "_value", value.to_grafeo());
-        self.db.set_edge_property(eid, "_valid_from", GValue::Int64(start));
-        self.db.set_edge_property(eid, "_is_node_ref", GValue::Bool(matches!(value, GrafeoValue::Node(_))));
+        self.db
+            .set_edge_property(eid, "_valid_from", GValue::Int64(start));
+        self.db.set_edge_property(
+            eid,
+            "_is_node_ref",
+            GValue::Bool(matches!(value, GrafeoValue::Node(_))),
+        );
     }
 
     /// Add a temporal edge with a bounded interval `[start, end)`.
-    pub fn add_edge_bounded(&mut self, from: &str, label: &str, value: GrafeoValue, start: i64, end: i64) {
+    pub fn add_edge_bounded(
+        &mut self,
+        from: &str,
+        label: &str,
+        value: GrafeoValue,
+        start: i64,
+        end: i64,
+    ) {
         let from_nid = self.ensure_node(from);
         let to_nid = if let GrafeoValue::Node(ref target_id) = value {
             self.ensure_node(target_id)
@@ -153,9 +171,15 @@ impl GrafeoGraph {
         let session = self.db.session();
         let eid = session.create_edge(from_nid, to_nid, label);
         self.db.set_edge_property(eid, "_value", value.to_grafeo());
-        self.db.set_edge_property(eid, "_valid_from", GValue::Int64(start));
-        self.db.set_edge_property(eid, "_valid_to", GValue::Int64(end));
-        self.db.set_edge_property(eid, "_is_node_ref", GValue::Bool(matches!(value, GrafeoValue::Node(_))));
+        self.db
+            .set_edge_property(eid, "_valid_from", GValue::Int64(start));
+        self.db
+            .set_edge_property(eid, "_valid_to", GValue::Int64(end));
+        self.db.set_edge_property(
+            eid,
+            "_is_node_ref",
+            GValue::Bool(matches!(value, GrafeoValue::Node(_))),
+        );
     }
 
     /// Convenience: add a node-to-node edge.
@@ -187,11 +211,19 @@ impl GrafeoGraph {
         let neighbors = session.get_neighbors_outgoing_by_type(nid, label);
         let mut results = Vec::new();
         for (_, eid) in neighbors {
-            let Some(ge) = session.get_edge(eid) else { continue };
-            let Some(interval) = edge_interval(&ge) else { continue };
-            let Some(value) = edge_value(&ge) else { continue };
+            let Some(ge) = session.get_edge(eid) else {
+                continue;
+            };
+            let Some(interval) = edge_interval(&ge) else {
+                continue;
+            };
+            let Some(value) = edge_value(&ge) else {
+                continue;
+            };
             if let Some(t) = at {
-                if !interval.covers(t) { continue; }
+                if !interval.covers(t) {
+                    continue;
+                }
             }
             results.push(Edge {
                 source: node.to_string(),
@@ -214,13 +246,23 @@ impl GrafeoGraph {
             let session = self.db.session();
             let neighbors = session.get_neighbors_outgoing_by_type(nid, label);
             for (_, eid) in neighbors {
-                let Some(ge) = session.get_edge(eid) else { continue };
-                let Some(interval) = edge_interval(&ge) else { continue };
-                let Some(value) = edge_value(&ge) else { continue };
+                let Some(ge) = session.get_edge(eid) else {
+                    continue;
+                };
+                let Some(interval) = edge_interval(&ge) else {
+                    continue;
+                };
+                let Some(value) = edge_value(&ge) else {
+                    continue;
+                };
                 if let Some(t) = at {
-                    if !interval.covers(t) { continue; }
+                    if !interval.covers(t) {
+                        continue;
+                    }
                 }
-                if !constraint.matches(&value) { continue; }
+                if !constraint.matches(&value) {
+                    continue;
+                }
                 results.push(Edge {
                     source: str_id.clone(),
                     target: value,
@@ -244,19 +286,37 @@ impl DataSource for GrafeoGraph {
     type V = GrafeoValue;
     type T = i64;
 
-    fn edges_from(&self, node: &String, label: &String, at: &i64) -> Vec<Edge<String, GrafeoValue, i64>> {
+    fn edges_from(
+        &self,
+        node: &String,
+        label: &String,
+        at: &i64,
+    ) -> Vec<Edge<String, GrafeoValue, i64>> {
         self.collect_edges(node, label, Some(at))
     }
 
-    fn scan(&self, label: &String, constraint: &ValueConstraint<GrafeoValue>, at: &i64) -> Vec<Edge<String, GrafeoValue, i64>> {
+    fn scan(
+        &self,
+        label: &String,
+        constraint: &ValueConstraint<GrafeoValue>,
+        at: &i64,
+    ) -> Vec<Edge<String, GrafeoValue, i64>> {
         self.scan_edges(label, constraint, Some(at))
     }
 
-    fn edges_from_any_time(&self, node: &String, label: &String) -> Vec<Edge<String, GrafeoValue, i64>> {
+    fn edges_from_any_time(
+        &self,
+        node: &String,
+        label: &String,
+    ) -> Vec<Edge<String, GrafeoValue, i64>> {
         self.collect_edges(node, label, None)
     }
 
-    fn scan_any_time(&self, label: &String, constraint: &ValueConstraint<GrafeoValue>) -> Vec<Edge<String, GrafeoValue, i64>> {
+    fn scan_any_time(
+        &self,
+        label: &String,
+        constraint: &ValueConstraint<GrafeoValue>,
+    ) -> Vec<Edge<String, GrafeoValue, i64>> {
         self.scan_edges(label, constraint, None)
     }
 
@@ -292,13 +352,21 @@ mod tests {
 
         let pattern = PatternBuilder::new("violation")
             .stage("e1", |s| {
-                s.edge("e1", "eventType".into(), GrafeoValue::Str("enterTown".into()))
-                    .edge_bind("e1", "actor".into(), "guest")
+                s.edge(
+                    "e1",
+                    "eventType".into(),
+                    GrafeoValue::Str("enterTown".into()),
+                )
+                .edge_bind("e1", "actor".into(), "guest")
             })
             .stage("e2", |s| {
-                s.edge("e2", "eventType".into(), GrafeoValue::Str("showHospitality".into()))
-                    .edge_bind("e2", "actor".into(), "host")
-                    .edge_bind("e2", "target".into(), "guest")
+                s.edge(
+                    "e2",
+                    "eventType".into(),
+                    GrafeoValue::Str("showHospitality".into()),
+                )
+                .edge_bind("e2", "actor".into(), "host")
+                .edge_bind("e2", "target".into(), "guest")
             })
             .stage("e3", |s| {
                 s.edge("e3", "eventType".into(), GrafeoValue::Str("harm".into()))
@@ -310,7 +378,11 @@ mod tests {
         let mut engine: SiftEngineFor<GrafeoGraph> = SiftEngine::new();
         engine.register(pattern);
         let matches = engine.evaluate(&g);
-        assert_eq!(matches.len(), 1, "should find violation of hospitality on Grafeo");
+        assert_eq!(
+            matches.len(),
+            1,
+            "should find violation of hospitality on Grafeo"
+        );
         match &matches[0].bindings["guest"] {
             BoundValue::Node(n) => assert_eq!(n, "alice"),
             other => panic!("expected guest=alice, got {:?}", other),
@@ -334,10 +406,15 @@ mod tests {
         g.add_ref("ev1", "actor", "bob", 1);
         g.set_time(1);
         let ev = engine.on_edge_added(
-            &g, &"ev1".into(), &"eventType".into(),
-            &GrafeoValue::Str("harm".into()), &Interval::open(1),
+            &g,
+            &"ev1".into(),
+            &"eventType".into(),
+            &GrafeoValue::Str("harm".into()),
+            &Interval::open(1),
         );
-        assert!(ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })),
-            "single-stage should complete on Grafeo");
+        assert!(
+            ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })),
+            "single-stage should complete on Grafeo"
+        );
     }
 }

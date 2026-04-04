@@ -94,14 +94,28 @@ pub fn incremental_negation_kills<G: TestGraph>() {
     g.add_str_edge("ev1", "eventType", "enterTown", 1);
     g.add_ref_edge("ev1", "actor", "alice", 1);
     g.set_current_time(1);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &G::str_val("enterTown"), &Interval::open(1));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &G::str_val("enterTown"),
+        &Interval::open(1),
+    );
     g.add_str_edge("ev2", "eventType", "showHospitality", 2);
     g.add_ref_edge("ev2", "actor", "bob", 2);
     g.add_ref_edge("ev2", "target", "alice", 2);
     g.set_current_time(2);
-    engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(), &G::str_val("showHospitality"), &Interval::open(2));
+    engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &G::str_val("showHospitality"),
+        &Interval::open(2),
+    );
     assert!(
-        !engine.active_matches_for("violation_of_hospitality").is_empty(),
+        !engine
+            .active_matches_for("violation_of_hospitality")
+            .is_empty(),
         "should have active partial match"
     );
 
@@ -109,13 +123,21 @@ pub fn incremental_negation_kills<G: TestGraph>() {
     g.add_str_edge("ev_leave", "eventType", "leaveTown", 3);
     g.add_ref_edge("ev_leave", "actor", "alice", 3);
     g.set_current_time(3);
-    let ev = engine.on_edge_added(&g, &"ev_leave".into(), &"eventType".into(), &G::str_val("leaveTown"), &Interval::open(3));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev_leave".into(),
+        &"eventType".into(),
+        &G::str_val("leaveTown"),
+        &Interval::open(3),
+    );
     assert!(
         ev.iter().any(|e| matches!(e, SiftEvent::Negated { .. })),
         "should emit Negated event"
     );
     assert!(
-        engine.active_matches_for("violation_of_hospitality").is_empty(),
+        engine
+            .active_matches_for("violation_of_hospitality")
+            .is_empty(),
         "partial match should be dead"
     );
 }
@@ -130,24 +152,44 @@ pub fn incremental_unrelated_leave_no_kill<G: TestGraph>() {
     g.add_str_edge("ev1", "eventType", "enterTown", 1);
     g.add_ref_edge("ev1", "actor", "alice", 1);
     g.set_current_time(1);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &G::str_val("enterTown"), &Interval::open(1));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &G::str_val("enterTown"),
+        &Interval::open(1),
+    );
     g.add_str_edge("ev2", "eventType", "showHospitality", 2);
     g.add_ref_edge("ev2", "actor", "bob", 2);
     g.add_ref_edge("ev2", "target", "alice", 2);
     g.set_current_time(2);
-    engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(), &G::str_val("showHospitality"), &Interval::open(2));
+    engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &G::str_val("showHospitality"),
+        &Interval::open(2),
+    );
 
     // Charlie leaves — should NOT kill
     g.add_str_edge("ev_leave", "eventType", "leaveTown", 3);
     g.add_ref_edge("ev_leave", "actor", "charlie", 3);
     g.set_current_time(3);
-    let ev = engine.on_edge_added(&g, &"ev_leave".into(), &"eventType".into(), &G::str_val("leaveTown"), &Interval::open(3));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev_leave".into(),
+        &"eventType".into(),
+        &G::str_val("leaveTown"),
+        &Interval::open(3),
+    );
     assert!(
         !ev.iter().any(|e| matches!(e, SiftEvent::Negated { .. })),
         "charlie leaving should not negate"
     );
     assert!(
-        !engine.active_matches_for("violation_of_hospitality").is_empty(),
+        !engine
+            .active_matches_for("violation_of_hospitality")
+            .is_empty(),
         "partial match should still be alive"
     );
 }
@@ -192,7 +234,13 @@ pub fn incremental_drain_completed<G: TestGraph>() {
 
     g.add_str_edge("ev1", "eventType", "harm", 1);
     g.set_current_time(1);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &G::str_val("harm"), &Interval::open(1));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &G::str_val("harm"),
+        &Interval::open(1),
+    );
 
     let completed = engine.drain_completed();
     assert_eq!(completed.len(), 1, "should have one completed match");
@@ -215,15 +263,29 @@ pub fn incremental_irrelevant_edges_silent<G: TestGraph>() {
     g.add_str_edge("ev1", "eventType", "enterTown", 1);
     g.add_ref_edge("ev1", "actor", "alice", 1);
     g.set_current_time(1);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &G::str_val("enterTown"), &Interval::open(1));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &G::str_val("enterTown"),
+        &Interval::open(1),
+    );
 
     // Unrelated edge
     g.add_str_edge("noise", "eventType", "tradeMerchant", 2);
     g.set_current_time(2);
-    let ev = engine.on_edge_added(&g, &"noise".into(), &"eventType".into(), &G::str_val("tradeMerchant"), &Interval::open(2));
+    let ev = engine.on_edge_added(
+        &g,
+        &"noise".into(),
+        &"eventType".into(),
+        &G::str_val("tradeMerchant"),
+        &Interval::open(2),
+    );
     assert!(ev.is_empty(), "irrelevant edge should produce no events");
     assert!(
-        !engine.active_matches_for("violation_of_hospitality").is_empty(),
+        !engine
+            .active_matches_for("violation_of_hospitality")
+            .is_empty(),
         "partial match should survive"
     );
 }
@@ -330,8 +392,7 @@ pub fn incremental_dead_and_complete_inert<G: TestGraph>() {
         &Interval::open(1),
     );
     assert!(
-        ev.iter()
-            .any(|e| matches!(e, SiftEvent::Completed { .. })),
+        ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })),
         "should complete"
     );
 
@@ -459,8 +520,7 @@ pub fn incremental_negation_only_when_window_open<G: TestGraph>() {
         &Interval::open(3),
     );
     assert!(
-        ev.iter()
-            .any(|e| matches!(e, SiftEvent::Completed { .. })),
+        ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })),
         "should complete"
     );
 
@@ -485,8 +545,7 @@ pub fn incremental_negation_only_when_window_open<G: TestGraph>() {
 
     // The drained completed match is still valid — not retroactively invalidated
     assert_eq!(
-        completed[0].pattern,
-        "violation_of_hospitality",
+        completed[0].pattern, "violation_of_hospitality",
         "the already-drained completed match is unaffected"
     );
 }
@@ -531,8 +590,7 @@ pub fn incremental_negation_after_completion_no_retroactive<G: TestGraph>() {
         &Interval::open(3),
     );
     assert!(
-        ev.iter()
-            .any(|e| matches!(e, SiftEvent::Completed { .. })),
+        ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })),
         "should complete the pattern"
     );
 
@@ -557,8 +615,7 @@ pub fn incremental_negation_after_completion_no_retroactive<G: TestGraph>() {
     // The key assertion: the completed match we already drained is unaffected.
     // We still have it in hand and it's valid.
     assert_eq!(
-        completed[0].pattern,
-        "violation_of_hospitality",
+        completed[0].pattern, "violation_of_hospitality",
         "the drained completed match is not retroactively invalidated"
     );
 
@@ -581,22 +638,45 @@ pub fn incremental_negation_event_details<G: TestGraph>() {
     g.add_str_edge("ev1", "eventType", "enterTown", 1);
     g.add_ref_edge("ev1", "actor", "alice", 1);
     g.set_current_time(1);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &G::str_val("enterTown"), &Interval::open(1));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &G::str_val("enterTown"),
+        &Interval::open(1),
+    );
     g.add_str_edge("ev2", "eventType", "showHospitality", 2);
     g.add_ref_edge("ev2", "actor", "bob", 2);
     g.add_ref_edge("ev2", "target", "alice", 2);
     g.set_current_time(2);
-    engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(), &G::str_val("showHospitality"), &Interval::open(2));
+    engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &G::str_val("showHospitality"),
+        &Interval::open(2),
+    );
 
     // Kill it
     g.add_str_edge("ev_leave", "eventType", "leaveTown", 3);
     g.add_ref_edge("ev_leave", "actor", "alice", 3);
     g.set_current_time(3);
-    let ev = engine.on_edge_added(&g, &"ev_leave".into(), &"eventType".into(), &G::str_val("leaveTown"), &Interval::open(3));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev_leave".into(),
+        &"eventType".into(),
+        &G::str_val("leaveTown"),
+        &Interval::open(3),
+    );
 
     let negated = ev.iter().find(|e| matches!(e, SiftEvent::Negated { .. }));
     assert!(negated.is_some(), "should emit Negated event");
-    if let Some(SiftEvent::Negated { trigger_source, clause_label, .. }) = negated {
+    if let Some(SiftEvent::Negated {
+        trigger_source,
+        clause_label,
+        ..
+    }) = negated
+    {
         assert_eq!(trigger_source, "ev_leave");
         assert!(
             clause_label.contains("eventType"),

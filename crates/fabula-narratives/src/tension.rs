@@ -65,7 +65,10 @@ impl TensionTracker {
     /// Window must be at least 3 (trajectory classification needs 3+ samples).
     /// Uses a default slope threshold of 0.01 for trajectory classification.
     pub fn new(window_size: usize) -> Self {
-        assert!(window_size >= 3, "window must be at least 3 for trajectory classification");
+        assert!(
+            window_size >= 3,
+            "window must be at least 3 for trajectory classification"
+        );
         Self {
             window_size,
             samples: VecDeque::new(),
@@ -78,7 +81,10 @@ impl TensionTracker {
     /// The threshold controls how steep a slope must be to count as Rising/Falling
     /// vs Plateau. Higher values require stronger trends.
     pub fn with_threshold(window_size: usize, threshold: f64) -> Self {
-        assert!(window_size >= 3, "window must be at least 3 for trajectory classification");
+        assert!(
+            window_size >= 3,
+            "window must be at least 3 for trajectory classification"
+        );
         Self {
             window_size,
             samples: VecDeque::new(),
@@ -145,11 +151,17 @@ impl TensionTracker {
         let mid_value = self.samples[mid].value;
 
         // Peak: middle is higher than both halves' averages
-        if mid_value > first_mean && mid_value > second_mean && (first_mean - second_mean).abs() < threshold * 10.0 {
+        if mid_value > first_mean
+            && mid_value > second_mean
+            && (first_mean - second_mean).abs() < threshold * 10.0
+        {
             return Trajectory::Peak;
         }
         // Valley: middle is lower than both halves' averages
-        if mid_value < first_mean && mid_value < second_mean && (first_mean - second_mean).abs() < threshold * 10.0 {
+        if mid_value < first_mean
+            && mid_value < second_mean
+            && (first_mean - second_mean).abs() < threshold * 10.0
+        {
             return Trajectory::Valley;
         }
 

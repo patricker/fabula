@@ -2,7 +2,6 @@ use fabula::engine::SiftEngine;
 use fabula::prelude::*;
 use fabula_dsl::*;
 
-
 #[test]
 fn parse_simple_pattern() {
     let dsl = r#"
@@ -128,7 +127,11 @@ fn roundtrip_hospitality_no_match() {
     let mut engine = SiftEngine::new();
     engine.register(pattern);
     let matches = engine.evaluate(&graph);
-    assert_eq!(matches.len(), 0, "guest left → negation should kill the match");
+    assert_eq!(
+        matches.len(),
+        0,
+        "guest left → negation should kill the match"
+    );
 }
 
 #[test]
@@ -319,8 +322,16 @@ fn error_unbound_var_source() {
         }
     "#;
     let err = parse_pattern(dsl).unwrap_err();
-    assert!(err.message.contains("?char"), "error should mention ?char: {}", err.message);
-    assert!(err.message.contains("not yet bound"), "error should say 'not yet bound': {}", err.message);
+    assert!(
+        err.message.contains("?char"),
+        "error should mention ?char: {}",
+        err.message
+    );
+    assert!(
+        err.message.contains("not yet bound"),
+        "error should say 'not yet bound': {}",
+        err.message
+    );
 }
 
 #[test]
@@ -414,7 +425,11 @@ fn error_question_without_ident() {
         }
     "#;
     let err = parse_pattern(dsl).unwrap_err();
-    assert!(err.message.contains("variable name after '?'"), "error: {}", err.message);
+    assert!(
+        err.message.contains("variable name after '?'"),
+        "error: {}",
+        err.message
+    );
 }
 
 #[test]
@@ -428,8 +443,16 @@ fn error_negated_constraint() {
         }
     "#;
     let err = parse_pattern(dsl).unwrap_err();
-    assert!(err.message.contains("negated constraints"), "error: {}", err.message);
-    assert!(err.message.contains("inverse"), "should suggest inverse: {}", err.message);
+    assert!(
+        err.message.contains("negated constraints"),
+        "error: {}",
+        err.message
+    );
+    assert!(
+        err.message.contains("inverse"),
+        "should suggest inverse: {}",
+        err.message
+    );
 }
 
 #[test]
@@ -443,7 +466,11 @@ fn error_negated_binding() {
         }
     "#;
     let err = parse_pattern(dsl).unwrap_err();
-    assert!(err.message.contains("negated bindings"), "error: {}", err.message);
+    assert!(
+        err.message.contains("negated bindings"),
+        "error: {}",
+        err.message
+    );
 }
 
 #[test]
@@ -456,7 +483,11 @@ fn error_binding_collides_with_anchor() {
         }
     "#;
     let err = parse_pattern(dsl).unwrap_err();
-    assert!(err.message.contains("collides with stage anchor"), "error: {}", err.message);
+    assert!(
+        err.message.contains("collides with stage anchor"),
+        "error: {}",
+        err.message
+    );
 }
 
 #[test]
@@ -570,7 +601,11 @@ fn roundtrip_metric_during_gap() {
     let graph = parse_graph(graph_dsl).unwrap();
     let mut engine = SiftEngine::new();
     engine.register(pattern);
-    assert_eq!(engine.evaluate(&graph).len(), 1, "during gap=2 within [2,50]");
+    assert_eq!(
+        engine.evaluate(&graph).len(),
+        1,
+        "during gap=2 within [2,50]"
+    );
 }
 
 #[test]
@@ -627,7 +662,11 @@ fn roundtrip_two_betrayals_with_var_source() {
     let mut engine = SiftEngine::new();
     engine.register(pattern);
     let matches = engine.evaluate(&graph);
-    assert_eq!(matches.len(), 1, "two betrayals by impulsive alice should match");
+    assert_eq!(
+        matches.len(),
+        1,
+        "two betrayals by impulsive alice should match"
+    );
 }
 
 // ---- Compose DSL tests ----
@@ -711,7 +750,10 @@ fn compose_sequence_roundtrip_evaluation() {
     }
     let matches = engine.evaluate(&graph);
     // setup matches, payoff matches, composed promise_kept matches
-    let composed_matches: Vec<_> = matches.iter().filter(|m| m.pattern == "promise_kept").collect();
+    let composed_matches: Vec<_> = matches
+        .iter()
+        .filter(|m| m.pattern == "promise_kept")
+        .collect();
     assert_eq!(composed_matches.len(), 1, "composed sequence should match");
 }
 
@@ -739,7 +781,11 @@ fn compose_error_forward_reference() {
         pattern payoff { stage e { e.eventType = "b" } }
     "#;
     let err = parse_document(dsl).unwrap_err();
-    assert!(err.message.contains("not been defined yet"), "error: {}", err.message);
+    assert!(
+        err.message.contains("not been defined yet"),
+        "error: {}",
+        err.message
+    );
 }
 
 #[test]
@@ -924,7 +970,10 @@ fn parse_compose_repeat_exact_unchanged() {
     "#;
     let doc = parse_document(dsl).unwrap();
     let strikes = doc.patterns.iter().find(|p| p.name == "strikes").unwrap();
-    assert!(strikes.repeat_range.is_none(), "exact repeat should use unrolled approach");
+    assert!(
+        strikes.repeat_range.is_none(),
+        "exact repeat should use unrolled approach"
+    );
     assert_eq!(strikes.stages.len(), 3, "exact repeat should have 3 stages");
 }
 
@@ -963,14 +1012,25 @@ fn roundtrip_repeat_range() {
     let g = &doc.graphs[0];
     for i in 1..=3i64 {
         let src = format!("ev{}", i);
-        engine.on_edge_added(g, &src, &"type".into(),
-            &fabula_memory::MemValue::Str("offense".into()), &Interval::open(i));
+        engine.on_edge_added(
+            g,
+            &src,
+            &"type".into(),
+            &fabula_memory::MemValue::Str("offense".into()),
+            &Interval::open(i),
+        );
     }
 
     let completed = engine.drain_completed();
-    assert!(!completed.is_empty(), "repeat_range should produce completions via DSL roundtrip");
+    assert!(
+        !completed.is_empty(),
+        "repeat_range should produce completions via DSL roundtrip"
+    );
     // At least one completion should have the shared target = alice
-    assert!(completed.iter().any(|m| {
-        matches!(m.bindings.get("target"), Some(BoundValue::Node(n)) if n == "alice")
-    }), "shared target should be alice");
+    assert!(
+        completed.iter().any(|m| {
+            matches!(m.bindings.get("target"), Some(BoundValue::Node(n)) if n == "alice")
+        }),
+        "shared target should be alice"
+    );
 }

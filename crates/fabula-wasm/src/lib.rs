@@ -73,7 +73,11 @@ struct PatternInfo {
 pub fn parse_and_validate_pattern(dsl: &str) -> JsValue {
     match fabula_dsl::parse_pattern(dsl) {
         Ok(pattern) => {
-            let vars: Vec<String> = pattern.all_vars().into_iter().map(|v| v.0.clone()).collect();
+            let vars: Vec<String> = pattern
+                .all_vars()
+                .into_iter()
+                .map(|v| v.0.clone())
+                .collect();
             ok_json(PatternInfo {
                 pattern_name: pattern.name.clone(),
                 stage_count: pattern.stages.len(),
@@ -113,9 +117,7 @@ pub fn parse_and_validate_graph(dsl: &str) -> JsValue {
     }
 }
 
-fn parse_graph_with_ast(
-    dsl: &str,
-) -> Result<(MemGraph, GraphAst), fabula_dsl::error::ParseError> {
+fn parse_graph_with_ast(dsl: &str) -> Result<(MemGraph, GraphAst), fabula_dsl::error::ParseError> {
     let tokens = fabula_dsl::lexer::Lexer::new(dsl).tokenize()?;
     let ast = fabula_dsl::parser::Parser::new(tokens).parse_graph_only()?;
     let graph = fabula_dsl::compiler::compile_graph(&ast);
@@ -166,7 +168,9 @@ pub fn evaluate_batch(pattern_dsl: &str, graph_dsl: &str) -> JsValue {
         })
         .collect();
 
-    ok_json(BatchResult { matches: matches_json })
+    ok_json(BatchResult {
+        matches: matches_json,
+    })
 }
 
 // ---------------------------------------------------------------------------
@@ -247,7 +251,13 @@ pub fn evaluate_incremental(pattern_dsl: &str, graph_dsl: &str) -> JsValue {
     }
 
     let now_time = graph_ast.now.unwrap_or_else(|| {
-        graph_ast.edges.iter().map(|e| e.time_start).max().unwrap_or(0) + 1
+        graph_ast
+            .edges
+            .iter()
+            .map(|e| e.time_start)
+            .max()
+            .unwrap_or(0)
+            + 1
     });
 
     let mut graph = MemGraph::new();
@@ -278,12 +288,8 @@ pub fn evaluate_incremental(pattern_dsl: &str, graph_dsl: &str) -> JsValue {
                 fabula_dsl::ast::EdgeTarget::Str(s) => {
                     (MemValue::Str(s.clone()), format!("\"{}\"", s))
                 }
-                fabula_dsl::ast::EdgeTarget::Num(n) => {
-                    (MemValue::Num(*n), format!("{}", n))
-                }
-                fabula_dsl::ast::EdgeTarget::Bool(b) => {
-                    (MemValue::Bool(*b), format!("{}", b))
-                }
+                fabula_dsl::ast::EdgeTarget::Num(n) => (MemValue::Num(*n), format!("{}", n)),
+                fabula_dsl::ast::EdgeTarget::Bool(b) => (MemValue::Bool(*b), format!("{}", b)),
                 fabula_dsl::ast::EdgeTarget::NodeRef(n) => {
                     (MemValue::Node(n.clone()), format!("@{}", n))
                 }

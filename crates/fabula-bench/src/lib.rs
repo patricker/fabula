@@ -9,6 +9,6 @@
 pub mod workload;
 
 pub use workload::{
-    build_gm_workload, build_isolated_workload, GmWorkload, IsolatedWorkload, PendingEdge,
-    Tick, WorkloadConfig,
+    build_gm_workload, build_isolated_workload, GmWorkload, IsolatedWorkload, PendingEdge, Tick,
+    WorkloadConfig,
 };

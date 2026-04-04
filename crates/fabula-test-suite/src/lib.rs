@@ -19,9 +19,9 @@ pub mod scenarios;
 use fabula::datasource::DataSource;
 
 // Re-export adapter types so tests/golden.rs can reference them.
+pub use fabula_grafeo::{GrafeoGraph, GrafeoValue};
 pub use fabula_memory::{MemGraph, MemValue};
 pub use fabula_petgraph::{PetTemporalGraph, PetValue};
-pub use fabula_grafeo::{GrafeoGraph, GrafeoValue};
 
 /// Concrete petgraph type used in golden tests.
 pub type PetGraph = PetTemporalGraph<String, String, PetValue<String>, i64>;
@@ -245,4 +245,3 @@ impl TestGraph for GrafeoGraph {
         GrafeoValue::Num(n)
     }
 }
-

@@ -17,9 +17,16 @@ fn empty_pattern_no_stages() {
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     let pattern = PatternBuilder::<String, MemValue>::new("empty").build();
     engine.register(pattern);
-    assert_eq!(engine.evaluate(&g).len(), 0, "empty pattern should never match");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "empty pattern should never match"
+    );
     let analysis = engine.why_not(&g, "empty").unwrap();
-    assert!(analysis.stages.is_empty(), "empty pattern has no stages to analyze");
+    assert!(
+        analysis.stages.is_empty(),
+        "empty pattern has no stages to analyze"
+    );
 }
 
 #[test]
@@ -31,12 +38,17 @@ fn empty_stage_no_clauses() {
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     // A stage with clauses followed by an empty stage
     let pattern = PatternBuilder::new("has_empty_stage")
-        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("harm".into())))
+        .stage("e1", |s| {
+            s.edge("e1", "eventType".into(), MemValue::Str("harm".into()))
+        })
         .stage("e2", |s| s) // empty stage — no clauses
         .build();
     engine.register(pattern);
-    assert_eq!(engine.evaluate(&g).len(), 0,
-        "pattern with empty stage can never fully match");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "pattern with empty stage can never fully match"
+    );
 }
 
 #[test]
@@ -45,18 +57,25 @@ fn empty_stage_incremental_never_advances() {
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     let pattern = PatternBuilder::new("empty_first_stage")
         .stage("e1", |s| s) // empty first stage
-        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("harm".into())))
+        .stage("e2", |s| {
+            s.edge("e2", "eventType".into(), MemValue::Str("harm".into()))
+        })
         .build();
     engine.register(pattern);
 
     g.add_str("ev1", "eventType", "harm", 1);
     g.set_time(1);
     let events = engine.on_edge_added(
-        &g, &"ev1".into(), &"eventType".into(),
-        &MemValue::Str("harm".into()), &Interval::open(1),
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("harm".into()),
+        &Interval::open(1),
     );
-    assert!(events.is_empty(),
-        "empty first stage means no edge can initiate a partial match");
+    assert!(
+        events.is_empty(),
+        "empty first stage means no edge can initiate a partial match"
+    );
 }
 
 #[test]
@@ -82,17 +101,24 @@ fn empty_negation_no_clauses() {
 
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
-    assert_eq!(engine.evaluate(&g).len(), 1,
-        "empty negation body should not block matches");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        1,
+        "empty negation body should not block matches"
+    );
 }
 
 #[test]
 fn empty_graph_with_registered_patterns() {
     let g = MemGraph::new();
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
-    engine.register(PatternBuilder::new("find_harm")
-        .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("harm".into())))
-        .build());
+    engine.register(
+        PatternBuilder::new("find_harm")
+            .stage("e", |s| {
+                s.edge("e", "eventType".into(), MemValue::Str("harm".into()))
+            })
+            .build(),
+    );
     assert_eq!(engine.evaluate(&g).len(), 0);
     assert!(engine.partial_matches().is_empty());
 }
@@ -108,9 +134,13 @@ fn single_edge_graph_single_clause_pattern() {
     g.set_time(1);
 
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
-    engine.register(PatternBuilder::new("single")
-        .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("harm".into())))
-        .build());
+    engine.register(
+        PatternBuilder::new("single")
+            .stage("e", |s| {
+                s.edge("e", "eventType".into(), MemValue::Str("harm".into()))
+            })
+            .build(),
+    );
     assert_eq!(engine.evaluate(&g).len(), 1);
 }
 
@@ -131,8 +161,12 @@ fn single_stage_with_unless_after_batch() {
                 .edge_bind("e1", "actor".into(), "criminal")
         })
         .unless_after("e1", |neg| {
-            neg.edge("pardon_ev", "eventType".into(), MemValue::Str("pardon".into()))
-                .edge_bind("pardon_ev", "actor".into(), "criminal")
+            neg.edge(
+                "pardon_ev",
+                "eventType".into(),
+                MemValue::Str("pardon".into()),
+            )
+            .edge_bind("pardon_ev", "actor".into(), "criminal")
         })
         .build();
 
@@ -140,8 +174,11 @@ fn single_stage_with_unless_after_batch() {
     engine.register(pattern);
 
     // Batch correctly blocks: pardon exists after crime
-    assert_eq!(engine.evaluate(&g).len(), 0,
-        "batch should block match when negation event exists");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "batch should block match when negation event exists"
+    );
 }
 
 #[test]
@@ -151,41 +188,58 @@ fn single_stage_with_unless_after_incremental_consistency() {
     // When a negation event already exists, the match is blocked.
     let mut g = MemGraph::new();
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
-    engine.register(PatternBuilder::new("unpardoned_crime")
-        .stage("e1", |s| {
-            s.edge("e1", "eventType".into(), MemValue::Str("crime".into()))
-                .edge_bind("e1", "actor".into(), "criminal")
-        })
-        .unless_after("e1", |neg| {
-            neg.edge("pardon_ev", "eventType".into(), MemValue::Str("pardon".into()))
+    engine.register(
+        PatternBuilder::new("unpardoned_crime")
+            .stage("e1", |s| {
+                s.edge("e1", "eventType".into(), MemValue::Str("crime".into()))
+                    .edge_bind("e1", "actor".into(), "criminal")
+            })
+            .unless_after("e1", |neg| {
+                neg.edge(
+                    "pardon_ev",
+                    "eventType".into(),
+                    MemValue::Str("pardon".into()),
+                )
                 .edge_bind("pardon_ev", "actor".into(), "criminal")
-        })
-        .build());
+            })
+            .build(),
+    );
 
     // Crime arrives with no pardon existing -> completes (correct)
     g.add_str("ev1", "eventType", "crime", 1);
     g.add_ref("ev1", "actor", "alice", 1);
     g.set_time(1);
     let events = engine.on_edge_added(
-        &g, &"ev1".into(), &"eventType".into(),
-        &MemValue::Str("crime".into()), &Interval::open(1),
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("crime".into()),
+        &Interval::open(1),
     );
-    let completed = events.iter().any(|e| matches!(e, SiftEvent::Completed { .. }));
+    let completed = events
+        .iter()
+        .any(|e| matches!(e, SiftEvent::Completed { .. }));
     assert!(completed, "no pardon exists yet, match should complete");
 
     // Now test: if pardon exists BEFORE crime, match should be blocked
     let mut g2 = MemGraph::new();
     let mut engine2: SiftEngineFor<MemGraph> = SiftEngine::new();
-    engine2.register(PatternBuilder::new("unpardoned_crime")
-        .stage("e1", |s| {
-            s.edge("e1", "eventType".into(), MemValue::Str("crime".into()))
-                .edge_bind("e1", "actor".into(), "criminal")
-        })
-        .unless_after("e1", |neg| {
-            neg.edge("pardon_ev", "eventType".into(), MemValue::Str("pardon".into()))
+    engine2.register(
+        PatternBuilder::new("unpardoned_crime")
+            .stage("e1", |s| {
+                s.edge("e1", "eventType".into(), MemValue::Str("crime".into()))
+                    .edge_bind("e1", "actor".into(), "criminal")
+            })
+            .unless_after("e1", |neg| {
+                neg.edge(
+                    "pardon_ev",
+                    "eventType".into(),
+                    MemValue::Str("pardon".into()),
+                )
                 .edge_bind("pardon_ev", "actor".into(), "criminal")
-        })
-        .build());
+            })
+            .build(),
+    );
 
     // Pardon exists first
     g2.add_str("ev_pardon", "eventType", "pardon", 2);
@@ -195,11 +249,19 @@ fn single_stage_with_unless_after_incremental_consistency() {
     g2.add_ref("ev1", "actor", "alice", 1);
     g2.set_time(3);
     let events3 = engine2.on_edge_added(
-        &g2, &"ev1".into(), &"eventType".into(),
-        &MemValue::Str("crime".into()), &Interval::open(1),
+        &g2,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("crime".into()),
+        &Interval::open(1),
     );
-    let completed2 = events3.iter().any(|e| matches!(e, SiftEvent::Completed { .. }));
-    assert!(!completed2, "pardon exists — negation should block completion");
+    let completed2 = events3
+        .iter()
+        .any(|e| matches!(e, SiftEvent::Completed { .. }));
+    assert!(
+        !completed2,
+        "pardon exists — negation should block completion"
+    );
 }
 
 // ===========================================================================
@@ -226,8 +288,11 @@ fn duplicate_edges_produce_duplicate_matches() {
     let matches = engine.evaluate(&g);
     // MemGraph stores both edges; scan returns duplicates; engine produces
     // duplicate matches with identical bindings.
-    assert_eq!(matches.len(), 2,
-        "duplicate edges in MemGraph cause duplicate matches (known limitation)");
+    assert_eq!(
+        matches.len(),
+        2,
+        "duplicate edges in MemGraph cause duplicate matches (known limitation)"
+    );
 }
 
 #[test]
@@ -257,8 +322,11 @@ fn same_event_cannot_satisfy_two_stages() {
     engine.register(pattern);
     // Same event (same start time) cannot satisfy both stages
     // due to strict temporal ordering: left.start >= right.start -> reject
-    assert_eq!(engine.evaluate(&g).len(), 0,
-        "same event (same timestamp) cannot satisfy two stages");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "same event (same timestamp) cannot satisfy two stages"
+    );
 }
 
 #[test]
@@ -284,8 +352,11 @@ fn events_at_identical_timestamps_cannot_sequence() {
 
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
-    assert_eq!(engine.evaluate(&g).len(), 0,
-        "strict temporal ordering rejects same-timestamp events in different stages");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "strict temporal ordering rejects same-timestamp events in different stages"
+    );
 }
 
 #[test]
@@ -312,8 +383,11 @@ fn variable_consistency_across_stages() {
 
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
-    assert_eq!(engine.evaluate(&g).len(), 0,
-        "variable bound in stage 1 must match in stage 2");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "variable bound in stage 1 must match in stage 2"
+    );
 }
 
 // ===========================================================================
@@ -327,9 +401,7 @@ fn self_referential_edge() {
     g.set_time(10);
 
     let pattern = PatternBuilder::new("self_enemy")
-        .stage("e", |s| {
-            s.edge_bind("e", "enemy".into(), "target")
-        })
+        .stage("e", |s| s.edge_bind("e", "enemy".into(), "target"))
         .build();
 
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
@@ -365,7 +437,11 @@ fn source_equals_target_variable_self_loop_only() {
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     // B8 fixed: only alice (self-loop) matches. Bob->Charlie is not a self-loop.
-    assert_eq!(matches.len(), 1, "only self-loop should match when source == target var");
+    assert_eq!(
+        matches.len(),
+        1,
+        "only self-loop should match when source == target var"
+    );
     match &matches[0].bindings["e"] {
         BoundValue::Node(n) => assert_eq!(n, "alice"),
         other => panic!("expected alice, got {:?}", other),
@@ -411,23 +487,35 @@ fn distinct_events_create_distinct_pms() {
     // These are legitimately distinct PMs (different bindings + intervals).
     let mut g = MemGraph::new();
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
-    engine.register(PatternBuilder::new("two_stage")
-        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("start".into())))
-        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("finish".into())))
-        .build());
+    engine.register(
+        PatternBuilder::new("two_stage")
+            .stage("e1", |s| {
+                s.edge("e1", "eventType".into(), MemValue::Str("start".into()))
+            })
+            .stage("e2", |s| {
+                s.edge("e2", "eventType".into(), MemValue::Str("finish".into()))
+            })
+            .build(),
+    );
 
     for i in 0..100i64 {
         let name = format!("ev{}", i);
         g.add_str(&name, "eventType", "start", i + 1);
         g.set_time(i + 1);
         engine.on_edge_added(
-            &g, &name, &"eventType".into(),
-            &MemValue::Str("start".into()), &Interval::open(i + 1),
+            &g,
+            &name,
+            &"eventType".into(),
+            &MemValue::Str("start".into()),
+            &Interval::open(i + 1),
         );
     }
 
-    assert_eq!(engine.active_matches_for("two_stage").len(), 100,
-        "100 distinct events (different nodes + timestamps) = 100 distinct PMs");
+    assert_eq!(
+        engine.active_matches_for("two_stage").len(),
+        100,
+        "100 distinct events (different nodes + timestamps) = 100 distinct PMs"
+    );
 }
 
 #[test]
@@ -460,7 +548,11 @@ fn large_graph_batch_evaluation() {
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     let matches = engine.evaluate(&g);
-    assert_eq!(matches.len(), 1, "should find the one matching pair in 1000 edges");
+    assert_eq!(
+        matches.len(),
+        1,
+        "should find the one matching pair in 1000 edges"
+    );
 }
 
 // ===========================================================================

@@ -148,10 +148,7 @@ pub fn gap_negated_clause_in_stage<G: TestGraph>() {
 
     // why_not should report the issue
     let analysis = engine.why_not(&g, "clean_action").unwrap();
-    assert!(
-        !analysis.stages.is_empty(),
-        "should have stage analysis"
-    );
+    assert!(!analysis.stages.is_empty(), "should have stage analysis");
 }
 
 /// why_not with data present still reports first stage unmatched (bindings

@@ -37,7 +37,7 @@
 //!    caller-provided samples, not DataSource queries.
 //! 3. **Research-backed.** Each module cites its academic foundation.
 
-pub mod thread;
-pub mod tension;
 pub mod pivot;
 pub mod scorer;
+pub mod tension;
+pub mod thread;

@@ -17,9 +17,13 @@ fn violation_of_hospitality() -> Pattern<String, MemValue> {
                 .edge_bind("e1", "actor".into(), "guest")
         })
         .stage("e2", |s| {
-            s.edge("e2", "eventType".into(), MemValue::Str("showHospitality".into()))
-                .edge_bind("e2", "actor".into(), "host")
-                .edge_bind("e2", "target".into(), "guest")
+            s.edge(
+                "e2",
+                "eventType".into(),
+                MemValue::Str("showHospitality".into()),
+            )
+            .edge_bind("e2", "actor".into(), "host")
+            .edge_bind("e2", "target".into(), "guest")
         })
         .stage("e3", |s| {
             s.edge("e3", "eventType".into(), MemValue::Str("harm".into()))
@@ -27,8 +31,12 @@ fn violation_of_hospitality() -> Pattern<String, MemValue> {
                 .edge_bind("e3", "target".into(), "guest")
         })
         .unless_between("e1", "e3", |neg| {
-            neg.edge("eMid", "eventType".into(), MemValue::Str("leaveTown".into()))
-                .edge_bind("eMid", "actor".into(), "guest")
+            neg.edge(
+                "eMid",
+                "eventType".into(),
+                MemValue::Str("leaveTown".into()),
+            )
+            .edge_bind("eMid", "actor".into(), "guest")
         })
         .build()
 }
@@ -125,7 +133,13 @@ fn incremental_hospitality_three_stages() {
     g.add_str("ev1", "eventType", "enterTown", 1);
     g.add_ref("ev1", "actor", "alice", 1);
     g.set_time(1);
-    let ev = engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &MemValue::Str("enterTown".into()), &Interval::open(1));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("enterTown".into()),
+        &Interval::open(1),
+    );
     assert!(ev.iter().any(|e| matches!(e, SiftEvent::Advanced { pattern, .. } if pattern == "violation_of_hospitality")));
 
     // Stage 2
@@ -133,7 +147,13 @@ fn incremental_hospitality_three_stages() {
     g.add_ref("ev2", "actor", "bob", 2);
     g.add_ref("ev2", "target", "alice", 2);
     g.set_time(2);
-    let ev = engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(), &MemValue::Str("showHospitality".into()), &Interval::open(2));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &MemValue::Str("showHospitality".into()),
+        &Interval::open(2),
+    );
     assert!(ev.iter().any(|e| matches!(e, SiftEvent::Advanced { pattern, .. } if pattern == "violation_of_hospitality")));
 
     // Stage 3 → complete
@@ -141,7 +161,13 @@ fn incremental_hospitality_three_stages() {
     g.add_ref("ev3", "actor", "bob", 3);
     g.add_ref("ev3", "target", "alice", 3);
     g.set_time(3);
-    let ev = engine.on_edge_added(&g, &"ev3".into(), &"eventType".into(), &MemValue::Str("harm".into()), &Interval::open(3));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev3".into(),
+        &"eventType".into(),
+        &MemValue::Str("harm".into()),
+        &Interval::open(3),
+    );
     assert!(ev.iter().any(|e| matches!(e, SiftEvent::Completed { pattern, .. } if pattern == "violation_of_hospitality")));
 }
 
@@ -155,21 +181,43 @@ fn incremental_hospitality_negation_kills() {
     g.add_str("ev1", "eventType", "enterTown", 1);
     g.add_ref("ev1", "actor", "alice", 1);
     g.set_time(1);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &MemValue::Str("enterTown".into()), &Interval::open(1));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("enterTown".into()),
+        &Interval::open(1),
+    );
     g.add_str("ev2", "eventType", "showHospitality", 2);
     g.add_ref("ev2", "actor", "bob", 2);
     g.add_ref("ev2", "target", "alice", 2);
     g.set_time(2);
-    engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(), &MemValue::Str("showHospitality".into()), &Interval::open(2));
-    assert!(!engine.active_matches_for("violation_of_hospitality").is_empty());
+    engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &MemValue::Str("showHospitality".into()),
+        &Interval::open(2),
+    );
+    assert!(!engine
+        .active_matches_for("violation_of_hospitality")
+        .is_empty());
 
     // Guest leaves → kill
     g.add_str("ev_leave", "eventType", "leaveTown", 3);
     g.add_ref("ev_leave", "actor", "alice", 3);
     g.set_time(3);
-    let ev = engine.on_edge_added(&g, &"ev_leave".into(), &"eventType".into(), &MemValue::Str("leaveTown".into()), &Interval::open(3));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev_leave".into(),
+        &"eventType".into(),
+        &MemValue::Str("leaveTown".into()),
+        &Interval::open(3),
+    );
     assert!(ev.iter().any(|e| matches!(e, SiftEvent::Negated { .. })));
-    assert!(engine.active_matches_for("violation_of_hospitality").is_empty());
+    assert!(engine
+        .active_matches_for("violation_of_hospitality")
+        .is_empty());
 }
 
 #[test]
@@ -182,20 +230,40 @@ fn incremental_hospitality_unrelated_leave_doesnt_kill() {
     g.add_str("ev1", "eventType", "enterTown", 1);
     g.add_ref("ev1", "actor", "alice", 1);
     g.set_time(1);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &MemValue::Str("enterTown".into()), &Interval::open(1));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("enterTown".into()),
+        &Interval::open(1),
+    );
     g.add_str("ev2", "eventType", "showHospitality", 2);
     g.add_ref("ev2", "actor", "bob", 2);
     g.add_ref("ev2", "target", "alice", 2);
     g.set_time(2);
-    engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(), &MemValue::Str("showHospitality".into()), &Interval::open(2));
+    engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &MemValue::Str("showHospitality".into()),
+        &Interval::open(2),
+    );
 
     // Charlie leaves — should NOT kill
     g.add_str("ev_leave", "eventType", "leaveTown", 3);
     g.add_ref("ev_leave", "actor", "charlie", 3);
     g.set_time(3);
-    let ev = engine.on_edge_added(&g, &"ev_leave".into(), &"eventType".into(), &MemValue::Str("leaveTown".into()), &Interval::open(3));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev_leave".into(),
+        &"eventType".into(),
+        &MemValue::Str("leaveTown".into()),
+        &Interval::open(3),
+    );
     assert!(!ev.iter().any(|e| matches!(e, SiftEvent::Negated { .. })));
-    assert!(!engine.active_matches_for("violation_of_hospitality").is_empty());
+    assert!(!engine
+        .active_matches_for("violation_of_hospitality")
+        .is_empty());
 }
 
 // ---------------------------------------------------------------------------
@@ -242,7 +310,11 @@ fn batch_romantic_arc_different_characters_no_match() {
 
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(romantic_arc());
-    assert_eq!(engine.evaluate(&g).len(), 0, "different actors should not match");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "different actors should not match"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -258,8 +330,16 @@ fn batch_value_constraint_lt() {
 
     let pattern = PatternBuilder::new("low_loyalty")
         .stage("e", |s| {
-            s.edge("e", "eventType".into(), MemValue::Str("loyalty_check".into()))
-                .edge_constrained("e", "loyalty".into(), ValueConstraint::Lt(MemValue::Num(0.5)))
+            s.edge(
+                "e",
+                "eventType".into(),
+                MemValue::Str("loyalty_check".into()),
+            )
+            .edge_constrained(
+                "e",
+                "loyalty".into(),
+                ValueConstraint::Lt(MemValue::Num(0.5)),
+            )
         })
         .build();
 
@@ -277,8 +357,16 @@ fn batch_value_constraint_lt_no_match() {
 
     let pattern = PatternBuilder::new("low_loyalty")
         .stage("e", |s| {
-            s.edge("e", "eventType".into(), MemValue::Str("loyalty_check".into()))
-                .edge_constrained("e", "loyalty".into(), ValueConstraint::Lt(MemValue::Num(0.5)))
+            s.edge(
+                "e",
+                "eventType".into(),
+                MemValue::Str("loyalty_check".into()),
+            )
+            .edge_constrained(
+                "e",
+                "loyalty".into(),
+                ValueConstraint::Lt(MemValue::Num(0.5)),
+            )
         })
         .build();
 
@@ -306,7 +394,13 @@ fn incremental_single_stage_completes_immediately() {
     g.add_str("ev1", "eventType", "harm", 1);
     g.add_ref("ev1", "actor", "bob", 1);
     g.set_time(1);
-    let ev = engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &MemValue::Str("harm".into()), &Interval::open(1));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("harm".into()),
+        &Interval::open(1),
+    );
     assert!(ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })));
 }
 
@@ -330,12 +424,20 @@ fn batch_unless_after_blocks_match() {
                 .edge_bind("e1", "actor".into(), "person")
         })
         .stage("e2", |s| {
-            s.edge("e2", "eventType".into(), MemValue::Str("break_promise".into()))
-                .edge_bind("e2", "actor".into(), "person")
+            s.edge(
+                "e2",
+                "eventType".into(),
+                MemValue::Str("break_promise".into()),
+            )
+            .edge_bind("e2", "actor".into(), "person")
         })
         .unless_after("e1", |neg| {
-            neg.edge("apology", "eventType".into(), MemValue::Str("apologize".into()))
-                .edge_bind("apology", "actor".into(), "person")
+            neg.edge(
+                "apology",
+                "eventType".into(),
+                MemValue::Str("apologize".into()),
+            )
+            .edge_bind("apology", "actor".into(), "person")
         })
         .build();
 
@@ -417,7 +519,11 @@ fn batch_rejects_wrong_temporal_order() {
 
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
-    assert_eq!(engine.evaluate(&g).len(), 0, "temporal order violated — should not match");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "temporal order violated — should not match"
+    );
 }
 
 // ---------------------------------------------------------------------------
@@ -430,7 +536,11 @@ fn why_not_empty_graph() {
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
     let analysis = engine.why_not(&g, "violation_of_hospitality").unwrap();
-    assert_eq!(analysis.stages.len(), 1, "should stop at first unmatched stage");
+    assert_eq!(
+        analysis.stages.len(),
+        1,
+        "should stop at first unmatched stage"
+    );
     match analysis.stages[0].status {
         StageStatus::Unmatched => {}
         ref other => panic!("expected Unmatched, got {:?}", other),
@@ -445,17 +555,30 @@ fn why_not_empty_graph() {
 fn drain_completed_removes_matches() {
     let mut g = MemGraph::new();
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
-    engine.register(PatternBuilder::new("find_harm")
-        .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("harm".into())))
-        .build());
+    engine.register(
+        PatternBuilder::new("find_harm")
+            .stage("e", |s| {
+                s.edge("e", "eventType".into(), MemValue::Str("harm".into()))
+            })
+            .build(),
+    );
 
     g.add_str("ev1", "eventType", "harm", 1);
     g.set_time(1);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &MemValue::Str("harm".into()), &Interval::open(1));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("harm".into()),
+        &Interval::open(1),
+    );
 
     let completed = engine.drain_completed();
     assert_eq!(completed.len(), 1);
-    assert!(engine.partial_matches().iter().all(|pm| pm.state != MatchState::Complete));
+    assert!(engine
+        .partial_matches()
+        .iter()
+        .all(|pm| pm.state != MatchState::Complete));
 }
 
 // ---------------------------------------------------------------------------
@@ -472,14 +595,28 @@ fn irrelevant_edges_produce_no_events() {
     g.add_str("ev1", "eventType", "enterTown", 1);
     g.add_ref("ev1", "actor", "alice", 1);
     g.set_time(1);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &MemValue::Str("enterTown".into()), &Interval::open(1));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("enterTown".into()),
+        &Interval::open(1),
+    );
 
     // Unrelated edge
     g.add_str("noise", "eventType", "tradeMerchant", 2);
     g.set_time(2);
-    let ev = engine.on_edge_added(&g, &"noise".into(), &"eventType".into(), &MemValue::Str("tradeMerchant".into()), &Interval::open(2));
+    let ev = engine.on_edge_added(
+        &g,
+        &"noise".into(),
+        &"eventType".into(),
+        &MemValue::Str("tradeMerchant".into()),
+        &Interval::open(2),
+    );
     assert!(ev.is_empty());
-    assert!(!engine.active_matches_for("violation_of_hospitality").is_empty());
+    assert!(!engine
+        .active_matches_for("violation_of_hospitality")
+        .is_empty());
 }
 
 // ---------------------------------------------------------------------------
@@ -491,15 +628,27 @@ fn multiple_patterns_fire_independently() {
     let mut g = MemGraph::new();
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
-    engine.register(PatternBuilder::new("any_enter")
-        .stage("e", |s| s.edge("e", "eventType".into(), MemValue::Str("enterTown".into())))
-        .build());
+    engine.register(
+        PatternBuilder::new("any_enter")
+            .stage("e", |s| {
+                s.edge("e", "eventType".into(), MemValue::Str("enterTown".into()))
+            })
+            .build(),
+    );
 
     g.add_str("ev1", "eventType", "enterTown", 1);
     g.add_ref("ev1", "actor", "alice", 1);
     g.set_time(1);
-    let ev = engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &MemValue::Str("enterTown".into()), &Interval::open(1));
-    assert!(ev.iter().any(|e| matches!(e, SiftEvent::Completed { pattern, .. } if pattern == "any_enter")));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("enterTown".into()),
+        &Interval::open(1),
+    );
+    assert!(ev
+        .iter()
+        .any(|e| matches!(e, SiftEvent::Completed { pattern, .. } if pattern == "any_enter")));
     assert!(ev.iter().any(|e| matches!(e, SiftEvent::Advanced { pattern, .. } if pattern == "violation_of_hospitality")));
 }
 
@@ -517,23 +666,49 @@ fn negation_event_includes_details() {
     g.add_str("ev1", "eventType", "enterTown", 1);
     g.add_ref("ev1", "actor", "alice", 1);
     g.set_time(1);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &MemValue::Str("enterTown".into()), &Interval::open(1));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("enterTown".into()),
+        &Interval::open(1),
+    );
     g.add_str("ev2", "eventType", "showHospitality", 2);
     g.add_ref("ev2", "actor", "bob", 2);
     g.add_ref("ev2", "target", "alice", 2);
     g.set_time(2);
-    engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(), &MemValue::Str("showHospitality".into()), &Interval::open(2));
+    engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &MemValue::Str("showHospitality".into()),
+        &Interval::open(2),
+    );
 
     // Kill it
     g.add_str("ev_leave", "eventType", "leaveTown", 3);
     g.add_ref("ev_leave", "actor", "alice", 3);
     g.set_time(3);
-    let ev = engine.on_edge_added(&g, &"ev_leave".into(), &"eventType".into(), &MemValue::Str("leaveTown".into()), &Interval::open(3));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev_leave".into(),
+        &"eventType".into(),
+        &MemValue::Str("leaveTown".into()),
+        &Interval::open(3),
+    );
 
     let negated = ev.iter().find(|e| matches!(e, SiftEvent::Negated { .. }));
     assert!(negated.is_some(), "should emit Negated event");
-    if let Some(SiftEvent::Negated { clause_label, trigger_source, .. }) = negated {
+    if let Some(SiftEvent::Negated {
+        clause_label,
+        trigger_source,
+        ..
+    }) = negated
+    {
         assert_eq!(trigger_source, "ev_leave");
-        assert!(clause_label.contains("eventType"), "clause_label should reference the matching label");
+        assert!(
+            clause_label.contains("eventType"),
+            "clause_label should reference the matching label"
+        );
     }
 }

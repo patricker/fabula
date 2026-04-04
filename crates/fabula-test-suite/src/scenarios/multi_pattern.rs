@@ -43,16 +43,25 @@ pub fn multi_pattern_all_four_winnow<G: TestGraph>() {
     engine.register(
         PatternBuilder::new("romantic_arc")
             .stage("e1", |s| {
-                s.edge("e1", "tag".into(), G::str_val("negative"))
-                    .edge("e1", "tag".into(), G::str_val("romantic"))
+                s.edge("e1", "tag".into(), G::str_val("negative")).edge(
+                    "e1",
+                    "tag".into(),
+                    G::str_val("romantic"),
+                )
             })
             .stage("e2", |s| {
-                s.edge("e2", "tag".into(), G::str_val("negative"))
-                    .edge("e2", "tag".into(), G::str_val("romantic"))
+                s.edge("e2", "tag".into(), G::str_val("negative")).edge(
+                    "e2",
+                    "tag".into(),
+                    G::str_val("romantic"),
+                )
             })
             .stage("e3", |s| {
-                s.edge("e3", "tag".into(), G::str_val("positive"))
-                    .edge("e3", "tag".into(), G::str_val("romantic"))
+                s.edge("e3", "tag".into(), G::str_val("positive")).edge(
+                    "e3",
+                    "tag".into(),
+                    G::str_val("romantic"),
+                )
             })
             .build(),
     );
@@ -167,7 +176,8 @@ pub fn incremental_multiple_patterns_fire<G: TestGraph>() {
     );
 
     assert!(
-        ev.iter().any(|e| matches!(e, SiftEvent::Completed { pattern, .. } if pattern == "any_enter")),
+        ev.iter()
+            .any(|e| matches!(e, SiftEvent::Completed { pattern, .. } if pattern == "any_enter")),
         "any_enter should complete"
     );
     assert!(

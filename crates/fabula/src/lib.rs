@@ -36,12 +36,12 @@
 //!
 //! For full evaluation examples, see `fabula-memory` which provides `MemGraph`.
 
-pub mod interval;
-pub mod datasource;
-pub mod pattern;
 pub mod builder;
-pub mod engine;
 pub mod compose;
+pub mod datasource;
+pub mod engine;
+pub mod interval;
+pub mod pattern;
 pub mod scoring;
 
 /// Convenience re-exports for common usage.
@@ -50,12 +50,13 @@ pub mod prelude {
     pub use crate::datasource::{DataSource, Label, NodeId, Val, ValueConstraint};
     pub use crate::engine::{
         evaluate_pattern, evaluate_pattern_at, evaluate_pattern_first, evaluate_pattern_limit,
-        gap_analysis, gap_analysis_at,
-        BoundValue, EngineStats, GapAnalysis, Match, MatchState, PartialMatch, PatternMetrics,
-        PlantPayoffPair, PlantStatus, SiftEngine, SiftEngineFor, SiftEvent, StageAnalysis, StageStatus,
-        ClauseAnalysis, TickDelta,
+        gap_analysis, gap_analysis_at, BoundValue, ClauseAnalysis, EngineStats, GapAnalysis, Match,
+        MatchState, PartialMatch, PatternMetrics, PlantPayoffPair, PlantStatus, SiftEngine,
+        SiftEngineFor, SiftEvent, StageAnalysis, StageStatus, TickDelta,
     };
     pub use crate::interval::{AllenRelation, Interval, NumericTime};
-    pub use crate::pattern::{Clause, MetricGap, Negation, Pattern, Stage, Target, TemporalConstraint, Var};
+    pub use crate::pattern::{
+        Clause, MetricGap, Negation, Pattern, Stage, Target, TemporalConstraint, Var,
+    };
     pub use crate::scoring::{ScoredMatch, StuScoredMatch, StuScorer, SurpriseScorer};
 }

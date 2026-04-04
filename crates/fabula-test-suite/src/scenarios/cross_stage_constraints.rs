@@ -16,8 +16,11 @@ pub fn batch_cross_stage_gt_matches<G: TestGraph>() {
 
     let pattern = PatternBuilder::new("escalating_price")
         .stage("e1", |s| {
-            s.edge("e1", "type".into(), G::str_val("order"))
-                .edge_bind("e1", "price".into(), "base_price")
+            s.edge("e1", "type".into(), G::str_val("order")).edge_bind(
+                "e1",
+                "price".into(),
+                "base_price",
+            )
         })
         .stage("e2", |s| {
             s.edge("e2", "type".into(), G::str_val("order"))
@@ -41,8 +44,11 @@ pub fn batch_cross_stage_gt_no_match<G: TestGraph>() {
 
     let pattern = PatternBuilder::new("escalating_price")
         .stage("e1", |s| {
-            s.edge("e1", "type".into(), G::str_val("order"))
-                .edge_bind("e1", "price".into(), "base_price")
+            s.edge("e1", "type".into(), G::str_val("order")).edge_bind(
+                "e1",
+                "price".into(),
+                "base_price",
+            )
         })
         .stage("e2", |s| {
             s.edge("e2", "type".into(), G::str_val("order"))
@@ -113,12 +119,18 @@ pub fn incremental_cross_stage_gt<G: TestGraph>() {
     engine.register(
         PatternBuilder::new("escalation")
             .stage("e1", |s| {
-                s.edge("e1", "type".into(), G::str_val("bid"))
-                    .edge_bind("e1", "price".into(), "prev_price")
+                s.edge("e1", "type".into(), G::str_val("bid")).edge_bind(
+                    "e1",
+                    "price".into(),
+                    "prev_price",
+                )
             })
             .stage("e2", |s| {
-                s.edge("e2", "type".into(), G::str_val("bid"))
-                    .edge_gt_var("e2", "price".into(), "prev_price")
+                s.edge("e2", "type".into(), G::str_val("bid")).edge_gt_var(
+                    "e2",
+                    "price".into(),
+                    "prev_price",
+                )
             })
             .build(),
     );
@@ -128,10 +140,16 @@ pub fn incremental_cross_stage_gt<G: TestGraph>() {
     g.add_num_edge("ev1", "price", 100.0, 1);
     g.set_current_time(1);
     let events = engine.on_edge_added(
-        &g, &"ev1".into(), &"type".into(),
-        &G::str_val("bid"), &Interval::open(1),
+        &g,
+        &"ev1".into(),
+        &"type".into(),
+        &G::str_val("bid"),
+        &Interval::open(1),
     );
-    let advanced = events.iter().filter(|e| matches!(e, SiftEvent::Advanced { .. })).count();
+    let advanced = events
+        .iter()
+        .filter(|e| matches!(e, SiftEvent::Advanced { .. }))
+        .count();
     assert!(advanced > 0, "first bid should initiate a PM");
 
     // Tick 2: bid at 150 — should complete
@@ -139,9 +157,15 @@ pub fn incremental_cross_stage_gt<G: TestGraph>() {
     g.add_num_edge("ev2", "price", 150.0, 2);
     g.set_current_time(2);
     let events = engine.on_edge_added(
-        &g, &"ev2".into(), &"type".into(),
-        &G::str_val("bid"), &Interval::open(2),
+        &g,
+        &"ev2".into(),
+        &"type".into(),
+        &G::str_val("bid"),
+        &Interval::open(2),
     );
-    let completed = events.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).count();
+    let completed = events
+        .iter()
+        .filter(|e| matches!(e, SiftEvent::Completed { .. }))
+        .count();
     assert_eq!(completed, 1, "150 > 100 should complete the pattern");
 }

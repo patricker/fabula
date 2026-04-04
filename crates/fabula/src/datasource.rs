@@ -50,9 +50,15 @@ impl<V: PartialOrd + PartialEq> ValueConstraint<V> {
             Self::Any => true,
             // *Var variants must be resolved before matching. If they reach here,
             // it's a bug — fail closed (no match).
-            Self::EqVar(_) | Self::LtVar(_) | Self::GtVar(_)
-            | Self::LteVar(_) | Self::GteVar(_) => {
-                debug_assert!(false, "BoundVar constraint reached matches() without resolution");
+            Self::EqVar(_)
+            | Self::LtVar(_)
+            | Self::GtVar(_)
+            | Self::LteVar(_)
+            | Self::GteVar(_) => {
+                debug_assert!(
+                    false,
+                    "BoundVar constraint reached matches() without resolution"
+                );
                 false
             }
         }
@@ -82,8 +88,7 @@ impl<V> ValueConstraint<V> {
     pub fn is_var(&self) -> bool {
         matches!(
             self,
-            Self::EqVar(_) | Self::LtVar(_) | Self::GtVar(_)
-                | Self::LteVar(_) | Self::GteVar(_)
+            Self::EqVar(_) | Self::LtVar(_) | Self::GtVar(_) | Self::LteVar(_) | Self::GteVar(_)
         )
     }
 }

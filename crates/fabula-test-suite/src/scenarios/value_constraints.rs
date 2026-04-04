@@ -13,11 +13,7 @@ pub fn batch_value_lt_matches<G: TestGraph>() {
     let pattern = PatternBuilder::new("low_loyalty")
         .stage("e", |s| {
             s.edge("e", "eventType".into(), G::str_val("loyalty_check"))
-                .edge_constrained(
-                    "e",
-                    "loyalty".into(),
-                    ValueConstraint::Lt(G::num_val(0.5)),
-                )
+                .edge_constrained("e", "loyalty".into(), ValueConstraint::Lt(G::num_val(0.5)))
         })
         .build();
 
@@ -36,11 +32,7 @@ pub fn batch_value_lt_no_match<G: TestGraph>() {
     let pattern = PatternBuilder::new("low_loyalty")
         .stage("e", |s| {
             s.edge("e", "eventType".into(), G::str_val("loyalty_check"))
-                .edge_constrained(
-                    "e",
-                    "loyalty".into(),
-                    ValueConstraint::Lt(G::num_val(0.5)),
-                )
+                .edge_constrained("e", "loyalty".into(), ValueConstraint::Lt(G::num_val(0.5)))
         })
         .build();
 
@@ -69,7 +61,11 @@ pub fn batch_value_between_matches<G: TestGraph>() {
 
     let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
-    assert_eq!(engine.evaluate(&g).len(), 1, "0.5 in [0.3, 0.7] should match");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        1,
+        "0.5 in [0.3, 0.7] should match"
+    );
 }
 
 /// Batch: Gt constraint matches when value is above threshold.
@@ -82,11 +78,7 @@ pub fn batch_value_gt_matches<G: TestGraph>() {
     let pattern = PatternBuilder::new("high_power")
         .stage("e", |s| {
             s.edge("e", "eventType".into(), G::str_val("power_check"))
-                .edge_constrained(
-                    "e",
-                    "power".into(),
-                    ValueConstraint::Gt(G::num_val(0.5)),
-                )
+                .edge_constrained("e", "power".into(), ValueConstraint::Gt(G::num_val(0.5)))
         })
         .build();
 
@@ -103,11 +95,7 @@ pub fn batch_value_gt_matches<G: TestGraph>() {
     let pattern2 = PatternBuilder::new("high_power")
         .stage("e", |s| {
             s.edge("e", "eventType".into(), G::str_val("power_check"))
-                .edge_constrained(
-                    "e",
-                    "power".into(),
-                    ValueConstraint::Gt(G::num_val(0.5)),
-                )
+                .edge_constrained("e", "power".into(), ValueConstraint::Gt(G::num_val(0.5)))
         })
         .build();
 
@@ -136,7 +124,11 @@ pub fn batch_value_eq_string<G: TestGraph>() {
 
     let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(pattern);
-    assert_eq!(engine.evaluate(&g).len(), 1, "priority=important should match Eq");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        1,
+        "priority=important should match Eq"
+    );
 
     // No match case
     let mut g2 = G::new_graph();
@@ -157,7 +149,11 @@ pub fn batch_value_eq_string<G: TestGraph>() {
 
     let mut engine2: SiftEngineFor<G> = SiftEngine::new();
     engine2.register(pattern2);
-    assert_eq!(engine2.evaluate(&g2).len(), 0, "priority=trivial should not match Eq(important)");
+    assert_eq!(
+        engine2.evaluate(&g2).len(),
+        0,
+        "priority=trivial should not match Eq(important)"
+    );
 }
 
 /// Batch: value constraint in negation — negation fires when loyalty < 0.5.

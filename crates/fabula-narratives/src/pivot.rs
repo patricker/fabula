@@ -48,7 +48,10 @@ impl PivotDetector {
 
     /// Record an event type for the current tick.
     pub fn push(&mut self, event_type: &str) {
-        *self.current_counts.entry(event_type.to_string()).or_insert(0) += 1;
+        *self
+            .current_counts
+            .entry(event_type.to_string())
+            .or_insert(0) += 1;
         self.current_total += 1;
     }
 
@@ -152,21 +155,33 @@ mod tests {
     #[test]
     fn identical_distributions_zero_jsd() {
         let mut p = PivotDetector::new();
-        p.push("trade"); p.push("talk");
+        p.push("trade");
+        p.push("talk");
         p.end_tick();
-        p.push("trade"); p.push("talk");
+        p.push("trade");
+        p.push("talk");
         let jsd = p.end_tick();
-        assert!(jsd.abs() < 0.001, "identical distributions should have JSD ≈ 0, got {}", jsd);
+        assert!(
+            jsd.abs() < 0.001,
+            "identical distributions should have JSD ≈ 0, got {}",
+            jsd
+        );
     }
 
     #[test]
     fn completely_different_distributions_high_jsd() {
         let mut p = PivotDetector::new();
-        p.push("peace"); p.push("peace");
+        p.push("peace");
+        p.push("peace");
         p.end_tick();
-        p.push("war"); p.push("war");
+        p.push("war");
+        p.push("war");
         let jsd = p.end_tick();
-        assert!(jsd > 0.9, "completely different distributions should have high JSD, got {}", jsd);
+        assert!(
+            jsd > 0.9,
+            "completely different distributions should have high JSD, got {}",
+            jsd
+        );
     }
 
     #[test]
@@ -186,12 +201,20 @@ mod tests {
     fn partial_overlap_moderate_jsd() {
         let mut p = PivotDetector::new();
         // Tick 1: mostly trade
-        p.push("trade"); p.push("trade"); p.push("talk");
+        p.push("trade");
+        p.push("trade");
+        p.push("talk");
         p.end_tick();
         // Tick 2: mix of trade and attack
-        p.push("trade"); p.push("attack"); p.push("attack");
+        p.push("trade");
+        p.push("attack");
+        p.push("attack");
         let jsd = p.end_tick();
-        assert!(jsd > 0.1 && jsd < 0.9, "partial overlap should give moderate JSD, got {}", jsd);
+        assert!(
+            jsd > 0.1 && jsd < 0.9,
+            "partial overlap should give moderate JSD, got {}",
+            jsd
+        );
     }
 
     #[test]
@@ -202,7 +225,10 @@ mod tests {
             p.push("same");
             p.end_tick();
         }
-        assert!(p.average_pivot(5) < 0.01, "stable events should have low average pivot");
+        assert!(
+            p.average_pivot(5) < 0.01,
+            "stable events should have low average pivot"
+        );
     }
 
     #[test]
@@ -220,6 +246,10 @@ mod tests {
         let p: HashMap<String, f64> = [("a".into(), 1.0)].into();
         let q: HashMap<String, f64> = [("b".into(), 1.0)].into();
         let jsd = jensen_shannon_divergence(&p, &q);
-        assert!(jsd >= 0.0 && jsd <= 1.0, "JSD should be in [0, 1], got {}", jsd);
+        assert!(
+            jsd >= 0.0 && jsd <= 1.0,
+            "JSD should be in [0, 1], got {}",
+            jsd
+        );
     }
 }

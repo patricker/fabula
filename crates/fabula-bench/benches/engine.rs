@@ -8,7 +8,7 @@
 //! Only `on_edge_added` / `evaluate` calls are timed.
 
 use divan::Bencher;
-use fabula_bench::{build_isolated_workload, WorkloadConfig, IsolatedWorkload};
+use fabula_bench::{build_isolated_workload, IsolatedWorkload, WorkloadConfig};
 use fabula_test_suite::{MemGraph, PetGraph, TestGraph};
 
 fn main() {
@@ -61,18 +61,28 @@ fn build_warm_workload<G: TestGraph>(
             rng_state ^= rng_state << 17;
             let actor_idx = (rng_state % config.character_count as u64) as usize;
             let actor = format!("char_{}", actor_idx);
-            let events = ["move", "talk", "trade", "harm", "betray",
-                          "observe", "wait", "promise", "steal", "gift"];
+            let events = [
+                "move", "talk", "trade", "harm", "betray", "observe", "wait", "promise", "steal",
+                "gift",
+            ];
             let event_type = events[(rng_state as usize / 3) % events.len()];
             let ev_node = format!("warm_ev_{}_{}", tick, i);
-            warmup_edges.push(fabula_bench::PendingEdge::new_str(&ev_node, "eventType", event_type, edge_time));
-            warmup_edges.push(fabula_bench::PendingEdge::new_ref(&ev_node, "actor", &actor, edge_time));
+            warmup_edges.push(fabula_bench::PendingEdge::new_str(
+                &ev_node,
+                "eventType",
+                event_type,
+                edge_time,
+            ));
+            warmup_edges.push(fabula_bench::PendingEdge::new_ref(
+                &ev_node, "actor", &actor, edge_time,
+            ));
         }
         // Insert then notify
         for edge in &warmup_edges {
             edge.insert(&mut w.graph);
         }
-        w.graph.set_current_time(time + config.edges_per_tick as i64);
+        w.graph
+            .set_current_time(time + config.edges_per_tick as i64);
         for edge in &warmup_edges {
             edge.notify(&w.graph, &mut w.engine);
         }

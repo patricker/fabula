@@ -19,7 +19,7 @@
 //! | Surprise | SurpriseScorer | How unexpected was this? |
 
 use crate::tension::Trajectory;
-use fabula::engine::{TickDelta, PlantStatus};
+use fabula::engine::{PlantStatus, TickDelta};
 
 /// Configurable weights for each scoring signal.
 #[derive(Debug, Clone)]
@@ -164,7 +164,9 @@ pub fn tension_fit(actual: Trajectory, desired: Trajectory) -> f64 {
     match (actual, desired) {
         (Trajectory::Unknown, _) | (_, Trajectory::Unknown) => 0.0,
         (a, d) if a == d => 1.0,
-        (Trajectory::Rising, Trajectory::Falling) | (Trajectory::Falling, Trajectory::Rising) => -1.0,
+        (Trajectory::Rising, Trajectory::Falling) | (Trajectory::Falling, Trajectory::Rising) => {
+            -1.0
+        }
         (Trajectory::Peak, Trajectory::Valley) | (Trajectory::Valley, Trajectory::Peak) => -1.0,
         _ => 0.0,
     }
@@ -195,11 +197,7 @@ pub fn assemble_signals(
         resolutions: delta
             .completed
             .iter()
-            .filter(|name| {
-                plant_statuses
-                    .iter()
-                    .any(|p| &p.payoff_pattern == *name)
-            })
+            .filter(|name| plant_statuses.iter().any(|p| &p.payoff_pattern == *name))
             .count(),
         filo_violations,
         tension_fit: tension_fit(tension_trajectory, desired_trajectory),
@@ -232,7 +230,10 @@ mod tests {
             ..Default::default()
         };
         let result = score(&signals, &NarrativeWeights::default());
-        assert!(result.total < 0.0, "stalled patterns should produce negative score");
+        assert!(
+            result.total < 0.0,
+            "stalled patterns should produce negative score"
+        );
     }
 
     #[test]
@@ -288,9 +289,13 @@ mod tests {
             stale: true,
         }];
         let signals = assemble_signals(
-            &delta, &plants, 2,
-            Trajectory::Rising, Trajectory::Rising,
-            0.5, 0.3,
+            &delta,
+            &plants,
+            2,
+            Trajectory::Rising,
+            Trajectory::Rising,
+            0.5,
+            0.3,
         );
         assert_eq!(signals.advancements, 2);
         assert_eq!(signals.completions, 1);

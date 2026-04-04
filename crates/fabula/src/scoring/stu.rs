@@ -140,7 +140,11 @@ impl StuScorer {
     /// Matches whose pattern has not been observed get `stu_score = 1.0`
     /// (maximally unsurprising — no data to distinguish).
     #[allow(clippy::type_complexity)]
-    pub fn score<N: Debug + Clone + PartialEq, V: Debug + Clone + PartialEq, T: Debug + Clone + PartialEq>(
+    pub fn score<
+        N: Debug + Clone + PartialEq,
+        V: Debug + Clone + PartialEq,
+        T: Debug + Clone + PartialEq,
+    >(
         &self,
         matches_with_props: &[(Match<N, V, T>, Vec<String>)],
     ) -> Vec<StuScoredMatch<N, V, T>> {
@@ -173,15 +177,19 @@ impl StuScorer {
                 let mut prop_freqs: Vec<(String, f64)> = unique_props
                     .iter()
                     .map(|prop| {
-                        let count = table.property_counts.get(prop.as_str()).copied().unwrap_or(0);
-                        let freq =
-                            (count as f64 + 1.0) / (table.total_matches as f64 + vocab_size);
+                        let count = table
+                            .property_counts
+                            .get(prop.as_str())
+                            .copied()
+                            .unwrap_or(0);
+                        let freq = (count as f64 + 1.0) / (table.total_matches as f64 + vocab_size);
                         (prop.to_string(), freq)
                     })
                     .collect();
 
                 // Sort ascending — rarest properties first (for explainability)
-                prop_freqs.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
+                prop_freqs
+                    .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
                 let stu_score =
                     prop_freqs.iter().map(|(_, f)| f).sum::<f64>() / prop_freqs.len() as f64;
@@ -220,7 +228,6 @@ impl StuScorer {
         self.tables.clear();
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -283,7 +290,11 @@ mod tests {
         assert!(freq.is_some());
         let f = freq.unwrap();
         // Laplace: (0+1)/(10+1) = 1/11 ≈ 0.091 (V=1 distinct property)
-        assert!(f > 0.0, "novel property should have non-zero frequency: {}", f);
+        assert!(
+            f > 0.0,
+            "novel property should have non-zero frequency: {}",
+            f
+        );
         assert!(f < 0.2, "novel property should have low frequency: {}", f);
     }
 
@@ -293,17 +304,17 @@ mod tests {
 
         let m = (dummy_match("test"), vec![]);
         let scored = stu.score(&[m]);
-        assert_eq!(scored[0].stu_score, 1.0, "empty properties = maximally unsurprising");
+        assert_eq!(
+            scored[0].stu_score, 1.0,
+            "empty properties = maximally unsurprising"
+        );
     }
 
     #[test]
     fn stu_unobserved_pattern_gets_default_score() {
         let stu = StuScorer::new();
 
-        let m = (
-            dummy_match("unknown"),
-            vec!["some_prop".to_string()],
-        );
+        let m = (dummy_match("unknown"), vec!["some_prop".to_string()]);
         let scored = stu.score(&[m]);
         assert_eq!(scored[0].stu_score, 1.0, "unobserved pattern = no data");
     }
@@ -342,10 +353,7 @@ mod tests {
 
         let p1_props = vec!["a".to_string(), "b".to_string()];
         let p2_props = vec!["c".to_string()];
-        let batch: Vec<(&str, &[String])> = vec![
-            ("p1", &p1_props),
-            ("p2", &p2_props),
-        ];
+        let batch: Vec<(&str, &[String])> = vec![("p1", &p1_props), ("p2", &p2_props)];
         stu.observe_batch(&batch);
 
         assert_eq!(stu.match_count("p1"), 1);

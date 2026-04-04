@@ -137,8 +137,7 @@ pub fn incremental_winnow_7step_sequence<G: TestGraph>() {
     );
     // No completions at this step
     assert!(
-        !ev.iter()
-            .any(|e| matches!(e, SiftEvent::Completed { .. })),
+        !ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })),
         "step 5: should have no completions"
     );
 
@@ -155,8 +154,7 @@ pub fn incremental_winnow_7step_sequence<G: TestGraph>() {
         &Interval::open(6),
     );
     assert!(
-        !ev.iter()
-            .any(|e| matches!(e, SiftEvent::Completed { .. })),
+        !ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })),
         "step 6: bob harms alice -> should NOT complete (alice PMs are dead)"
     );
 
@@ -173,8 +171,7 @@ pub fn incremental_winnow_7step_sequence<G: TestGraph>() {
         &Interval::open(7),
     );
     assert!(
-        !ev.iter()
-            .any(|e| matches!(e, SiftEvent::Completed { .. })),
+        !ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })),
         "step 7: charlie harms alice -> should NOT complete (alice PMs are dead)"
     );
 }

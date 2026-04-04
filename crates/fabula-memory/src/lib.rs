@@ -106,7 +106,12 @@ impl MemGraph {
 
     /// Convenience: add a node-to-node edge.
     pub fn add_ref(&mut self, source: &str, label: &str, target_node: &str, start: i64) {
-        self.add_edge(source, label, MemValue::Node(target_node.to_string()), start);
+        self.add_edge(
+            source,
+            label,
+            MemValue::Node(target_node.to_string()),
+            start,
+        );
     }
 
     /// Convenience: add a node-to-string edge.

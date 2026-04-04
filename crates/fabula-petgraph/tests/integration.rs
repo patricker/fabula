@@ -22,20 +22,60 @@ fn hospitality_graph() -> Graph {
 
     // Event 1: Alice enters town
     g.add_node("ev1".into());
-    g.add_edge("ev1".into(), "eventType".into(), str_val("enterTown"), Interval::open(1));
-    g.add_edge("ev1".into(), "actor".into(), node_val("alice"), Interval::open(1));
+    g.add_edge(
+        "ev1".into(),
+        "eventType".into(),
+        str_val("enterTown"),
+        Interval::open(1),
+    );
+    g.add_edge(
+        "ev1".into(),
+        "actor".into(),
+        node_val("alice"),
+        Interval::open(1),
+    );
 
     // Event 2: Bob shows hospitality to Alice
     g.add_node("ev2".into());
-    g.add_edge("ev2".into(), "eventType".into(), str_val("showHospitality"), Interval::open(2));
-    g.add_edge("ev2".into(), "actor".into(), node_val("bob"), Interval::open(2));
-    g.add_edge("ev2".into(), "target".into(), node_val("alice"), Interval::open(2));
+    g.add_edge(
+        "ev2".into(),
+        "eventType".into(),
+        str_val("showHospitality"),
+        Interval::open(2),
+    );
+    g.add_edge(
+        "ev2".into(),
+        "actor".into(),
+        node_val("bob"),
+        Interval::open(2),
+    );
+    g.add_edge(
+        "ev2".into(),
+        "target".into(),
+        node_val("alice"),
+        Interval::open(2),
+    );
 
     // Event 3: Bob harms Alice
     g.add_node("ev3".into());
-    g.add_edge("ev3".into(), "eventType".into(), str_val("harm"), Interval::open(3));
-    g.add_edge("ev3".into(), "actor".into(), node_val("bob"), Interval::open(3));
-    g.add_edge("ev3".into(), "target".into(), node_val("alice"), Interval::open(3));
+    g.add_edge(
+        "ev3".into(),
+        "eventType".into(),
+        str_val("harm"),
+        Interval::open(3),
+    );
+    g.add_edge(
+        "ev3".into(),
+        "actor".into(),
+        node_val("bob"),
+        Interval::open(3),
+    );
+    g.add_edge(
+        "ev3".into(),
+        "target".into(),
+        node_val("alice"),
+        Interval::open(3),
+    );
 
     // Characters
     g.add_node("alice".into());
@@ -90,8 +130,18 @@ fn petgraph_batch_hospitality() {
 fn petgraph_batch_negation_blocks() {
     let mut g = hospitality_graph();
     // Alice leaves between events 1 and 3
-    g.add_edge("ev_leave".into(), "eventType".into(), str_val("leaveTown"), Interval::open(2));
-    g.add_edge("ev_leave".into(), "actor".into(), node_val("alice"), Interval::open(2));
+    g.add_edge(
+        "ev_leave".into(),
+        "eventType".into(),
+        str_val("leaveTown"),
+        Interval::open(2),
+    );
+    g.add_edge(
+        "ev_leave".into(),
+        "actor".into(),
+        node_val("alice"),
+        Interval::open(2),
+    );
 
     let mut engine: SiftEngineFor<Graph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
@@ -107,29 +157,87 @@ fn petgraph_incremental_three_stages() {
     // Stage 1
     g.add_node("alice".into());
     g.add_node("ev1".into());
-    g.add_edge("ev1".into(), "eventType".into(), str_val("enterTown"), Interval::open(1));
-    g.add_edge("ev1".into(), "actor".into(), node_val("alice"), Interval::open(1));
+    g.add_edge(
+        "ev1".into(),
+        "eventType".into(),
+        str_val("enterTown"),
+        Interval::open(1),
+    );
+    g.add_edge(
+        "ev1".into(),
+        "actor".into(),
+        node_val("alice"),
+        Interval::open(1),
+    );
     g.set_time(1);
-    let ev = engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &str_val("enterTown"), &Interval::open(1));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &str_val("enterTown"),
+        &Interval::open(1),
+    );
     assert!(ev.iter().any(|e| matches!(e, SiftEvent::Advanced { .. })));
 
     // Stage 2
     g.add_node("bob".into());
     g.add_node("ev2".into());
-    g.add_edge("ev2".into(), "eventType".into(), str_val("showHospitality"), Interval::open(2));
-    g.add_edge("ev2".into(), "actor".into(), node_val("bob"), Interval::open(2));
-    g.add_edge("ev2".into(), "target".into(), node_val("alice"), Interval::open(2));
+    g.add_edge(
+        "ev2".into(),
+        "eventType".into(),
+        str_val("showHospitality"),
+        Interval::open(2),
+    );
+    g.add_edge(
+        "ev2".into(),
+        "actor".into(),
+        node_val("bob"),
+        Interval::open(2),
+    );
+    g.add_edge(
+        "ev2".into(),
+        "target".into(),
+        node_val("alice"),
+        Interval::open(2),
+    );
     g.set_time(2);
-    let ev = engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(), &str_val("showHospitality"), &Interval::open(2));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &str_val("showHospitality"),
+        &Interval::open(2),
+    );
     assert!(ev.iter().any(|e| matches!(e, SiftEvent::Advanced { .. })));
 
     // Stage 3 → complete
     g.add_node("ev3".into());
-    g.add_edge("ev3".into(), "eventType".into(), str_val("harm"), Interval::open(3));
-    g.add_edge("ev3".into(), "actor".into(), node_val("bob"), Interval::open(3));
-    g.add_edge("ev3".into(), "target".into(), node_val("alice"), Interval::open(3));
+    g.add_edge(
+        "ev3".into(),
+        "eventType".into(),
+        str_val("harm"),
+        Interval::open(3),
+    );
+    g.add_edge(
+        "ev3".into(),
+        "actor".into(),
+        node_val("bob"),
+        Interval::open(3),
+    );
+    g.add_edge(
+        "ev3".into(),
+        "target".into(),
+        node_val("alice"),
+        Interval::open(3),
+    );
     g.set_time(3);
-    let ev = engine.on_edge_added(&g, &"ev3".into(), &"eventType".into(), &str_val("harm"), &Interval::open(3));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev3".into(),
+        &"eventType".into(),
+        &str_val("harm"),
+        &Interval::open(3),
+    );
     assert!(ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })));
 }
 
@@ -140,18 +248,37 @@ fn petgraph_single_stage_immediate() {
 
     let pattern = PatternBuilder::new("find_harm")
         .stage("e", |s| {
-            s.edge("e", "eventType".into(), str_val("harm"))
-                .edge_bind("e", "actor".into(), "attacker")
+            s.edge("e", "eventType".into(), str_val("harm")).edge_bind(
+                "e",
+                "actor".into(),
+                "attacker",
+            )
         })
         .build();
     engine.register(pattern);
 
     g.add_node("ev1".into());
     g.add_node("bob".into());
-    g.add_edge("ev1".into(), "eventType".into(), str_val("harm"), Interval::open(1));
-    g.add_edge("ev1".into(), "actor".into(), node_val("bob"), Interval::open(1));
+    g.add_edge(
+        "ev1".into(),
+        "eventType".into(),
+        str_val("harm"),
+        Interval::open(1),
+    );
+    g.add_edge(
+        "ev1".into(),
+        "actor".into(),
+        node_val("bob"),
+        Interval::open(1),
+    );
     g.set_time(1);
-    let ev = engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &str_val("harm"), &Interval::open(1));
+    let ev = engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &str_val("harm"),
+        &Interval::open(1),
+    );
     assert!(ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })));
 }
 

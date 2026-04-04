@@ -97,10 +97,34 @@ pub fn batch_incremental_negation_consistency<G: TestGraph>() {
     engine_inc.register(voh_pattern::<G>());
 
     let events = vec![
-        EventSpec { node: "ev1", event_type: "enterTown", str_edges: vec![], ref_edges: vec![("actor", "alice")], time: 1 },
-        EventSpec { node: "ev2", event_type: "showHospitality", str_edges: vec![], ref_edges: vec![("actor", "bob"), ("target", "alice")], time: 2 },
-        EventSpec { node: "ev_leave", event_type: "leaveTown", str_edges: vec![], ref_edges: vec![("actor", "alice")], time: 3 },
-        EventSpec { node: "ev3", event_type: "harm", str_edges: vec![], ref_edges: vec![("actor", "bob"), ("target", "alice")], time: 4 },
+        EventSpec {
+            node: "ev1",
+            event_type: "enterTown",
+            str_edges: vec![],
+            ref_edges: vec![("actor", "alice")],
+            time: 1,
+        },
+        EventSpec {
+            node: "ev2",
+            event_type: "showHospitality",
+            str_edges: vec![],
+            ref_edges: vec![("actor", "bob"), ("target", "alice")],
+            time: 2,
+        },
+        EventSpec {
+            node: "ev_leave",
+            event_type: "leaveTown",
+            str_edges: vec![],
+            ref_edges: vec![("actor", "alice")],
+            time: 3,
+        },
+        EventSpec {
+            node: "ev3",
+            event_type: "harm",
+            str_edges: vec![],
+            ref_edges: vec![("actor", "bob"), ("target", "alice")],
+            time: 4,
+        },
     ];
     let inc_count = feed_events_incremental(&mut g_inc, &mut engine_inc, &events);
     assert_eq!(
@@ -142,12 +166,48 @@ pub fn batch_incremental_multi_match_consistency<G: TestGraph>() {
     engine_inc.register(voh_pattern::<G>());
 
     let events = vec![
-        EventSpec { node: "ev1", event_type: "enterTown", str_edges: vec![], ref_edges: vec![("actor", "alice")], time: 1 },
-        EventSpec { node: "ev2", event_type: "showHospitality", str_edges: vec![], ref_edges: vec![("actor", "bob"), ("target", "alice")], time: 2 },
-        EventSpec { node: "ev3", event_type: "harm", str_edges: vec![], ref_edges: vec![("actor", "bob"), ("target", "alice")], time: 3 },
-        EventSpec { node: "ev4", event_type: "enterTown", str_edges: vec![], ref_edges: vec![("actor", "dave")], time: 4 },
-        EventSpec { node: "ev5", event_type: "showHospitality", str_edges: vec![], ref_edges: vec![("actor", "charlie"), ("target", "dave")], time: 5 },
-        EventSpec { node: "ev6", event_type: "harm", str_edges: vec![], ref_edges: vec![("actor", "charlie"), ("target", "dave")], time: 6 },
+        EventSpec {
+            node: "ev1",
+            event_type: "enterTown",
+            str_edges: vec![],
+            ref_edges: vec![("actor", "alice")],
+            time: 1,
+        },
+        EventSpec {
+            node: "ev2",
+            event_type: "showHospitality",
+            str_edges: vec![],
+            ref_edges: vec![("actor", "bob"), ("target", "alice")],
+            time: 2,
+        },
+        EventSpec {
+            node: "ev3",
+            event_type: "harm",
+            str_edges: vec![],
+            ref_edges: vec![("actor", "bob"), ("target", "alice")],
+            time: 3,
+        },
+        EventSpec {
+            node: "ev4",
+            event_type: "enterTown",
+            str_edges: vec![],
+            ref_edges: vec![("actor", "dave")],
+            time: 4,
+        },
+        EventSpec {
+            node: "ev5",
+            event_type: "showHospitality",
+            str_edges: vec![],
+            ref_edges: vec![("actor", "charlie"), ("target", "dave")],
+            time: 5,
+        },
+        EventSpec {
+            node: "ev6",
+            event_type: "harm",
+            str_edges: vec![],
+            ref_edges: vec![("actor", "charlie"), ("target", "dave")],
+            time: 6,
+        },
     ];
     let inc_count = feed_events_incremental(&mut g_inc, &mut engine_inc, &events);
     assert_eq!(
@@ -194,7 +254,9 @@ pub fn drain_completed_interleaved<G: TestGraph>() {
     );
     engine.register(
         PatternBuilder::new("find_betray")
-            .stage("e", |s| s.edge("e", "eventType".into(), G::str_val("betray")))
+            .stage("e", |s| {
+                s.edge("e", "eventType".into(), G::str_val("betray"))
+            })
             .build(),
     );
 

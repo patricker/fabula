@@ -56,7 +56,11 @@ impl SurpriseScorer {
     /// `baseline` is a probability in (0, 1] — e.g., 0.1 means "expected to
     /// match in 10% of observation rounds."
     pub fn set_baseline(&mut self, pattern_idx: usize, baseline: f64) {
-        assert!(baseline > 0.0 && baseline <= 1.0, "baseline must be in (0, 1], got {}", baseline);
+        assert!(
+            baseline > 0.0 && baseline <= 1.0,
+            "baseline must be in (0, 1], got {}",
+            baseline
+        );
         self.baselines.insert(pattern_idx, baseline);
     }
 
@@ -65,7 +69,13 @@ impl SurpriseScorer {
     /// Call this once per `evaluate()` call. Increments the round counter
     /// and counts each pattern that matched (at most once per pattern per round,
     /// so `p` stays in [0, 1] as a true probability).
-    pub fn observe<N: Debug + PartialEq, V: Debug + PartialEq, T: Debug + Clone + PartialEq, L, VV>(
+    pub fn observe<
+        N: Debug + PartialEq,
+        V: Debug + PartialEq,
+        T: Debug + Clone + PartialEq,
+        L,
+        VV,
+    >(
         &mut self,
         matches: &[Match<N, V, T>],
         patterns: &[Pattern<L, VV>],
@@ -113,7 +123,13 @@ impl SurpriseScorer {
     ///
     /// Returns one `ScoredMatch` per input match, annotated with the pattern's
     /// current surprise score. Patterns without a baseline get score 0.0.
-    pub fn score<N: Debug + Clone + PartialEq, V: Debug + Clone + PartialEq, T: Debug + Clone + PartialEq, L, VV>(
+    pub fn score<
+        N: Debug + Clone + PartialEq,
+        V: Debug + Clone + PartialEq,
+        T: Debug + Clone + PartialEq,
+        L,
+        VV,
+    >(
         &self,
         matches: &[Match<N, V, T>],
         patterns: &[Pattern<L, VV>],
@@ -122,9 +138,7 @@ impl SurpriseScorer {
             .iter()
             .map(|m| {
                 let idx = patterns.iter().position(|p| p.name == m.pattern);
-                let surprise = idx
-                    .and_then(|i| self.surprise_for(i))
-                    .unwrap_or(0.0);
+                let surprise = idx.and_then(|i| self.surprise_for(i)).unwrap_or(0.0);
                 ScoredMatch {
                     pattern: m.pattern.clone(),
                     pattern_idx: m.pattern_idx,
@@ -164,7 +178,6 @@ impl SurpriseScorer {
         self.counts.get(&pattern_idx).copied().unwrap_or(0)
     }
 }
-
 
 #[cfg(test)]
 mod tests {
@@ -341,7 +354,10 @@ mod tests {
         let scored = scorer.score(&to_score, &patterns);
 
         assert_eq!(scored.len(), 2);
-        assert!(scored[1].surprise > scored[0].surprise, "b should be more surprising than a");
+        assert!(
+            scored[1].surprise > scored[0].surprise,
+            "b should be more surprising than a"
+        );
     }
 
     #[test]

@@ -12,10 +12,21 @@ fn metric_before_gap_in_range() {
     g.set_time(3); // scan at t=3 to find ev1
 
     let pattern = PatternBuilder::new("test")
-        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("crisis".into())))
-        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into())))
-        .temporal_with_gap("e1", AllenRelation::Before, "e2",
-            MetricGap { min: Some(3.0), max: Some(10.0) })
+        .stage("e1", |s| {
+            s.edge("e1", "eventType".into(), MemValue::Str("crisis".into()))
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into()))
+        })
+        .temporal_with_gap(
+            "e1",
+            AllenRelation::Before,
+            "e2",
+            MetricGap {
+                min: Some(3.0),
+                max: Some(10.0),
+            },
+        )
         .build();
 
     // Use incremental: add edges at their respective times
@@ -23,13 +34,26 @@ fn metric_before_gap_in_range() {
     engine.register(pattern);
 
     g.set_time(3);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
-        &MemValue::Str("crisis".into()), &Interval::new(1, 4));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("crisis".into()),
+        &Interval::new(1, 4),
+    );
     g.set_time(10);
-    let events = engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(),
-        &MemValue::Str("betrayal".into()), &Interval::new(8, 12));
+    let events = engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &MemValue::Str("betrayal".into()),
+        &Interval::new(8, 12),
+    );
 
-    let completed = events.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).count();
+    let completed = events
+        .iter()
+        .filter(|e| matches!(e, SiftEvent::Completed { .. }))
+        .count();
     assert_eq!(completed, 1, "gap=4 within [3,10] → match");
 }
 
@@ -41,22 +65,46 @@ fn metric_before_gap_too_far() {
     g.add_edge_bounded("ev2", "eventType", MemValue::Str("betrayal".into()), 20, 25);
 
     let pattern = PatternBuilder::new("test")
-        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("crisis".into())))
-        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into())))
-        .temporal_with_gap("e1", AllenRelation::Before, "e2",
-            MetricGap { min: Some(3.0), max: Some(10.0) })
+        .stage("e1", |s| {
+            s.edge("e1", "eventType".into(), MemValue::Str("crisis".into()))
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into()))
+        })
+        .temporal_with_gap(
+            "e1",
+            AllenRelation::Before,
+            "e2",
+            MetricGap {
+                min: Some(3.0),
+                max: Some(10.0),
+            },
+        )
         .build();
 
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     g.set_time(3);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
-        &MemValue::Str("crisis".into()), &Interval::new(1, 4));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("crisis".into()),
+        &Interval::new(1, 4),
+    );
     g.set_time(22);
-    let events = engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(),
-        &MemValue::Str("betrayal".into()), &Interval::new(20, 25));
+    let events = engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &MemValue::Str("betrayal".into()),
+        &Interval::new(20, 25),
+    );
 
-    let completed = events.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).count();
+    let completed = events
+        .iter()
+        .filter(|e| matches!(e, SiftEvent::Completed { .. }))
+        .count();
     assert_eq!(completed, 0, "gap=16 exceeds max=10 → no match");
 }
 
@@ -68,22 +116,46 @@ fn metric_before_gap_too_close() {
     g.add_edge_bounded("ev2", "eventType", MemValue::Str("betrayal".into()), 5, 8);
 
     let pattern = PatternBuilder::new("test")
-        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("crisis".into())))
-        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into())))
-        .temporal_with_gap("e1", AllenRelation::Before, "e2",
-            MetricGap { min: Some(3.0), max: Some(10.0) })
+        .stage("e1", |s| {
+            s.edge("e1", "eventType".into(), MemValue::Str("crisis".into()))
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into()))
+        })
+        .temporal_with_gap(
+            "e1",
+            AllenRelation::Before,
+            "e2",
+            MetricGap {
+                min: Some(3.0),
+                max: Some(10.0),
+            },
+        )
         .build();
 
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     g.set_time(3);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(),
-        &MemValue::Str("crisis".into()), &Interval::new(1, 4));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &MemValue::Str("crisis".into()),
+        &Interval::new(1, 4),
+    );
     g.set_time(6);
-    let events = engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(),
-        &MemValue::Str("betrayal".into()), &Interval::new(5, 8));
+    let events = engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &MemValue::Str("betrayal".into()),
+        &Interval::new(5, 8),
+    );
 
-    let completed = events.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).count();
+    let completed = events
+        .iter()
+        .filter(|e| matches!(e, SiftEvent::Completed { .. }))
+        .count();
     assert_eq!(completed, 0, "gap=1 below min=3 → no match");
 }
 
@@ -98,18 +170,32 @@ fn metric_open_ended_skips_gap_check() {
     g.set_time(100);
 
     let pattern = PatternBuilder::new("test")
-        .stage("e1", |s| s.edge("e1", "eventType".into(), MemValue::Str("crisis".into())))
-        .stage("e2", |s| s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into())))
-        .temporal_with_gap("e1", AllenRelation::Before, "e2",
-            MetricGap { min: Some(3.0), max: Some(10.0) })
+        .stage("e1", |s| {
+            s.edge("e1", "eventType".into(), MemValue::Str("crisis".into()))
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "eventType".into(), MemValue::Str("betrayal".into()))
+        })
+        .temporal_with_gap(
+            "e1",
+            AllenRelation::Before,
+            "e2",
+            MetricGap {
+                min: Some(3.0),
+                max: Some(10.0),
+            },
+        )
         .build();
 
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     // Open-ended intervals: gap can't be computed (no end point).
     // Metric check skipped. Allen Before fallback (start comparison) passes.
-    assert_eq!(engine.evaluate(&g).len(), 1,
-        "open-ended intervals: metric check skipped, Allen fallback passes");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        1,
+        "open-ended intervals: metric check skipped, Allen fallback passes"
+    );
 }
 
 // ===========================================================================
@@ -165,8 +251,10 @@ fn cross_variant_constraint_between() {
     // Str is a different variant, so Num(0.0) < Str("5") due to discriminant ordering
     // and Str("5") > Num(10.0) for the same reason. So >= lo is true, <= hi is false.
     let c = ValueConstraint::Between(MemValue::Num(0.0), MemValue::Num(10.0));
-    assert!(!c.matches(&MemValue::Str("5".into())),
-        "cross-variant Between comparison: Str is not between two Nums");
+    assert!(
+        !c.matches(&MemValue::Str("5".into())),
+        "cross-variant Between comparison: Str is not between two Nums"
+    );
 }
 
 // ===========================================================================
@@ -199,7 +287,11 @@ fn unless_global_single_stage_works() {
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     // B7 fixed: unless_global on single-stage uses open-ended window → pardon blocks
-    assert_eq!(matches.len(), 0, "pardon should block the crime via unless_global");
+    assert_eq!(
+        matches.len(),
+        0,
+        "pardon should block the crime via unless_global"
+    );
 }
 
 #[test]
@@ -231,8 +323,11 @@ fn negation_before_window_start_does_not_block() {
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
     // Pardon at t=0 is before e1 at t=1, so it's outside the window
-    assert_eq!(engine.evaluate(&g).len(), 1,
-        "negation event before window start should not block");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        1,
+        "negation event before window start should not block"
+    );
 }
 
 #[test]
@@ -268,13 +363,19 @@ fn negation_at_exact_window_boundary() {
     let matches = engine.evaluate(&g);
     // Pardon at t=1, window start is t=1. With exclusive start (>), 1 > 1 is false.
     // Pardon is NOT in the window → match succeeds.
-    assert_eq!(matches.len(), 1,
-        "event at exact window start is outside exclusive window — match succeeds");
+    assert_eq!(
+        matches.len(),
+        1,
+        "event at exact window start is outside exclusive window — match succeeds"
+    );
 
     // But a pardon at t=2 (strictly between 1 and 3) DOES block:
     g.add_str("ev_pardon2", "eventType", "pardon", 2);
     g.add_ref("ev_pardon2", "actor", "alice", 2);
     let matches2 = engine.evaluate(&g);
-    assert_eq!(matches2.len(), 0, "pardon at t=2 is strictly between 1 and 3 — blocks match");
+    assert_eq!(
+        matches2.len(),
+        0,
+        "pardon at t=2 is strictly between 1 and 3 — blocks match"
+    );
 }
-

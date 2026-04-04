@@ -212,24 +212,56 @@ pub fn incremental_choice_exclusive_multistage<G: TestGraph>() {
     g.add_str_edge("ev1", "eventType", "start_a", 1);
     g.add_str_edge("ev2", "eventType", "start_b", 2);
     g.set_current_time(2);
-    engine.on_edge_added(&g, &"ev1".into(), &"eventType".into(), &G::str_val("start_a"), &Interval::open(1));
-    engine.on_edge_added(&g, &"ev2".into(), &"eventType".into(), &G::str_val("start_b"), &Interval::open(2));
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"eventType".into(),
+        &G::str_val("start_a"),
+        &Interval::open(1),
+    );
+    engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"eventType".into(),
+        &G::str_val("start_b"),
+        &Interval::open(2),
+    );
 
     // Both should have active PMs
-    let active = engine.partial_matches().iter().filter(|pm| pm.state == MatchState::Active).count();
+    let active = engine
+        .partial_matches()
+        .iter()
+        .filter(|pm| pm.state == MatchState::Active)
+        .count();
     assert_eq!(active, 2, "both paths should have active PMs");
 
     // Path A completes
     g.add_str_edge("ev3", "eventType", "end_a", 5);
     g.set_current_time(5);
-    let events = engine.on_edge_added(&g, &"ev3".into(), &"eventType".into(), &G::str_val("end_a"), &Interval::open(5));
+    let events = engine.on_edge_added(
+        &g,
+        &"ev3".into(),
+        &"eventType".into(),
+        &G::str_val("end_a"),
+        &Interval::open(5),
+    );
 
-    let completed: Vec<_> = events.iter().filter(|e| matches!(e, SiftEvent::Completed { .. })).collect();
+    let completed: Vec<_> = events
+        .iter()
+        .filter(|e| matches!(e, SiftEvent::Completed { .. }))
+        .collect();
     assert_eq!(completed.len(), 1);
 
     // Path B's PM should be killed by the exclusive group
-    let active_after = engine.partial_matches().iter().filter(|pm| pm.state == MatchState::Active).count();
-    assert_eq!(active_after, 0, "path_b's PM should be killed by exclusive group");
+    let active_after = engine
+        .partial_matches()
+        .iter()
+        .filter(|pm| pm.state == MatchState::Active)
+        .count();
+    assert_eq!(
+        active_after, 0,
+        "path_b's PM should be killed by exclusive group"
+    );
 }
 
 // ---------------------------------------------------------------------------

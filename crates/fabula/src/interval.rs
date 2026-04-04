@@ -20,10 +20,26 @@ pub trait NumericTime {
     fn as_f64(&self) -> f64;
 }
 
-impl NumericTime for i64 { fn as_f64(&self) -> f64 { *self as f64 } }
-impl NumericTime for i32 { fn as_f64(&self) -> f64 { *self as f64 } }
-impl NumericTime for f64 { fn as_f64(&self) -> f64 { *self } }
-impl NumericTime for f32 { fn as_f64(&self) -> f64 { *self as f64 } }
+impl NumericTime for i64 {
+    fn as_f64(&self) -> f64 {
+        *self as f64
+    }
+}
+impl NumericTime for i32 {
+    fn as_f64(&self) -> f64 {
+        *self as f64
+    }
+}
+impl NumericTime for f64 {
+    fn as_f64(&self) -> f64 {
+        *self
+    }
+}
+impl NumericTime for f32 {
+    fn as_f64(&self) -> f64 {
+        *self as f64
+    }
+}
 
 /// A time interval `[start, end)`. If `end` is `None`, the interval is open-ended
 /// (still active / ongoing).
@@ -157,12 +173,8 @@ impl<T: Ord + Clone + Sub<Output = T> + NumericTime> Interval<T> {
                 let b_end = other.end.as_ref()?;
                 Some((b_end.clone() - self.start.clone()).as_f64())
             }
-            During => {
-                Some((self.start.clone() - other.start.clone()).as_f64())
-            }
-            Contains => {
-                Some((other.start.clone() - self.start.clone()).as_f64())
-            }
+            During => Some((self.start.clone() - other.start.clone()).as_f64()),
+            Contains => Some((other.start.clone() - self.start.clone()).as_f64()),
             Starts => {
                 let a_end = self.end.as_ref()?;
                 let b_end = other.end.as_ref()?;
@@ -173,12 +185,8 @@ impl<T: Ord + Clone + Sub<Output = T> + NumericTime> Interval<T> {
                 let b_end = other.end.as_ref()?;
                 Some((a_end.clone() - b_end.clone()).as_f64())
             }
-            Finishes => {
-                Some((self.start.clone() - other.start.clone()).as_f64())
-            }
-            FinishedBy => {
-                Some((other.start.clone() - self.start.clone()).as_f64())
-            }
+            Finishes => Some((self.start.clone() - other.start.clone()).as_f64()),
+            FinishedBy => Some((other.start.clone() - self.start.clone()).as_f64()),
         }
     }
 }

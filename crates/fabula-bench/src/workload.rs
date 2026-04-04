@@ -107,8 +107,16 @@ impl Rng {
 /// Event types used in workload generation.
 const COMMON_EVENTS: &[&str] = &["move", "talk", "trade", "observe", "wait"];
 const RARE_EVENTS: &[&str] = &[
-    "harm", "betray", "showHospitality", "promise", "breakPromise",
-    "forgive", "steal", "gift", "threaten", "flee",
+    "harm",
+    "betray",
+    "showHospitality",
+    "promise",
+    "breakPromise",
+    "forgive",
+    "steal",
+    "gift",
+    "threaten",
+    "flee",
 ];
 
 fn all_events() -> Vec<&'static str> {
@@ -119,10 +127,8 @@ fn all_events() -> Vec<&'static str> {
 
 fn character_name(i: usize) -> String {
     const NAMES: &[&str] = &[
-        "alice", "bob", "charlie", "diana", "eve",
-        "frank", "grace", "hector", "iris", "jack",
-        "kate", "leon", "mira", "nolan", "olive",
-        "pedro", "quinn", "rosa", "sam", "tara",
+        "alice", "bob", "charlie", "diana", "eve", "frank", "grace", "hector", "iris", "jack",
+        "kate", "leon", "mira", "nolan", "olive", "pedro", "quinn", "rosa", "sam", "tara",
     ];
     if i < NAMES.len() {
         NAMES[i].to_string()
@@ -155,24 +161,17 @@ fn gen_pattern<G: TestGraph>(
 
     if with_negation && stages >= 2 {
         let neg_event = event_types[rng.usize(event_types.len())];
-        builder = builder.unless_between(
-            &stage_anchors[0],
-            stage_anchors.last().unwrap(),
-            |neg| {
-                neg.edge("neg_ev", "eventType".to_string(), G::str_val(neg_event))
-                    .edge_bind("neg_ev", "actor".to_string(), "actor")
-            },
-        );
+        builder = builder.unless_between(&stage_anchors[0], stage_anchors.last().unwrap(), |neg| {
+            neg.edge("neg_ev", "eventType".to_string(), G::str_val(neg_event))
+                .edge_bind("neg_ev", "actor".to_string(), "actor")
+        });
     }
 
     builder.build()
 }
 
 /// Generate a single-stage pattern (high fanout — matches many edges).
-fn gen_single_stage_pattern<G: TestGraph>(
-    name: &str,
-    event_type: &str,
-) -> Pattern<String, G::V> {
+fn gen_single_stage_pattern<G: TestGraph>(name: &str, event_type: &str) -> Pattern<String, G::V> {
     PatternBuilder::<String, G::V>::new(name)
         .stage("e0", |s| {
             s.edge("e0", "eventType".to_string(), G::str_val(event_type))
@@ -193,10 +192,7 @@ fn gen_never_match_pattern<G: TestGraph>(name: &str, i: usize) -> Pattern<String
 }
 
 /// Generate a many-binding pattern (4+ bindings to stress HashMap cloning).
-fn gen_many_binding_pattern<G: TestGraph>(
-    name: &str,
-    event_type: &str,
-) -> Pattern<String, G::V> {
+fn gen_many_binding_pattern<G: TestGraph>(name: &str, event_type: &str) -> Pattern<String, G::V> {
     PatternBuilder::<String, G::V>::new(name)
         .stage("e0", |s| {
             s.edge("e0", "eventType".to_string(), G::str_val(event_type))
@@ -314,7 +310,12 @@ pub fn build_isolated_workload<G: TestGraph>(config: &WorkloadConfig) -> Isolate
         };
 
         let ev_node = format!("bench_ev_{}", i);
-        pending_edges.push(PendingEdge::new_str(&ev_node, "eventType", event_type, time));
+        pending_edges.push(PendingEdge::new_str(
+            &ev_node,
+            "eventType",
+            event_type,
+            time,
+        ));
         pending_edges.push(PendingEdge::new_ref(&ev_node, "actor", &actor, time));
 
         if rng.f64() < 0.4 {
@@ -377,10 +378,7 @@ pub fn build_gm_workload<G: TestGraph>() -> GmWorkload<G> {
 
     // -- Category 2: High-fanout single-stage (6 patterns) --
     for (i, &evt) in COMMON_EVENTS.iter().enumerate().take(5) {
-        engine.register(gen_single_stage_pattern::<G>(
-            &format!("fanout_{}", i),
-            evt,
-        ));
+        engine.register(gen_single_stage_pattern::<G>(&format!("fanout_{}", i), evt));
     }
     engine.register(gen_single_stage_pattern::<G>("fanout_5", "harm"));
 
@@ -456,7 +454,12 @@ pub fn build_gm_workload<G: TestGraph>() -> GmWorkload<G> {
             let ev_node = format!("gm_ev_{}", event_counter);
             event_counter += 1;
 
-            edges.push(PendingEdge::new_str(&ev_node, "eventType", event_type, time));
+            edges.push(PendingEdge::new_str(
+                &ev_node,
+                "eventType",
+                event_type,
+                time,
+            ));
             edges.push(PendingEdge::new_ref(&ev_node, "actor", &actor, time));
 
             // 40% of events have a target (another character)
