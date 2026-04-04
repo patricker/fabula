@@ -69,11 +69,21 @@ impl TypeMapper for MemMapper {
     type L = String;
     type V = MemValue;
 
-    fn label(&self, s: &str) -> Result<String, String> { Ok(s.to_string()) }
-    fn string_value(&self, s: &str) -> Result<MemValue, String> { Ok(MemValue::Str(s.to_string())) }
-    fn num_value(&self, n: f64) -> Result<MemValue, String> { Ok(MemValue::Num(n)) }
-    fn bool_value(&self, b: bool) -> Result<MemValue, String> { Ok(MemValue::Bool(b)) }
-    fn node_ref(&self, name: &str) -> Result<MemValue, String> { Ok(MemValue::Node(name.to_string())) }
+    fn label(&self, s: &str) -> Result<String, String> {
+        Ok(s.to_string())
+    }
+    fn string_value(&self, s: &str) -> Result<MemValue, String> {
+        Ok(MemValue::Str(s.to_string()))
+    }
+    fn num_value(&self, n: f64) -> Result<MemValue, String> {
+        Ok(MemValue::Num(n))
+    }
+    fn bool_value(&self, b: bool) -> Result<MemValue, String> {
+        Ok(MemValue::Bool(b))
+    }
+    fn node_ref(&self, name: &str) -> Result<MemValue, String> {
+        Ok(MemValue::Node(name.to_string()))
+    }
 }
 
 // ---------------------------------------------------------------------------
@@ -110,6 +120,7 @@ pub fn compile_pattern_body_with<M: TypeMapper>(
         temporals: body.temporals.clone(),
         metadata: body.metadata.clone(),
         deadline: body.deadline,
+        unordered_groups: body.unordered_groups.clone(),
     };
     compile_pattern_with(&ast, mapper)
 }
@@ -127,12 +138,36 @@ pub fn compile_pattern_with<M: TypeMapper>(
     // Track variables bound across stages
     let mut bound_vars: HashSet<String> = HashSet::new();
 
-    for stage in &ast.stages {
+    // Pre-collect bindings from concurrent group siblings so scoping is
+    // symmetric within a group (order-independent).
+    let mut group_prebound: HashMap<usize, HashSet<String>> = HashMap::new();
+    for group in &ast.unordered_groups {
+        let mut group_vars = HashSet::new();
+        for &si in group {
+            if let Some(stage) = ast.stages.get(si) {
+                group_vars.insert(stage.anchor.clone());
+                for clause in &stage.clauses {
+                    if let ClauseTarget::Bind(ref var) = clause.target {
+                        group_vars.insert(var.clone());
+                    }
+                }
+            }
+        }
+        for &si in group {
+            group_prebound.insert(si, group_vars.clone());
+        }
+    }
+
+    for (stage_idx, stage) in ast.stages.iter().enumerate() {
         let anchor = stage.anchor.clone();
 
-        // Stage anchor is implicitly in scope within its clauses
+        // Stage anchor is implicitly in scope within its clauses.
+        // For concurrent group members, sibling bindings are also in scope.
         let mut stage_scope = bound_vars.clone();
         stage_scope.insert(anchor.clone());
+        if let Some(sibling_vars) = group_prebound.get(&stage_idx) {
+            stage_scope.extend(sibling_vars.iter().cloned());
+        }
 
         // Validate ?var sources are bound
         validate_clause_sources(&stage.clauses, &stage_scope)?;
@@ -167,6 +202,28 @@ pub fn compile_pattern_with<M: TypeMapper>(
         // Negation clauses can reference bound vars from completed stages
         validate_clause_sources(&neg.clauses, &bound_vars)?;
 
+        // Reject unless_between where both anchors are in the same concurrent group
+        if let NegationKind::Between(start, end) = &neg.kind {
+            for group in &ast.unordered_groups {
+                let start_in =
+                    group.iter().any(|&i| ast.stages.get(i).is_some_and(|s| s.anchor == *start));
+                let end_in =
+                    group.iter().any(|&i| ast.stages.get(i).is_some_and(|s| s.anchor == *end));
+                if start_in && end_in {
+                    return Err(ParseError {
+                        line: 0,
+                        column: 0,
+                        span: (0, 0),
+                        message: format!(
+                            "unless_between anchors '{}' and '{}' are in the same concurrent group. \
+                             Temporal ordering between concurrent stages is undefined.",
+                            start, end
+                        ),
+                    });
+                }
+            }
+        }
+
         let clauses = neg.clauses.clone();
         builder = match &neg.kind {
             NegationKind::Between(start, end) => {
@@ -175,9 +232,7 @@ pub fn compile_pattern_with<M: TypeMapper>(
             NegationKind::After(start) => {
                 builder.unless_after(start, |n| build_negation(n, &clauses, mapper))
             }
-            NegationKind::Global => {
-                builder.unless_global(|n| build_negation(n, &clauses, mapper))
-            }
+            NegationKind::Global => builder.unless_global(|n| build_negation(n, &clauses, mapper)),
         };
     }
 
@@ -211,14 +266,18 @@ pub fn compile_pattern_with<M: TypeMapper>(
     if let Some(deadline) = ast.deadline {
         if deadline < 1.0 {
             return Err(ParseError {
-                line: 0, column: 0, span: (0, 0),
+                line: 0,
+                column: 0,
+                span: (0, 0),
                 message: format!("deadline must be a positive integer, got {}", deadline),
             });
         }
         builder = builder.deadline(deadline as u64);
     }
 
-    Ok(builder.build())
+    let mut pattern = builder.build();
+    pattern.unordered_groups = ast.unordered_groups.clone();
+    Ok(pattern)
 }
 
 /// Validate that all `?var` sources in clauses reference bound variables.
@@ -319,27 +378,45 @@ fn add_clause_to_stage<M: TypeMapper>(
     let source = &clause.source;
     // Unwrap mapper results — validation errors in mapper are propagated
     // at a higher level; within the builder callback we cannot return Result.
-    let label = mapper.label(&clause.label).expect("label mapping failed in stage builder");
+    let label = mapper
+        .label(&clause.label)
+        .expect("label mapping failed in stage builder");
 
     match &clause.target {
         ClauseTarget::LiteralStr(val) => {
-            let v = mapper.string_value(val).expect("string_value mapping failed");
-            if clause.negated { s.not_edge(source, label, v) } else { s.edge(source, label, v) }
+            let v = mapper
+                .string_value(val)
+                .expect("string_value mapping failed");
+            if clause.negated {
+                s.not_edge(source, label, v)
+            } else {
+                s.edge(source, label, v)
+            }
         }
         ClauseTarget::LiteralNum(val) => {
             let v = mapper.num_value(*val).expect("num_value mapping failed");
-            if clause.negated { s.not_edge(source, label, v) } else { s.edge(source, label, v) }
+            if clause.negated {
+                s.not_edge(source, label, v)
+            } else {
+                s.edge(source, label, v)
+            }
         }
         ClauseTarget::LiteralBool(val) => {
             let v = mapper.bool_value(*val).expect("bool_value mapping failed");
-            if clause.negated { s.not_edge(source, label, v) } else { s.edge(source, label, v) }
+            if clause.negated {
+                s.not_edge(source, label, v)
+            } else {
+                s.edge(source, label, v)
+            }
         }
-        ClauseTarget::Bind(var) => {
-            s.edge_bind(source, label, var)
-        }
+        ClauseTarget::Bind(var) => s.edge_bind(source, label, var),
         ClauseTarget::NodeRef(node) => {
             let v = mapper.node_ref(node).expect("node_ref mapping failed");
-            if clause.negated { s.not_edge(source, label, v) } else { s.edge(source, label, v) }
+            if clause.negated {
+                s.not_edge(source, label, v)
+            } else {
+                s.edge(source, label, v)
+            }
         }
         ClauseTarget::Constraint(op, val) => {
             let constraint = make_constraint_with(mapper, *op, val);
@@ -369,11 +446,15 @@ fn add_clause_to_negation<M: TypeMapper>(
     mapper: &M,
 ) -> NegationBuilder<M::L, M::V> {
     let source = &clause.source;
-    let label = mapper.label(&clause.label).expect("label mapping failed in negation builder");
+    let label = mapper
+        .label(&clause.label)
+        .expect("label mapping failed in negation builder");
 
     match &clause.target {
         ClauseTarget::LiteralStr(val) => {
-            let v = mapper.string_value(val).expect("string_value mapping failed");
+            let v = mapper
+                .string_value(val)
+                .expect("string_value mapping failed");
             n.edge(source, label, v)
         }
         ClauseTarget::LiteralNum(val) => {
@@ -384,9 +465,7 @@ fn add_clause_to_negation<M: TypeMapper>(
             let v = mapper.bool_value(*val).expect("bool_value mapping failed");
             n.edge(source, label, v)
         }
-        ClauseTarget::Bind(var) => {
-            n.edge_bind(source, label, var)
-        }
+        ClauseTarget::Bind(var) => n.edge_bind(source, label, var),
         ClauseTarget::NodeRef(node) => {
             let v = mapper.node_ref(node).expect("node_ref mapping failed");
             n.edge(source, label, v)
@@ -408,8 +487,12 @@ fn make_constraint_with<M: TypeMapper>(
     val: &ConstraintValue,
 ) -> ValueConstraint<M::V> {
     let v = match val {
-        ConstraintValue::Num(n) => mapper.num_value(*n).expect("num_value mapping failed in constraint"),
-        ConstraintValue::Str(s) => mapper.string_value(s).expect("string_value mapping failed in constraint"),
+        ConstraintValue::Num(n) => mapper
+            .num_value(*n)
+            .expect("num_value mapping failed in constraint"),
+        ConstraintValue::Str(s) => mapper
+            .string_value(s)
+            .expect("string_value mapping failed in constraint"),
     };
     match op {
         ConstraintOp::Eq => ValueConstraint::Eq(v),
@@ -466,31 +549,45 @@ pub fn compile_compose_with<M: TypeMapper>(
     };
 
     match &ast.body {
-        ComposeBody::Sequence { left, right, shared } => {
+        ComposeBody::Sequence {
+            left,
+            right,
+            shared,
+        } => {
             let a = resolve(left)?;
             let b = resolve(right)?;
             let shared_refs: Vec<&str> = shared.iter().map(|s| s.as_str()).collect();
             Ok(vec![compose::sequence(&ast.name, a, b, &shared_refs)])
         }
         ComposeBody::Choice { alternatives } => {
-            let pats = alternatives.iter()
+            let pats = alternatives
+                .iter()
                 .map(|name| resolve(name))
                 .collect::<Result<Vec<_>, _>>()?;
             Ok(compose::choice(&ast.name, &pats, true))
         }
-        ComposeBody::Repeat { pattern, min, max, shared } => {
+        ComposeBody::Repeat {
+            pattern,
+            min,
+            max,
+            shared,
+        } => {
             let p = resolve(pattern)?;
             let shared_refs: Vec<&str> = shared.iter().map(|s| s.as_str()).collect();
             if *min < 1 {
                 return Err(ParseError {
-                    line: 0, column: 0, span: (0, 0),
+                    line: 0,
+                    column: 0,
+                    span: (0, 0),
                     message: "repeat count must be at least 1".to_string(),
                 });
             }
             if let Some(max_val) = max {
                 if *max_val < *min {
                     return Err(ParseError {
-                        line: 0, column: 0, span: (0, 0),
+                        line: 0,
+                        column: 0,
+                        span: (0, 0),
                         message: format!("repeat max ({}) must be >= min ({})", max_val, min),
                     });
                 }
@@ -499,7 +596,13 @@ pub fn compile_compose_with<M: TypeMapper>(
             if *max == Some(*min) {
                 Ok(vec![compose::repeat(&ast.name, p, *min, &shared_refs)])
             } else {
-                Ok(vec![compose::repeat_range(&ast.name, p, *min, *max, &shared_refs)])
+                Ok(vec![compose::repeat_range(
+                    &ast.name,
+                    p,
+                    *min,
+                    *max,
+                    &shared_refs,
+                )])
             }
         }
     }
@@ -540,28 +643,57 @@ pub fn compile_graph(ast: &GraphAst) -> fabula_memory::MemGraph {
         match &edge.target {
             EdgeTarget::Str(val) => {
                 if let Some(end) = edge.time_end {
-                    graph.add_edge_bounded(&edge.source, &edge.label, MemValue::Str(val.clone()), edge.time_start, end);
+                    graph.add_edge_bounded(
+                        &edge.source,
+                        &edge.label,
+                        MemValue::Str(val.clone()),
+                        edge.time_start,
+                        end,
+                    );
                 } else {
                     graph.add_str(&edge.source, &edge.label, val, edge.time_start);
                 }
             }
             EdgeTarget::Num(val) => {
                 if let Some(end) = edge.time_end {
-                    graph.add_edge_bounded(&edge.source, &edge.label, MemValue::Num(*val), edge.time_start, end);
+                    graph.add_edge_bounded(
+                        &edge.source,
+                        &edge.label,
+                        MemValue::Num(*val),
+                        edge.time_start,
+                        end,
+                    );
                 } else {
                     graph.add_num(&edge.source, &edge.label, *val, edge.time_start);
                 }
             }
             EdgeTarget::Bool(val) => {
                 if let Some(end) = edge.time_end {
-                    graph.add_edge_bounded(&edge.source, &edge.label, MemValue::Bool(*val), edge.time_start, end);
+                    graph.add_edge_bounded(
+                        &edge.source,
+                        &edge.label,
+                        MemValue::Bool(*val),
+                        edge.time_start,
+                        end,
+                    );
                 } else {
-                    graph.add_edge(&edge.source, &edge.label, MemValue::Bool(*val), edge.time_start);
+                    graph.add_edge(
+                        &edge.source,
+                        &edge.label,
+                        MemValue::Bool(*val),
+                        edge.time_start,
+                    );
                 }
             }
             EdgeTarget::NodeRef(node) => {
                 if let Some(end) = edge.time_end {
-                    graph.add_edge_bounded(&edge.source, &edge.label, MemValue::Node(node.clone()), edge.time_start, end);
+                    graph.add_edge_bounded(
+                        &edge.source,
+                        &edge.label,
+                        MemValue::Node(node.clone()),
+                        edge.time_start,
+                        end,
+                    );
                 } else {
                     graph.add_ref(&edge.source, &edge.label, node, edge.time_start);
                 }
@@ -583,8 +715,8 @@ pub fn compile_graph(ast: &GraphAst) -> fabula_memory::MemGraph {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::parser::Parser;
     use crate::lexer::Lexer;
+    use crate::parser::Parser;
 
     fn parse_ast(input: &str) -> PatternAst {
         let tokens = Lexer::new(input).tokenize().unwrap();
@@ -690,10 +822,18 @@ mod tests {
                 _ => Err(format!("unknown predicate '{}'", s)),
             }
         }
-        fn string_value(&self, s: &str) -> Result<String, String> { Ok(s.to_string()) }
-        fn num_value(&self, n: f64) -> Result<String, String> { Ok(n.to_string()) }
-        fn bool_value(&self, b: bool) -> Result<String, String> { Ok(b.to_string()) }
-        fn node_ref(&self, name: &str) -> Result<String, String> { Ok(name.to_string()) }
+        fn string_value(&self, s: &str) -> Result<String, String> {
+            Ok(s.to_string())
+        }
+        fn num_value(&self, n: f64) -> Result<String, String> {
+            Ok(n.to_string())
+        }
+        fn bool_value(&self, b: bool) -> Result<String, String> {
+            Ok(b.to_string())
+        }
+        fn node_ref(&self, name: &str) -> Result<String, String> {
+            Ok(name.to_string())
+        }
     }
 
     #[test]
@@ -734,7 +874,10 @@ mod tests {
         }"#;
         let ast = parse_ast(input);
         assert_eq!(ast.metadata.len(), 2);
-        assert_eq!(ast.metadata[0], ("severity".to_string(), "high".to_string()));
+        assert_eq!(
+            ast.metadata[0],
+            ("severity".to_string(), "high".to_string())
+        );
         assert_eq!(ast.metadata[1], ("mitre".to_string(), "T1078".to_string()));
 
         let pattern = compile_pattern(&ast).unwrap();
@@ -885,10 +1028,14 @@ mod tests {
                 op_str
             );
             let ast = parse_ast(&input);
-            assert!(matches!(
-                &ast.stages[1].clauses[0].target,
-                ClauseTarget::ConstraintVar(op, var) if *op == expected_op && var == "v"
-            ), "failed for operator {}", op_str);
+            assert!(
+                matches!(
+                    &ast.stages[1].clauses[0].target,
+                    ClauseTarget::ConstraintVar(op, var) if *op == expected_op && var == "v"
+                ),
+                "failed for operator {}",
+                op_str
+            );
         }
     }
 
@@ -914,5 +1061,127 @@ mod tests {
         let result = compile_pattern(&parse_ast(input));
         assert!(result.is_err());
         assert!(result.unwrap_err().message.contains("negated constraints"));
+    }
+
+    // -----------------------------------------------------------------------
+    // Concurrent (unordered) groups
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn concurrent_parsed_and_compiled() {
+        let input = r#"pattern test {
+            stage setup { setup.type = "start" }
+            concurrent {
+                stage a { a.type = "alpha" }
+                stage b { b.type = "beta" }
+            }
+            stage end { end.type = "finish" }
+        }"#;
+        let ast = parse_ast(input);
+        assert_eq!(ast.stages.len(), 4); // setup, a, b, end
+        assert_eq!(ast.unordered_groups.len(), 1);
+        assert_eq!(ast.unordered_groups[0], vec![1, 2]); // a and b
+
+        let pattern = compile_pattern(&ast).unwrap();
+        assert_eq!(pattern.stages.len(), 4);
+        assert_eq!(pattern.unordered_groups.len(), 1);
+        assert_eq!(pattern.unordered_groups[0], vec![1, 2]);
+    }
+
+    #[test]
+    fn concurrent_only_group() {
+        let input = r#"pattern test {
+            concurrent {
+                stage a { a.type = "alpha" }
+                stage b { b.type = "beta" }
+            }
+        }"#;
+        let ast = parse_ast(input);
+        assert_eq!(ast.stages.len(), 2);
+        assert_eq!(ast.unordered_groups, vec![vec![0, 1]]);
+    }
+
+    #[test]
+    fn concurrent_multiple_groups() {
+        let input = r#"pattern test {
+            concurrent {
+                stage a { a.type = "alpha" }
+                stage b { b.type = "beta" }
+            }
+            stage mid { mid.type = "mid" }
+            concurrent {
+                stage c { c.type = "gamma" }
+                stage d { d.type = "delta" }
+            }
+        }"#;
+        let ast = parse_ast(input);
+        assert_eq!(ast.stages.len(), 5);
+        assert_eq!(ast.unordered_groups.len(), 2);
+        assert_eq!(ast.unordered_groups[0], vec![0, 1]);
+        assert_eq!(ast.unordered_groups[1], vec![3, 4]);
+    }
+
+    #[test]
+    fn concurrent_unless_between_same_group_rejected() {
+        let input = r#"pattern bad {
+            concurrent {
+                stage a { a.type = "alpha" }
+                stage b { b.type = "beta" }
+            }
+            unless between a b {
+                mid.type = "block"
+            }
+        }"#;
+        let result = compile_pattern(&parse_ast(input));
+        assert!(result.is_err());
+        assert!(result
+            .unwrap_err()
+            .message
+            .contains("same concurrent group"));
+    }
+
+    #[test]
+    fn concurrent_unless_between_different_groups_ok() {
+        let input = r#"pattern ok {
+            stage setup { setup.type = "start" }
+            concurrent {
+                stage a { a.type = "alpha" }
+                stage b { b.type = "beta" }
+            }
+            unless between setup a {
+                mid.type = "block"
+            }
+        }"#;
+        let result = compile_pattern(&parse_ast(input));
+        assert!(result.is_ok());
+    }
+
+    #[test]
+    fn concurrent_dsl_evaluate() {
+        let doc = crate::parse_document(
+            r#"
+            pattern test {
+                concurrent {
+                    stage a { a.type = "alpha" }
+                    stage b { b.type = "beta" }
+                }
+            }
+
+            graph {
+                @1 ev1.type = "beta"
+                @2 ev2.type = "alpha"
+                now = 10
+            }
+            "#,
+        )
+        .unwrap();
+
+        assert_eq!(doc.patterns[0].unordered_groups, vec![vec![0, 1]]);
+
+        let mut engine =
+            fabula::engine::SiftEngine::<String, String, MemValue, i64>::new();
+        engine.register(doc.patterns[0].clone());
+        let matches = engine.evaluate(&doc.graphs[0]);
+        assert_eq!(matches.len(), 1);
     }
 }

@@ -16,8 +16,9 @@ pub enum TokenKind {
     Temporal,
     True,
     False,
-    Compose,   // compose
-    Sharing,   // sharing
+    Compose,    // compose
+    Sharing,    // sharing
+    Concurrent, // concurrent
 
     // Symbols
     LBrace,    // {
@@ -142,73 +143,175 @@ impl<'a> Lexer<'a> {
         match ch {
             b'{' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::LBrace, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::LBrace,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b'}' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::RBrace, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::RBrace,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b'@' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::At, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::At,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b'?' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::Question, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::Question,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b'|' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::Pipe, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::Pipe,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b'*' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::Star, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::Star,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b'(' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::LParen, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::LParen,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b')' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::RParen, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::RParen,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b',' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::Comma, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::Comma,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b'!' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::Bang, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::Bang,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b'.' => {
                 self.advance();
                 if self.pos < self.bytes.len() && self.bytes[self.pos] == b'.' {
                     self.advance();
-                    Ok(Token { kind: TokenKind::DotDot, line, column: col, offset: start, len: 2 })
+                    Ok(Token {
+                        kind: TokenKind::DotDot,
+                        line,
+                        column: col,
+                        offset: start,
+                        len: 2,
+                    })
                 } else {
-                    Ok(Token { kind: TokenKind::Dot, line, column: col, offset: start, len: 1 })
+                    Ok(Token {
+                        kind: TokenKind::Dot,
+                        line,
+                        column: col,
+                        offset: start,
+                        len: 1,
+                    })
                 }
             }
             b'-' => {
                 self.advance();
                 if self.pos < self.bytes.len() && self.bytes[self.pos] == b'>' {
                     self.advance();
-                    Ok(Token { kind: TokenKind::Arrow, line, column: col, offset: start, len: 2 })
+                    Ok(Token {
+                        kind: TokenKind::Arrow,
+                        line,
+                        column: col,
+                        offset: start,
+                        len: 2,
+                    })
                 } else {
-                    Ok(Token { kind: TokenKind::Minus, line, column: col, offset: start, len: 1 })
+                    Ok(Token {
+                        kind: TokenKind::Minus,
+                        line,
+                        column: col,
+                        offset: start,
+                        len: 1,
+                    })
                 }
             }
             b'+' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::Plus, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::Plus,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b':' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::Colon, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::Colon,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b';' => {
                 self.advance();
-                Ok(Token { kind: TokenKind::Semicolon, line, column: col, offset: start, len: 1 })
+                Ok(Token {
+                    kind: TokenKind::Semicolon,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
             }
             b'=' => {
                 self.advance();
@@ -216,33 +319,74 @@ impl<'a> Lexer<'a> {
                 if self.pos < self.bytes.len() && self.bytes[self.pos] == b'=' {
                     self.advance();
                 }
-                Ok(Token { kind: TokenKind::Eq, line, column: col, offset: start, len: self.pos - start })
+                Ok(Token {
+                    kind: TokenKind::Eq,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: self.pos - start,
+                })
             }
             b'<' => {
                 self.advance();
                 if self.pos < self.bytes.len() && self.bytes[self.pos] == b'=' {
                     self.advance();
-                    Ok(Token { kind: TokenKind::Lte, line, column: col, offset: start, len: 2 })
+                    Ok(Token {
+                        kind: TokenKind::Lte,
+                        line,
+                        column: col,
+                        offset: start,
+                        len: 2,
+                    })
                 } else {
-                    Ok(Token { kind: TokenKind::Lt, line, column: col, offset: start, len: 1 })
+                    Ok(Token {
+                        kind: TokenKind::Lt,
+                        line,
+                        column: col,
+                        offset: start,
+                        len: 1,
+                    })
                 }
             }
             b'>' => {
                 self.advance();
                 if self.pos < self.bytes.len() && self.bytes[self.pos] == b'=' {
                     self.advance();
-                    Ok(Token { kind: TokenKind::Gte, line, column: col, offset: start, len: 2 })
+                    Ok(Token {
+                        kind: TokenKind::Gte,
+                        line,
+                        column: col,
+                        offset: start,
+                        len: 2,
+                    })
                 } else if self.pos < self.bytes.len() && self.bytes[self.pos] == b'>' {
                     self.advance();
-                    Ok(Token { kind: TokenKind::GtGt, line, column: col, offset: start, len: 2 })
+                    Ok(Token {
+                        kind: TokenKind::GtGt,
+                        line,
+                        column: col,
+                        offset: start,
+                        len: 2,
+                    })
                 } else {
-                    Ok(Token { kind: TokenKind::Gt, line, column: col, offset: start, len: 1 })
+                    Ok(Token {
+                        kind: TokenKind::Gt,
+                        line,
+                        column: col,
+                        offset: start,
+                        len: 1,
+                    })
                 }
             }
             b'"' => self.read_string(line, col),
             b'0'..=b'9' => self.read_number(start, line, col),
             b'a'..=b'z' | b'A'..=b'Z' | b'_' => self.read_ident(start, line, col),
-            _ => Err(self.error_at(line, col, start, &format!("unexpected character '{}'", ch as char))),
+            _ => Err(self.error_at(
+                line,
+                col,
+                start,
+                &format!("unexpected character '{}'", ch as char),
+            )),
         }
     }
 
@@ -288,7 +432,12 @@ impl<'a> Lexer<'a> {
         })
     }
 
-    fn read_triple_string(&mut self, start: usize, line: usize, col: usize) -> Result<Token, ParseError> {
+    fn read_triple_string(
+        &mut self,
+        start: usize,
+        line: usize,
+        col: usize,
+    ) -> Result<Token, ParseError> {
         let content_start = self.pos;
         loop {
             if self.pos >= self.bytes.len() {
@@ -374,6 +523,7 @@ impl<'a> Lexer<'a> {
             "false" => TokenKind::False,
             "compose" => TokenKind::Compose,
             "sharing" => TokenKind::Sharing,
+            "concurrent" => TokenKind::Concurrent,
             _ => TokenKind::Ident(word.to_string()),
         };
         Ok(Token {
@@ -483,7 +633,9 @@ world""""#;
     fn tokenize_triple_quoted_with_single_quotes_inside() {
         let src = r#""""say "hello" to them""""#;
         let tokens = Lexer::new(src).tokenize().unwrap();
-        assert!(matches!(tokens[0].kind, TokenKind::String(ref s) if s == r#"say "hello" to them"#));
+        assert!(
+            matches!(tokens[0].kind, TokenKind::String(ref s) if s == r#"say "hello" to them"#)
+        );
     }
 
     #[test]

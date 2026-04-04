@@ -36,15 +36,15 @@ use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 
-mod types;
 mod eval;
 mod free;
+mod types;
 
-pub use types::*;
 pub use free::{
     evaluate_pattern, evaluate_pattern_at, evaluate_pattern_first, evaluate_pattern_limit,
     gap_analysis, gap_analysis_at,
 };
+pub use types::*;
 
 // ---------------------------------------------------------------------------
 // The engine
@@ -173,7 +173,10 @@ where
             .iter()
             .filter(|pm| {
                 pm.state == MatchState::Active
-                    && self.patterns.get(pm.pattern_idx).is_some_and(|p| p.name == name)
+                    && self
+                        .patterns
+                        .get(pm.pattern_idx)
+                        .is_some_and(|p| p.name == name)
             })
             .collect()
     }
@@ -206,7 +209,8 @@ where
                         pm.state = MatchState::Dead;
                     }
                 }
-                self.partial_matches.retain(|pm| pm.state != MatchState::Dead);
+                self.partial_matches
+                    .retain(|pm| pm.state != MatchState::Dead);
             }
         }
     }
@@ -270,14 +274,18 @@ where
                 }
             }
         }
-        self.partial_matches.retain(|pm| pm.state != MatchState::Dead);
+        self.partial_matches
+            .retain(|pm| pm.state != MatchState::Dead);
 
-        let stalled: Vec<String> = self.stale_patterns(stale_threshold)
+        let stalled: Vec<String> = self
+            .stale_patterns(stale_threshold)
             .iter()
             .filter_map(|&idx| self.patterns.get(idx).map(|p| p.name.clone()))
             .collect();
 
-        let active_pm_count = self.partial_matches.iter()
+        let active_pm_count = self
+            .partial_matches
+            .iter()
             .filter(|pm| pm.state == MatchState::Active)
             .count();
 
@@ -311,7 +319,9 @@ where
         if idx >= self.patterns.len() {
             return None;
         }
-        let active_pm_count = self.partial_matches.iter()
+        let active_pm_count = self
+            .partial_matches
+            .iter()
             .filter(|pm| pm.pattern_idx == idx && pm.state == MatchState::Active)
             .count();
         Some(PatternMetrics {
@@ -330,8 +340,14 @@ where
         (0..self.patterns.len())
             .filter(|&idx| {
                 self.enabled[idx]
-                    && self.tick_counter.saturating_sub(self.last_advanced_tick[idx]) >= threshold
-                    && self.partial_matches.iter().any(|pm| pm.pattern_idx == idx && pm.state == MatchState::Active)
+                    && self
+                        .tick_counter
+                        .saturating_sub(self.last_advanced_tick[idx])
+                        >= threshold
+                    && self
+                        .partial_matches
+                        .iter()
+                        .any(|pm| pm.pattern_idx == idx && pm.state == MatchState::Active)
             })
             .collect()
     }
@@ -382,11 +398,14 @@ where
                 let plant = self.patterns.get(pair.plant_idx)?;
                 let payoff = self.patterns.get(pair.payoff_idx)?;
 
-                let active_plants = self.partial_matches.iter()
+                let active_plants = self
+                    .partial_matches
+                    .iter()
                     .filter(|pm| pm.pattern_idx == pair.plant_idx && pm.state == MatchState::Active)
                     .count();
 
-                let ticks_since = self.tick_counter
+                let ticks_since = self
+                    .tick_counter
                     .saturating_sub(self.last_advanced_tick[pair.plant_idx]);
 
                 let stale = active_plants > 0 && ticks_since >= stale_threshold;
@@ -415,11 +434,7 @@ where
     /// let delta = engine.tick_delta(&events, 50);
     /// if !delta.stalled.is_empty() { /* alert GM about stale plants */ }
     /// ```
-    pub fn tick_delta(
-        &self,
-        events: &[SiftEvent<N, V>],
-        stale_threshold: u64,
-    ) -> TickDelta {
+    pub fn tick_delta(&self, events: &[SiftEvent<N, V>], stale_threshold: u64) -> TickDelta {
         let mut advanced = Vec::new();
         let mut completed = Vec::new();
         let mut negated = Vec::new();
@@ -454,12 +469,15 @@ where
             }
         }
 
-        let stalled: Vec<String> = self.stale_patterns(stale_threshold)
+        let stalled: Vec<String> = self
+            .stale_patterns(stale_threshold)
             .iter()
             .filter_map(|&idx| self.patterns.get(idx).map(|p| p.name.clone()))
             .collect();
 
-        let active_pm_count = self.partial_matches.iter()
+        let active_pm_count = self
+            .partial_matches
+            .iter()
             .filter(|pm| pm.state == MatchState::Active)
             .count();
 
@@ -498,15 +516,6 @@ where
     /// network literature where unbounded token accumulation degrades
     /// performance. Uses order-independent XOR of per-entry hashes so
     /// HashMap iteration order doesn't matter. Zero allocation.
-    fn compute_fingerprint(
-        pattern_idx: usize,
-        next_stage: usize,
-        bindings: &HashMap<String, BoundValue<N, V>>,
-        intervals: &HashMap<String, Interval<T>>,
-    ) -> u64 {
-        Self::compute_fingerprint_with_rep(pattern_idx, next_stage, bindings, intervals, 0)
-    }
-
     fn compute_fingerprint_with_rep(
         pattern_idx: usize,
         next_stage: usize,
@@ -514,11 +523,30 @@ where
         intervals: &HashMap<String, Interval<T>>,
         repetition_count: u32,
     ) -> u64 {
+        Self::compute_fingerprint_full(
+            pattern_idx,
+            next_stage,
+            bindings,
+            intervals,
+            repetition_count,
+            0,
+        )
+    }
+
+    fn compute_fingerprint_full(
+        pattern_idx: usize,
+        next_stage: usize,
+        bindings: &HashMap<String, BoundValue<N, V>>,
+        intervals: &HashMap<String, Interval<T>>,
+        repetition_count: u32,
+        matched_stages: u64,
+    ) -> u64 {
         use std::collections::hash_map::DefaultHasher;
         let mut h = DefaultHasher::new();
         pattern_idx.hash(&mut h);
         next_stage.hash(&mut h);
         repetition_count.hash(&mut h);
+        matched_stages.hash(&mut h);
 
         // XOR of per-entry hashes — order-independent, no sorting needed.
         // Mix in map length to distinguish empty maps from self-cancelling entries.
@@ -544,9 +572,7 @@ where
 
         h.finish()
     }
-
 }
-
 
 impl<N, L, V, T> Default for SiftEngine<N, L, V, T>
 where

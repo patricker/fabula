@@ -8,9 +8,9 @@
 //! those free functions, adding engine-specific concerns (pattern registry,
 //! partial match state, lifecycle metrics, choice groups).
 
-use super::SiftEngine;
 use super::free;
 use super::types::*;
+use super::SiftEngine;
 use crate::datasource::DataSource;
 use crate::interval::Interval;
 use std::collections::{HashMap, HashSet};
@@ -29,11 +29,16 @@ where
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
 {
     /// Batch evaluation: find all complete matches in the current graph state.
-    pub fn evaluate(&self, ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized)) -> Vec<Match<N, V, T>> {
+    pub fn evaluate(
+        &self,
+        ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    ) -> Vec<Match<N, V, T>> {
         let mut results = Vec::new();
         let now = ds.now();
         for (idx, pattern) in self.patterns.iter().enumerate() {
-            if !self.enabled[idx] { continue; }
+            if !self.enabled[idx] {
+                continue;
+            }
             let mut matches = free::evaluate_pattern_at(ds, pattern, &now);
             for m in &mut matches {
                 m.pattern_idx = Some(idx);
@@ -46,7 +51,7 @@ where
     /// Incremental: a new edge was added to the graph.
     pub fn on_edge_added(
         &mut self,
-        ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized),
+        ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
         source: &N,
         label: &L,
         value: &V,
@@ -84,23 +89,72 @@ where
         }
 
         // Phase 2: Try to initiate new partial matches (match first stage).
+        // If stage 0 is in an unordered group, try ALL group stages as initiators.
         let mut new_matches = Vec::new();
         for (pat_idx, pattern) in self.patterns.iter().enumerate() {
-            if !self.enabled[pat_idx] { continue; }
-            if let Some(first_stage) = pattern.stages.first() {
-                if let Some(match_results) =
-                    free::try_match_stage(ds, first_stage, source, label, value, interval, &HashMap::new())
-                {
+            if !self.enabled[pat_idx] {
+                continue;
+            }
+            if pattern.stages.is_empty() {
+                continue;
+            }
+
+            // Determine which stages to try for initiation
+            let init_stages: Vec<usize> = if let Some(group) = pattern.unordered_group_for(0) {
+                group.clone()
+            } else {
+                vec![0]
+            };
+
+            for &init_idx in &init_stages {
+                let stage = &pattern.stages[init_idx];
+                if let Some(match_results) = free::try_match_stage(
+                    ds,
+                    stage,
+                    source,
+                    label,
+                    value,
+                    interval,
+                    &HashMap::new(),
+                ) {
                     for (bindings, intervals) in match_results {
-                        let is_last_stage = pattern.stages.len() == 1;
+                        // Determine next_stage and matched_stages based on group membership
+                        let (next, init_mask) = if let Some(group) = pattern.unordered_group_for(0)
+                        {
+                            let mask = 1u64 << init_idx;
+                            let all_matched = group.len() == 1;
+                            if all_matched {
+                                // Single-stage group: advance past it
+                                let group_end = *group.iter().max().unwrap() + 1;
+                                (group_end, mask)
+                            } else {
+                                // Stay at group start, track matched bit
+                                (group[0], mask)
+                            }
+                        } else {
+                            (1, 0)
+                        };
+
+                        let is_last_stage = next >= pattern.stages.len();
                         let negation_blocks = is_last_stage
                             && !free::check_negations_batch(ds, pattern, &bindings, &intervals);
                         if negation_blocks {
                             continue;
                         }
-                        let next = if is_last_stage { pattern.stages.len() } else { 1 };
+                        let final_next = if is_last_stage {
+                            pattern.stages.len()
+                        } else {
+                            next
+                        };
                         self.stats.total_fingerprints += 1;
-                        let fp = Self::compute_fingerprint(pat_idx, next, &bindings, &intervals);
+                        let fp = Self::compute_fingerprint_full(
+                            pat_idx,
+                            final_next,
+                            &bindings,
+                            &intervals,
+                            0,
+                            init_mask,
+                        );
                         if !seen.insert(fp) {
                             continue;
                         }
@@ -112,12 +166,17 @@ where
                             bindings: bindings.clone(),
                             created_at: interval.start.clone(),
                             intervals,
-                            next_stage: next,
-                            state: if is_last_stage { MatchState::Complete } else { MatchState::Active },
+                            next_stage: final_next,
+                            state: if is_last_stage {
+                                MatchState::Complete
+                            } else {
+                                MatchState::Active
+                            },
                             id,
                             fingerprint: fp,
                             created_at_tick: self.tick_counter,
                             repetition_count: 0,
+                            matched_stages: init_mask,
                         };
 
                         if is_last_stage {
@@ -131,7 +190,7 @@ where
                             events.push(SiftEvent::Advanced {
                                 pattern: pattern.name.clone(),
                                 match_id: id,
-                                stage_index: 0,
+                                stage_index: init_idx,
                                 metadata: pattern.metadata.clone(),
                             });
                         }
@@ -142,174 +201,244 @@ where
         }
 
         // Phase 3: Try to advance existing active partial matches.
+        // For unordered groups: try all unmatched stages in the group.
         let mut advanced = Vec::new();
         for pm in &self.partial_matches {
             if pm.state != MatchState::Active {
                 continue;
             }
-            if !self.enabled[pm.pattern_idx] { continue; }
+            if !self.enabled[pm.pattern_idx] {
+                continue;
+            }
             let pattern = &self.patterns[pm.pattern_idx];
             let stage_idx = pm.next_stage;
             if stage_idx >= pattern.stages.len() {
                 continue;
             }
-            let stage = &pattern.stages[stage_idx];
-            if let Some(match_results) =
-                free::try_match_stage(ds, stage, source, label, value, interval, &pm.bindings)
-            {
-                for (new_bindings, new_intervals) in match_results {
-                    let temporal_ok = pm.intervals.values().all(|prev_iv| prev_iv.start < interval.start);
-                    if !temporal_ok {
-                        continue;
-                    }
 
-                    let next = stage_idx + 1;
-                    let is_past_end = next >= pattern.stages.len();
+            // Determine which stages to try based on unordered group membership
+            let try_stages: Vec<usize> =
+                if let Some(group) = pattern.unordered_group_for(stage_idx) {
+                    // Try all unmatched stages in the group
+                    group
+                        .iter()
+                        .filter(|&&si| pm.matched_stages & (1u64 << si) == 0)
+                        .copied()
+                        .collect()
+                } else {
+                    vec![stage_idx]
+                };
 
-                    let mut merged_bindings = pm.bindings.clone();
-                    merged_bindings.extend(new_bindings);
-                    let mut merged_intervals = pm.intervals.clone();
-                    merged_intervals.extend(new_intervals);
-
-                    // Check for repeat range looping
-                    if is_past_end {
-                        if let Some(ref rr) = pattern.repeat_range {
-                            // first_ + first last_ = 2 occurrences; each subsequent loop = +1.
-                            // repetition_count starts at 0, so first pass adds 2.
-                            let increment = if pm.repetition_count == 0 { 2 } else { 1 };
-                            let new_rep = pm.repetition_count + increment;
-                            let min_met = new_rep >= rr.min_reps as u32;
-                            let max_reached = rr.max_reps.is_some_and(|m| new_rep >= m as u32);
-
-                            if min_met && free::check_temporal(pattern, &merged_intervals) {
-                                // Emit completion snapshot
-                                self.stats.total_fingerprints += 1;
-                                let cfp = Self::compute_fingerprint_with_rep(
-                                    pm.pattern_idx, next, &merged_bindings, &merged_intervals, new_rep,
-                                );
-                                if seen.insert(cfp) {
-                                    let cid = self.next_match_id;
-                                    self.next_match_id += 1;
-                                    advanced.push(PartialMatch {
-                                        pattern_idx: pm.pattern_idx,
-                                        bindings: merged_bindings.clone(),
-                                        created_at: pm.created_at.clone(),
-                                        intervals: merged_intervals.clone(),
-                                        next_stage: next,
-                                        state: MatchState::Complete,
-                                        id: cid,
-                                        fingerprint: cfp,
-                                        created_at_tick: pm.created_at_tick,
-                                        repetition_count: new_rep,
-                                    });
-                                    events.push(SiftEvent::Completed {
-                                        pattern: pattern.name.clone(),
-                                        match_id: cid,
-                                        bindings: merged_bindings.clone(),
-                                        metadata: pattern.metadata.clone(),
-                                    });
+            for &try_idx in &try_stages {
+                let stage = &pattern.stages[try_idx];
+                if let Some(match_results) =
+                    free::try_match_stage(ds, stage, source, label, value, interval, &pm.bindings)
+                {
+                    for (new_bindings, new_intervals) in match_results {
+                        // Temporal check: new edge must come after all previously matched
+                        // intervals, EXCEPT for intervals within the same unordered group
+                        // (those have no ordering requirement).
+                        let temporal_ok = pm.intervals.iter().all(|(var, prev_iv)| {
+                            // Find the stage index for this interval variable
+                            if let Some(prev_stage_idx) = pattern
+                                .stages
+                                .iter()
+                                .position(|s| s.anchor.0 == *var)
+                            {
+                                if pattern.same_unordered_group(prev_stage_idx, try_idx) {
+                                    return true; // no ordering within group
                                 }
                             }
+                            prev_iv.start < interval.start
+                        });
+                        if !temporal_ok {
+                            continue;
+                        }
 
-                            if !max_reached {
-                                // Loop: create Active PM at segment start.
-                                // Clear non-shared bindings from the looping segment
-                                // so stage anchors can match fresh events. Keep intervals
-                                // for temporal ordering between iterations.
-                                let mut loop_bindings = merged_bindings.clone();
-                                for si in rr.stage_start..rr.stage_end {
-                                    let anchor = &pattern.stages[si].anchor.0;
-                                    if !rr.shared_vars.contains(anchor) {
-                                        loop_bindings.remove(anchor);
+                        let mut merged_bindings = pm.bindings.clone();
+                        merged_bindings.extend(new_bindings);
+                        let mut merged_intervals = pm.intervals.clone();
+                        merged_intervals.extend(new_intervals);
+
+                        // Compute the new matched_stages mask and determine next_stage
+                        let (next, new_mask) = if let Some(group) =
+                            pattern.unordered_group_for(stage_idx)
+                        {
+                            let mask = pm.matched_stages | (1u64 << try_idx);
+                            let all_matched = group.iter().all(|&si| mask & (1u64 << si) != 0);
+                            if all_matched {
+                                // Group complete — advance past it
+                                let group_end = *group.iter().max().unwrap() + 1;
+                                (group_end, mask)
+                            } else {
+                                // Stay at group start
+                                (group[0], mask)
+                            }
+                        } else {
+                            (stage_idx + 1, pm.matched_stages)
+                        };
+
+                        let is_past_end = next >= pattern.stages.len();
+
+                        // Check for repeat range looping
+                        if is_past_end {
+                            if let Some(ref rr) = pattern.repeat_range {
+                                let increment = if pm.repetition_count == 0 { 2 } else { 1 };
+                                let new_rep = pm.repetition_count + increment;
+                                let min_met = new_rep >= rr.min_reps as u32;
+                                let max_reached =
+                                    rr.max_reps.is_some_and(|m| new_rep >= m as u32);
+
+                                if min_met && free::check_temporal(pattern, &merged_intervals) {
+                                    self.stats.total_fingerprints += 1;
+                                    let cfp = Self::compute_fingerprint_full(
+                                        pm.pattern_idx,
+                                        next,
+                                        &merged_bindings,
+                                        &merged_intervals,
+                                        new_rep,
+                                        new_mask,
+                                    );
+                                    if seen.insert(cfp) {
+                                        let cid = self.next_match_id;
+                                        self.next_match_id += 1;
+                                        advanced.push(PartialMatch {
+                                            pattern_idx: pm.pattern_idx,
+                                            bindings: merged_bindings.clone(),
+                                            created_at: pm.created_at.clone(),
+                                            intervals: merged_intervals.clone(),
+                                            next_stage: next,
+                                            state: MatchState::Complete,
+                                            id: cid,
+                                            fingerprint: cfp,
+                                            created_at_tick: pm.created_at_tick,
+                                            repetition_count: new_rep,
+                                            matched_stages: new_mask,
+                                        });
+                                        events.push(SiftEvent::Completed {
+                                            pattern: pattern.name.clone(),
+                                            match_id: cid,
+                                            bindings: merged_bindings.clone(),
+                                            metadata: pattern.metadata.clone(),
+                                        });
                                     }
-                                    for clause in &pattern.stages[si].clauses {
-                                        if !rr.shared_vars.contains(&clause.source.0) {
-                                            loop_bindings.remove(&clause.source.0);
+                                }
+
+                                if !max_reached {
+                                    let mut loop_bindings = merged_bindings.clone();
+                                    for si in rr.stage_start..rr.stage_end {
+                                        let anchor = &pattern.stages[si].anchor.0;
+                                        if !rr.shared_vars.contains(anchor) {
+                                            loop_bindings.remove(anchor);
                                         }
-                                        if let crate::pattern::Target::Bind(ref var) = clause.target {
-                                            if !rr.shared_vars.contains(&var.0) {
-                                                loop_bindings.remove(&var.0);
+                                        for clause in &pattern.stages[si].clauses {
+                                            if !rr.shared_vars.contains(&clause.source.0) {
+                                                loop_bindings.remove(&clause.source.0);
+                                            }
+                                            if let crate::pattern::Target::Bind(ref var) =
+                                                clause.target
+                                            {
+                                                if !rr.shared_vars.contains(&var.0) {
+                                                    loop_bindings.remove(&var.0);
+                                                }
                                             }
                                         }
                                     }
-                                }
 
-                                self.stats.total_fingerprints += 1;
-                                let lfp = Self::compute_fingerprint_with_rep(
-                                    pm.pattern_idx, rr.stage_start, &loop_bindings, &merged_intervals, new_rep,
-                                );
-                                if seen.insert(lfp) {
-                                    let lid = self.next_match_id;
-                                    self.next_match_id += 1;
-                                    advanced.push(PartialMatch {
-                                        pattern_idx: pm.pattern_idx,
-                                        bindings: loop_bindings,
-                                        created_at: pm.created_at.clone(),
-                                        intervals: merged_intervals,
-                                        next_stage: rr.stage_start,
-                                        state: MatchState::Active,
-                                        id: lid,
-                                        fingerprint: lfp,
-                                        created_at_tick: pm.created_at_tick,
-                                        repetition_count: new_rep,
-                                    });
-                                    events.push(SiftEvent::Advanced {
-                                        pattern: pattern.name.clone(),
-                                        match_id: lid,
-                                        stage_index: stage_idx,
-                                        metadata: pattern.metadata.clone(),
-                                    });
+                                    self.stats.total_fingerprints += 1;
+                                    let lfp = Self::compute_fingerprint_with_rep(
+                                        pm.pattern_idx,
+                                        rr.stage_start,
+                                        &loop_bindings,
+                                        &merged_intervals,
+                                        new_rep,
+                                    );
+                                    if seen.insert(lfp) {
+                                        let lid = self.next_match_id;
+                                        self.next_match_id += 1;
+                                        advanced.push(PartialMatch {
+                                            pattern_idx: pm.pattern_idx,
+                                            bindings: loop_bindings,
+                                            created_at: pm.created_at.clone(),
+                                            intervals: merged_intervals,
+                                            next_stage: rr.stage_start,
+                                            state: MatchState::Active,
+                                            id: lid,
+                                            fingerprint: lfp,
+                                            created_at_tick: pm.created_at_tick,
+                                            repetition_count: new_rep,
+                                            matched_stages: 0,
+                                        });
+                                        events.push(SiftEvent::Advanced {
+                                            pattern: pattern.name.clone(),
+                                            match_id: lid,
+                                            stage_index: try_idx,
+                                            metadata: pattern.metadata.clone(),
+                                        });
+                                    }
                                 }
+                                continue; // Skip normal PM creation
                             }
-                            continue; // Skip normal PM creation
                         }
+
+                        // Normal (non-repeat) advancement or completion
+                        let is_complete = is_past_end;
+
+                        self.stats.total_fingerprints += 1;
+                        let fp = Self::compute_fingerprint_full(
+                            pm.pattern_idx,
+                            next,
+                            &merged_bindings,
+                            &merged_intervals,
+                            pm.repetition_count,
+                            new_mask,
+                        );
+                        if !seen.insert(fp) {
+                            continue;
+                        }
+
+                        let id = self.next_match_id;
+                        self.next_match_id += 1;
+
+                        if is_complete && !free::check_temporal(pattern, &merged_intervals) {
+                            continue;
+                        }
+
+                        let new_pm = PartialMatch {
+                            pattern_idx: pm.pattern_idx,
+                            bindings: merged_bindings.clone(),
+                            created_at: pm.created_at.clone(),
+                            intervals: merged_intervals,
+                            next_stage: next,
+                            state: if is_complete {
+                                MatchState::Complete
+                            } else {
+                                MatchState::Active
+                            },
+                            id,
+                            fingerprint: fp,
+                            created_at_tick: pm.created_at_tick,
+                            repetition_count: pm.repetition_count,
+                            matched_stages: new_mask,
+                        };
+
+                        if is_complete {
+                            events.push(SiftEvent::Completed {
+                                pattern: pattern.name.clone(),
+                                match_id: id,
+                                bindings: merged_bindings,
+                                metadata: pattern.metadata.clone(),
+                            });
+                        } else {
+                            events.push(SiftEvent::Advanced {
+                                pattern: pattern.name.clone(),
+                                match_id: id,
+                                stage_index: try_idx,
+                                metadata: pattern.metadata.clone(),
+                            });
+                        }
+                        advanced.push(new_pm);
                     }
-
-                    // Normal (non-repeat) advancement or completion
-                    let is_complete = is_past_end;
-
-                    self.stats.total_fingerprints += 1;
-                    let fp = Self::compute_fingerprint_with_rep(pm.pattern_idx, next, &merged_bindings, &merged_intervals, pm.repetition_count);
-                    if !seen.insert(fp) {
-                        continue;
-                    }
-
-                    let id = self.next_match_id;
-                    self.next_match_id += 1;
-
-                    if is_complete && !free::check_temporal(pattern, &merged_intervals) {
-                        continue;
-                    }
-
-                    let new_pm = PartialMatch {
-                        pattern_idx: pm.pattern_idx,
-                        bindings: merged_bindings.clone(),
-                        created_at: pm.created_at.clone(),
-                        intervals: merged_intervals,
-                        next_stage: next,
-                        state: if is_complete { MatchState::Complete } else { MatchState::Active },
-                        id,
-                        fingerprint: fp,
-                        created_at_tick: pm.created_at_tick,
-                        repetition_count: pm.repetition_count,
-                    };
-
-                    if is_complete {
-                        events.push(SiftEvent::Completed {
-                            pattern: pattern.name.clone(),
-                            match_id: id,
-                            bindings: merged_bindings,
-                            metadata: pattern.metadata.clone(),
-                        });
-                    } else {
-                        events.push(SiftEvent::Advanced {
-                            pattern: pattern.name.clone(),
-                            match_id: id,
-                            stage_index: stage_idx,
-                            metadata: pattern.metadata.clone(),
-                        });
-                    }
-                    advanced.push(new_pm);
                 }
             }
         }
@@ -351,7 +480,9 @@ where
             .iter()
             .filter_map(|e| {
                 if let SiftEvent::Completed { pattern, .. } = e {
-                    self.patterns.iter().enumerate()
+                    self.patterns
+                        .iter()
+                        .enumerate()
                         .find(|(_, p)| p.name == *pattern)
                         .and_then(|(idx, p)| p.group.clone().map(|g| (idx, g)))
                 } else {
@@ -366,7 +497,9 @@ where
                 }
                 if let Some(ref g) = self.patterns[pm.pattern_idx].group {
                     let dominated = completed_in_groups.iter().any(|(completed_idx, cg)| {
-                        if g != cg { return false; }
+                        if g != cg {
+                            return false;
+                        }
                         // Exempt looping PMs from the same repeat-range pattern
                         if pm.pattern_idx == *completed_idx
                             && self.patterns[pm.pattern_idx].repeat_range.is_some()
@@ -382,10 +515,13 @@ where
             }
         }
 
-        self.partial_matches.retain(|pm| pm.state != MatchState::Dead);
+        self.partial_matches
+            .retain(|pm| pm.state != MatchState::Dead);
 
         // Track peak active PM count
-        let active_count = self.partial_matches.iter()
+        let active_count = self
+            .partial_matches
+            .iter()
             .filter(|pm| pm.state == MatchState::Active)
             .count();
         if active_count > self.stats.peak_active_pms {
@@ -396,7 +532,11 @@ where
     }
 
     /// Gap analysis: why hasn't this pattern matched?
-    pub fn why_not(&self, ds: &(impl DataSource<N=N, L=L, V=V, T=T> + ?Sized), pattern_name: &str) -> Option<GapAnalysis> {
+    pub fn why_not(
+        &self,
+        ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+        pattern_name: &str,
+    ) -> Option<GapAnalysis> {
         let pattern = self.patterns.iter().find(|p| p.name == pattern_name)?;
         Some(free::gap_analysis_at(ds, pattern, &ds.now()))
     }

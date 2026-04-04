@@ -9,7 +9,10 @@ use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 
 /// Bindings + intervals pair used internally during evaluation.
-pub(super) type MatchCandidate<N, V, T> = (HashMap<String, BoundValue<N, V>>, HashMap<String, Interval<T>>);
+pub(super) type MatchCandidate<N, V, T> = (
+    HashMap<String, BoundValue<N, V>>,
+    HashMap<String, Interval<T>>,
+);
 
 // ---------------------------------------------------------------------------
 // Matches and events
@@ -97,8 +100,7 @@ impl<N: Debug + PartialEq, V: Debug + PartialEq> BoundValue<N, V> {
         match self {
             BoundValue::Node(n) => {
                 // The value must be a node reference to the same node
-                value_as_node(value)
-                    .is_some_and(|vn| &vn == n)
+                value_as_node(value).is_some_and(|vn| &vn == n)
             }
             BoundValue::Value(v) => value == v,
         }
@@ -131,6 +133,11 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
     /// Incremented each time the PM loops back to the repeat segment start.
     /// Zero for non-repeating patterns.
     pub repetition_count: u32,
+    /// Bitmask of matched stage indices within an unordered group.
+    /// Bit `i` is set when stage `i` has been matched. Used to track
+    /// which stages in a concurrent group have been satisfied.
+    /// Zero for patterns without unordered groups.
+    pub matched_stages: u64,
 }
 
 /// State of a partial match.
@@ -349,8 +356,16 @@ mod tests {
                 anchor: "e1".to_string(),
                 status: StageStatus::Matched,
                 clauses: vec![
-                    ClauseAnalysis { description: "a".into(), matched: true, reason: None },
-                    ClauseAnalysis { description: "b".into(), matched: true, reason: None },
+                    ClauseAnalysis {
+                        description: "a".into(),
+                        matched: true,
+                        reason: None,
+                    },
+                    ClauseAnalysis {
+                        description: "b".into(),
+                        matched: true,
+                        reason: None,
+                    },
                 ],
             }],
         };
@@ -366,16 +381,35 @@ mod tests {
                     anchor: "e1".to_string(),
                     status: StageStatus::Matched,
                     clauses: vec![
-                        ClauseAnalysis { description: "a".into(), matched: true, reason: None },
-                        ClauseAnalysis { description: "b".into(), matched: true, reason: None },
+                        ClauseAnalysis {
+                            description: "a".into(),
+                            matched: true,
+                            reason: None,
+                        },
+                        ClauseAnalysis {
+                            description: "b".into(),
+                            matched: true,
+                            reason: None,
+                        },
                     ],
                 },
                 StageAnalysis {
                     anchor: "e2".to_string(),
-                    status: StageStatus::PartiallyMatched { matched: 1, total: 2 },
+                    status: StageStatus::PartiallyMatched {
+                        matched: 1,
+                        total: 2,
+                    },
                     clauses: vec![
-                        ClauseAnalysis { description: "c".into(), matched: true, reason: None },
-                        ClauseAnalysis { description: "d".into(), matched: false, reason: Some("no match".into()) },
+                        ClauseAnalysis {
+                            description: "c".into(),
+                            matched: true,
+                            reason: None,
+                        },
+                        ClauseAnalysis {
+                            description: "d".into(),
+                            matched: false,
+                            reason: Some("no match".into()),
+                        },
                     ],
                 },
             ],
@@ -390,9 +424,11 @@ mod tests {
             stages: vec![StageAnalysis {
                 anchor: "e1".to_string(),
                 status: StageStatus::Unmatched,
-                clauses: vec![
-                    ClauseAnalysis { description: "a".into(), matched: false, reason: None },
-                ],
+                clauses: vec![ClauseAnalysis {
+                    description: "a".into(),
+                    matched: false,
+                    reason: None,
+                }],
             }],
         };
         assert_eq!(gap.closeness(), 0.0);

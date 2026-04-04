@@ -25,11 +25,21 @@ fn resolve_constraint<N: Debug, V: Clone + PartialEq + PartialOrd + Debug>(
     bindings: &HashMap<String, BoundValue<N, V>>,
 ) -> Option<ValueConstraint<V>> {
     match constraint {
-        ValueConstraint::EqVar(var) => extract_value(bindings, var).map(|v| ValueConstraint::Eq(v.clone())),
-        ValueConstraint::LtVar(var) => extract_value(bindings, var).map(|v| ValueConstraint::Lt(v.clone())),
-        ValueConstraint::GtVar(var) => extract_value(bindings, var).map(|v| ValueConstraint::Gt(v.clone())),
-        ValueConstraint::LteVar(var) => extract_value(bindings, var).map(|v| ValueConstraint::Lte(v.clone())),
-        ValueConstraint::GteVar(var) => extract_value(bindings, var).map(|v| ValueConstraint::Gte(v.clone())),
+        ValueConstraint::EqVar(var) => {
+            extract_value(bindings, var).map(|v| ValueConstraint::Eq(v.clone()))
+        }
+        ValueConstraint::LtVar(var) => {
+            extract_value(bindings, var).map(|v| ValueConstraint::Lt(v.clone()))
+        }
+        ValueConstraint::GtVar(var) => {
+            extract_value(bindings, var).map(|v| ValueConstraint::Gt(v.clone()))
+        }
+        ValueConstraint::LteVar(var) => {
+            extract_value(bindings, var).map(|v| ValueConstraint::Lte(v.clone()))
+        }
+        ValueConstraint::GteVar(var) => {
+            extract_value(bindings, var).map(|v| ValueConstraint::Gte(v.clone()))
+        }
         other => Some(other.clone()),
     }
 }
@@ -98,7 +108,9 @@ where
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
 {
     let now = ds.now();
-    evaluate_pattern_limit(ds, pattern, &now, 1).into_iter().next()
+    evaluate_pattern_limit(ds, pattern, &now, 1)
+        .into_iter()
+        .next()
 }
 
 /// Evaluate a single pattern, returning at most `max` complete matches.
@@ -121,21 +133,38 @@ where
         return Vec::new();
     }
 
-    let mut candidates: Vec<MatchCandidate<N, V, T>> =
-        find_stage_matches(ds, &pattern.stages[0], &HashMap::new(), at);
+    let steps = build_stage_steps(pattern);
+    let mut candidates: Vec<MatchCandidate<N, V, T>> = match &steps[0] {
+        StageStep::Single(idx) => {
+            find_stage_matches(ds, &pattern.stages[*idx], &HashMap::new(), at)
+        }
+        StageStep::Unordered(indices) => {
+            let init = vec![(HashMap::new(), HashMap::new())];
+            expand_unordered_group(ds, pattern, &init, indices, at)
+        }
+    };
 
-    for stage in &pattern.stages[1..] {
-        let mut next = Vec::new();
-        for (bindings, intervals) in &candidates {
-            for (new_b, new_i) in find_stage_matches(ds, stage, bindings, at) {
-                let mut merged_b = bindings.clone();
-                merged_b.extend(new_b);
-                let mut merged_i = intervals.clone();
-                merged_i.extend(new_i);
-                next.push((merged_b, merged_i));
+    for step in &steps[1..] {
+        match step {
+            StageStep::Single(idx) => {
+                let mut next = Vec::new();
+                for (bindings, intervals) in &candidates {
+                    for (new_b, new_i) in
+                        find_stage_matches(ds, &pattern.stages[*idx], bindings, at)
+                    {
+                        let mut merged_b = bindings.clone();
+                        merged_b.extend(new_b);
+                        let mut merged_i = intervals.clone();
+                        merged_i.extend(new_i);
+                        next.push((merged_b, merged_i));
+                    }
+                }
+                candidates = next;
+            }
+            StageStep::Unordered(indices) => {
+                candidates = expand_unordered_group(ds, pattern, &candidates, indices, at);
             }
         }
-        candidates = next;
     }
 
     candidates
@@ -201,21 +230,45 @@ where
         return Vec::new();
     }
 
-    let mut candidates: Vec<MatchCandidate<N, V, T>> =
-        find_stage_matches(ds, &pattern.stages[0], &HashMap::new(), now);
+    // Build step list: each step is either a single stage or an unordered group.
+    // Steps are processed sequentially; within an unordered group, all stages
+    // must match but in any order.
+    let steps = build_stage_steps(pattern);
 
-    for stage in &pattern.stages[1..] {
-        let mut next = Vec::new();
-        for (bindings, intervals) in &candidates {
-            for (new_b, new_i) in find_stage_matches(ds, stage, bindings, now) {
-                let mut merged_b = bindings.clone();
-                merged_b.extend(new_b);
-                let mut merged_i = intervals.clone();
-                merged_i.extend(new_i);
-                next.push((merged_b, merged_i));
+    // Process first step
+    let mut candidates: Vec<MatchCandidate<N, V, T>> = match &steps[0] {
+        StageStep::Single(idx) => {
+            find_stage_matches(ds, &pattern.stages[*idx], &HashMap::new(), now)
+        }
+        StageStep::Unordered(indices) => {
+            let init = vec![(HashMap::new(), HashMap::new())];
+            expand_unordered_group(ds, pattern, &init, indices, now)
+        }
+    };
+
+    // Process remaining steps
+    for step in &steps[1..] {
+        match step {
+            StageStep::Single(idx) => {
+                let mut next = Vec::new();
+                for (bindings, intervals) in &candidates {
+                    for (new_b, new_i) in
+                        find_stage_matches(ds, &pattern.stages[*idx], bindings, now)
+                    {
+                        let mut merged_b = bindings.clone();
+                        merged_b.extend(new_b);
+                        let mut merged_i = intervals.clone();
+                        merged_i.extend(new_i);
+                        next.push((merged_b, merged_i));
+                    }
+                }
+                candidates = next;
+            }
+            StageStep::Unordered(indices) => {
+                candidates =
+                    expand_unordered_group(ds, pattern, &candidates, indices, now);
             }
         }
-        candidates = next;
     }
 
     candidates
@@ -302,6 +355,85 @@ where
         pattern: pattern.name.clone(),
         stages,
     }
+}
+
+// ---------------------------------------------------------------------------
+// Unordered group helpers for batch evaluation
+// ---------------------------------------------------------------------------
+
+/// A step in the batch evaluation pipeline: either a single ordered stage
+/// or a group of unordered stages that can match in any order.
+enum StageStep {
+    Single(usize),
+    Unordered(Vec<usize>),
+}
+
+/// Build a list of evaluation steps from a pattern's stages and unordered groups.
+/// Consecutive stages in an unordered group are merged into a single step.
+fn build_stage_steps<L, V>(pattern: &Pattern<L, V>) -> Vec<StageStep> {
+    let mut steps = Vec::new();
+    let mut consumed = vec![false; pattern.stages.len()];
+
+    for i in 0..pattern.stages.len() {
+        if consumed[i] {
+            continue;
+        }
+        if let Some(group) = pattern.unordered_group_for(i) {
+            for &gi in group {
+                consumed[gi] = true;
+            }
+            steps.push(StageStep::Unordered(group.clone()));
+        } else {
+            consumed[i] = true;
+            steps.push(StageStep::Single(i));
+        }
+    }
+    steps
+}
+
+/// Expand candidates through an unordered group: for each candidate, match
+/// ALL stages in the group. Stages are tried in index order; join constraints
+/// ensure consistent results regardless of matching order since bindings
+/// accumulate across stages and `find_stage_matches` handles both bound and
+/// unbound variables.
+fn expand_unordered_group<N, L, V, T>(
+    ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
+    pattern: &Pattern<L, V>,
+    candidates: &[MatchCandidate<N, V, T>],
+    group_indices: &[usize],
+    now: &T,
+) -> Vec<MatchCandidate<N, V, T>>
+where
+    N: Eq + Hash + Clone + Debug,
+    L: Eq + Hash + Clone + Debug,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    T: Ord + Clone + Debug + Hash,
+{
+    let mut result = Vec::new();
+    for (bindings, intervals) in candidates {
+        let mut partial = vec![(bindings.clone(), intervals.clone())];
+        // Try each remaining unmatched stage — since stages are unordered,
+        // we process them in index order but each stage match is independent.
+        // This works because find_stage_matches uses bindings for join
+        // constraints, so each subsequent stage is constrained by prior matches.
+        // All permutations that satisfy join constraints will produce the same
+        // final bindings (set of matched values is the same regardless of order).
+        for &si in group_indices {
+            let mut next_partial = Vec::new();
+            for (b, iv) in &partial {
+                for (new_b, new_iv) in find_stage_matches(ds, &pattern.stages[si], b, now) {
+                    let mut merged_b = b.clone();
+                    merged_b.extend(new_b);
+                    let mut merged_iv = iv.clone();
+                    merged_iv.extend(new_iv);
+                    next_partial.push((merged_b, merged_iv));
+                }
+            }
+            partial = next_partial;
+        }
+        result.extend(partial);
+    }
+    result
 }
 
 pub(super) fn find_stage_matches<N, L, V, T>(
@@ -493,21 +625,50 @@ pub(super) fn check_temporal<L, V, T>(
 where
     T: Ord + Clone + Debug + std::ops::Sub<Output = T> + crate::interval::NumericTime,
 {
-    // Implicit: stages are ordered left-to-right by start time
-    for pair in pattern.stages.windows(2) {
-        if let (Some(left), Some(right)) = (
-            intervals.get(&pair[0].anchor.0),
-            intervals.get(&pair[1].anchor.0),
-        ) {
-            if left.start >= right.start {
-                return false;
+    // Invariant: unordered groups contain consecutive stage indices.
+    debug_assert!(
+        pattern.unordered_groups.iter().all(|g| {
+            if g.is_empty() {
+                return true;
+            }
+            let min = *g.iter().min().unwrap();
+            let max = *g.iter().max().unwrap();
+            max - min + 1 == g.len()
+        }),
+        "unordered groups must contain consecutive stage indices"
+    );
+
+    // Implicit temporal ordering: segments are ordered left-to-right.
+    // A "segment" is either a single ordered stage or an unordered group.
+    // Within an unordered group, no ordering is enforced.
+    // Between segments, ALL stages of the earlier segment must precede
+    // ALL stages of the later segment.
+    let steps = build_stage_steps(pattern);
+    for pair in steps.windows(2) {
+        let left_indices = match &pair[0] {
+            StageStep::Single(i) => vec![*i],
+            StageStep::Unordered(g) => g.clone(),
+        };
+        let right_indices = match &pair[1] {
+            StageStep::Single(i) => vec![*i],
+            StageStep::Unordered(g) => g.clone(),
+        };
+        for &li in &left_indices {
+            for &ri in &right_indices {
+                if let (Some(left_iv), Some(right_iv)) = (
+                    intervals.get(&pattern.stages[li].anchor.0),
+                    intervals.get(&pattern.stages[ri].anchor.0),
+                ) {
+                    if left_iv.start >= right_iv.start {
+                        return false;
+                    }
+                }
             }
         }
     }
     // Explicit constraints
     for tc in &pattern.temporal {
-        if let (Some(left), Some(right)) = (intervals.get(&tc.left.0), intervals.get(&tc.right.0))
-        {
+        if let (Some(left), Some(right)) = (intervals.get(&tc.left.0), intervals.get(&tc.right.0)) {
             match left.relation(right) {
                 Some(rel) if rel == tc.relation => {}
                 None if tc.relation.is_before_or_meets() && left.start < right.start => {}
@@ -697,7 +858,10 @@ where
                 let edges = ds.edges_from(&src, &other.label, &now);
                 let resolved_other_target = match resolve_target(&other.target, &pm.bindings) {
                     Some(t) => t,
-                    None => { all_others_ok = false; break; }
+                    None => {
+                        all_others_ok = false;
+                        break;
+                    }
                 };
                 let found = edges.iter().any(|e| match &resolved_other_target {
                     Target::Literal(v) => &e.target == v,
@@ -865,12 +1029,7 @@ where
                 )),
             )
         }
-        None => {
-            return (
-                false,
-                Some(format!("?{} is not bound", clause.source.0)),
-            )
-        }
+        None => return (false, Some(format!("?{} is not bound", clause.source.0))),
     };
 
     let edges = ds.edges_from(source, &clause.label, now);

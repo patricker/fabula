@@ -32,6 +32,7 @@ pub struct PatternBuilder<L, V> {
     negations: Vec<Negation<L, V>>,
     metadata: HashMap<String, String>,
     deadline_ticks: Option<u64>,
+    unordered_groups: Vec<Vec<usize>>,
 }
 
 impl<L: Clone, V: Clone> PatternBuilder<L, V> {
@@ -44,6 +45,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             negations: Vec::new(),
             metadata: HashMap::new(),
             deadline_ticks: None,
+            unordered_groups: Vec::new(),
         }
     }
 
@@ -145,6 +147,45 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
         self
     }
 
+    /// Add a group of stages that may match in any order (concurrent).
+    ///
+    /// Use the callback to add stages — they are appended to the pattern
+    /// and their indices are recorded as an unordered group. The engine
+    /// will try all unmatched stages in the group against each incoming
+    /// edge and advance past the group when all are matched.
+    ///
+    /// ```rust,ignore
+    /// let pattern = PatternBuilder::<String, String>::new("concurrent_events")
+    ///     .stage("setup", |s| s.edge("setup", "type".into(), "start".into()))
+    ///     .unordered_group(|b| b
+    ///         .stage("a", |s| s.edge("a", "type".into(), "event_a".into()))
+    ///         .stage("b", |s| s.edge("b", "type".into(), "event_b".into())))
+    ///     .stage("conclusion", |s| s.edge("conclusion", "type".into(), "end".into()))
+    ///     .build();
+    /// ```
+    pub fn unordered_group(
+        mut self,
+        build: impl FnOnce(UnorderedGroupBuilder<L, V>) -> UnorderedGroupBuilder<L, V>,
+    ) -> Self {
+        let start_idx = self.stages.len();
+        let group_builder = UnorderedGroupBuilder::new();
+        let group_builder = build(group_builder);
+        let stages = group_builder.stages;
+        let count = stages.len();
+        debug_assert!(count >= 2, "unordered group should have at least 2 stages");
+        self.stages.extend(stages);
+        if count > 0 {
+            let end_idx = start_idx + count - 1;
+            debug_assert!(
+                end_idx < 64,
+                "unordered group stage indices must be < 64 (matched_stages is u64)"
+            );
+            let indices: Vec<usize> = (start_idx..start_idx + count).collect();
+            self.unordered_groups.push(indices);
+        }
+        self
+    }
+
     /// Build the pattern.
     pub fn build(mut self) -> Pattern<L, V> {
         // Resolve global negation bounds to first/last stage anchors
@@ -173,6 +214,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             metadata: self.metadata,
             deadline_ticks: self.deadline_ticks,
             repeat_range: None,
+            unordered_groups: self.unordered_groups,
         }
     }
 }
@@ -192,12 +234,7 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
     }
 
     /// Add a clause: `source --[label]--> literal_value`.
-    pub fn edge(
-        mut self,
-        source: impl Into<String>,
-        label: L,
-        value: V,
-    ) -> Self {
+    pub fn edge(mut self, source: impl Into<String>, label: L, value: V) -> Self {
         self.clauses.push(Clause {
             source: Var::new(source),
             label,
@@ -240,7 +277,12 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
     }
 
     /// Add a clause comparing edge target against a bound variable: `source --[label]--> (== ?var)`.
-    pub fn edge_eq_var(mut self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self {
+    pub fn edge_eq_var(
+        mut self,
+        source: impl Into<String>,
+        label: L,
+        var_name: impl Into<String>,
+    ) -> Self {
         self.clauses.push(Clause {
             source: Var::new(source),
             label,
@@ -251,7 +293,12 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
     }
 
     /// Add a clause: `source --[label]--> (< ?var)`.
-    pub fn edge_lt_var(mut self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self {
+    pub fn edge_lt_var(
+        mut self,
+        source: impl Into<String>,
+        label: L,
+        var_name: impl Into<String>,
+    ) -> Self {
         self.clauses.push(Clause {
             source: Var::new(source),
             label,
@@ -262,7 +309,12 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
     }
 
     /// Add a clause: `source --[label]--> (> ?var)`.
-    pub fn edge_gt_var(mut self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self {
+    pub fn edge_gt_var(
+        mut self,
+        source: impl Into<String>,
+        label: L,
+        var_name: impl Into<String>,
+    ) -> Self {
         self.clauses.push(Clause {
             source: Var::new(source),
             label,
@@ -273,7 +325,12 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
     }
 
     /// Add a clause: `source --[label]--> (<= ?var)`.
-    pub fn edge_lte_var(mut self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self {
+    pub fn edge_lte_var(
+        mut self,
+        source: impl Into<String>,
+        label: L,
+        var_name: impl Into<String>,
+    ) -> Self {
         self.clauses.push(Clause {
             source: Var::new(source),
             label,
@@ -284,7 +341,12 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
     }
 
     /// Add a clause: `source --[label]--> (>= ?var)`.
-    pub fn edge_gte_var(mut self, source: impl Into<String>, label: L, var_name: impl Into<String>) -> Self {
+    pub fn edge_gte_var(
+        mut self,
+        source: impl Into<String>,
+        label: L,
+        var_name: impl Into<String>,
+    ) -> Self {
         self.clauses.push(Clause {
             source: Var::new(source),
             label,
@@ -295,12 +357,7 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
     }
 
     /// Add a negated clause: the edge must NOT exist.
-    pub fn not_edge(
-        mut self,
-        source: impl Into<String>,
-        label: L,
-        value: V,
-    ) -> Self {
+    pub fn not_edge(mut self, source: impl Into<String>, label: L, value: V) -> Self {
         self.clauses.push(Clause {
             source: Var::new(source),
             label,
@@ -335,12 +392,7 @@ impl<L: Clone, V: Clone> NegationBuilder<L, V> {
     }
 
     /// Add a clause to the negation (edge that must NOT exist in the window).
-    pub fn edge(
-        mut self,
-        source: impl Into<String>,
-        label: L,
-        value: V,
-    ) -> Self {
+    pub fn edge(mut self, source: impl Into<String>, label: L, value: V) -> Self {
         self.clauses.push(Clause {
             source: Var::new(source),
             label,
@@ -389,5 +441,30 @@ impl<L: Clone, V: Clone> NegationBuilder<L, V> {
             clauses: self.clauses,
             is_global: false,
         }
+    }
+}
+
+/// Builder for an unordered (concurrent) group of stages within a pattern.
+pub struct UnorderedGroupBuilder<L, V> {
+    stages: Vec<Stage<L, V>>,
+}
+
+impl<L: Clone, V: Clone> UnorderedGroupBuilder<L, V> {
+    fn new() -> Self {
+        Self {
+            stages: Vec::new(),
+        }
+    }
+
+    /// Add a stage to the unordered group.
+    pub fn stage(
+        mut self,
+        anchor: impl Into<String>,
+        build: impl FnOnce(StageBuilder<L, V>) -> StageBuilder<L, V>,
+    ) -> Self {
+        let builder = StageBuilder::new(anchor.into());
+        let builder = build(builder);
+        self.stages.push(builder.build());
+        self
     }
 }

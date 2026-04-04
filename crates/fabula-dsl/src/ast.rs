@@ -10,18 +10,24 @@ pub struct Document {
 impl Document {
     /// All pattern ASTs in declaration order.
     pub fn patterns(&self) -> Vec<&PatternAst> {
-        self.items.iter().filter_map(|i| match i {
-            DocumentItem::Pattern(p) => Some(p),
-            _ => None,
-        }).collect()
+        self.items
+            .iter()
+            .filter_map(|i| match i {
+                DocumentItem::Pattern(p) => Some(p),
+                _ => None,
+            })
+            .collect()
     }
 
     /// All graph ASTs in declaration order.
     pub fn graphs(&self) -> Vec<&GraphAst> {
-        self.items.iter().filter_map(|i| match i {
-            DocumentItem::Graph(g) => Some(g),
-            _ => None,
-        }).collect()
+        self.items
+            .iter()
+            .filter_map(|i| match i {
+                DocumentItem::Graph(g) => Some(g),
+                _ => None,
+            })
+            .collect()
     }
 }
 
@@ -50,9 +56,7 @@ pub enum ComposeBody {
         shared: Vec<String>,
     },
     /// `A | B | C` (exclusive choice)
-    Choice {
-        alternatives: Vec<String>,
-    },
+    Choice { alternatives: Vec<String> },
     /// `A * 3 sharing(x, y)` (exact) or `A * 3..5 sharing(x, y)` (range)
     Repeat {
         pattern: String,
@@ -71,6 +75,9 @@ pub struct PatternAst {
     pub temporals: Vec<TemporalAst>,
     pub metadata: Vec<(String, String)>,
     pub deadline: Option<f64>,
+    /// Unordered stage groups (concurrent blocks). Each entry contains the
+    /// stage indices (into `stages`) that form a concurrent group.
+    pub unordered_groups: Vec<Vec<usize>>,
 }
 
 /// The interior of a pattern — stages, negations, and temporal constraints,
@@ -86,6 +93,7 @@ pub struct PatternBody {
     pub temporals: Vec<TemporalAst>,
     pub metadata: Vec<(String, String)>,
     pub deadline: Option<f64>,
+    pub unordered_groups: Vec<Vec<usize>>,
 }
 
 /// A stage within a pattern.

@@ -134,6 +134,8 @@ pub fn rename_vars<L: Clone, V: Clone>(
         metadata: pattern.metadata.clone(),
         deadline_ticks: pattern.deadline_ticks,
         repeat_range: pattern.repeat_range.clone(),
+        // Unordered groups are stage indices (positional), not variable names — no renaming needed.
+        unordered_groups: pattern.unordered_groups.clone(),
     }
 }
 
@@ -160,6 +162,8 @@ pub fn sequence<L: Clone, V: Clone>(
     let a_renamed = rename_vars(a, "a", &keep);
     let b_renamed = rename_vars(b, "b", &keep);
 
+    let a_stage_count = a_renamed.stages.len();
+
     let mut stages = a_renamed.stages;
     stages.extend(b_renamed.stages);
 
@@ -173,6 +177,12 @@ pub fn sequence<L: Clone, V: Clone>(
     let mut metadata = a_renamed.metadata;
     metadata.extend(b_renamed.metadata);
 
+    // Shift unordered group indices: a's groups are unchanged, b's are offset
+    let mut unordered_groups = a_renamed.unordered_groups;
+    for group in b_renamed.unordered_groups {
+        unordered_groups.push(group.iter().map(|&i| i + a_stage_count).collect());
+    }
+
     Pattern {
         name: name.to_string(),
         stages,
@@ -182,6 +192,7 @@ pub fn sequence<L: Clone, V: Clone>(
         metadata,
         deadline_ticks: None,
         repeat_range: None,
+        unordered_groups,
     }
 }
 
@@ -211,7 +222,10 @@ pub fn choice<L: Clone, V: Clone>(
         None
     };
 
-    debug_assert!(!alternatives.is_empty(), "choice requires at least one alternative");
+    debug_assert!(
+        !alternatives.is_empty(),
+        "choice requires at least one alternative"
+    );
 
     alternatives
         .iter()
@@ -248,9 +262,14 @@ pub fn repeat<L: Clone, V: Clone>(
     let mut negations = Vec::new();
 
     let mut metadata = HashMap::new();
+    let mut unordered_groups = Vec::new();
     for i in 0..count {
         let prefix = format!("rep{}", i);
         let renamed = rename_vars(pattern, &prefix, &keep);
+        let offset = stages.len();
+        for group in &renamed.unordered_groups {
+            unordered_groups.push(group.iter().map(|&idx| idx + offset).collect());
+        }
         stages.extend(renamed.stages);
         temporal.extend(renamed.temporal);
         negations.extend(renamed.negations);
@@ -266,6 +285,7 @@ pub fn repeat<L: Clone, V: Clone>(
         metadata,
         deadline_ticks: None,
         repeat_range: None,
+        unordered_groups,
     }
 }
 
@@ -303,6 +323,12 @@ pub fn repeat_range<L: Clone, V: Clone>(
     let first_stage_count = first.stages.len();
     let last_stage_count = last.stages.len();
 
+    // Shift unordered group indices for first_ and last_ copies
+    let mut unordered_groups = first.unordered_groups;
+    for group in last.unordered_groups {
+        unordered_groups.push(group.iter().map(|&i| i + first_stage_count).collect());
+    }
+
     let mut stages = first.stages;
     stages.extend(last.stages);
 
@@ -332,6 +358,7 @@ pub fn repeat_range<L: Clone, V: Clone>(
             max_reps: max,
             shared_vars,
         }),
+        unordered_groups,
     }
 }
 
@@ -350,8 +377,11 @@ mod tests {
             let anchor = format!("e{}", i);
             let evt = format!("event_{}", i);
             builder = builder.stage(&anchor, |s| {
-                s.edge(&anchor, "type".to_string(), evt)
-                    .edge_bind(&anchor, "actor".to_string(), "char")
+                s.edge(&anchor, "type".to_string(), evt).edge_bind(
+                    &anchor,
+                    "actor".to_string(),
+                    "char",
+                )
             });
         }
         builder.build()
@@ -461,7 +491,11 @@ mod tests {
         let offense = make_pattern("offense", 1);
         let escalation = repeat("three_strikes", &offense, 3, &["char"]);
 
-        let anchors: Vec<&str> = escalation.stages.iter().map(|s| s.anchor.0.as_str()).collect();
+        let anchors: Vec<&str> = escalation
+            .stages
+            .iter()
+            .map(|s| s.anchor.0.as_str())
+            .collect();
         assert_eq!(anchors, vec!["rep0_e0", "rep1_e0", "rep2_e0"]);
     }
 
@@ -480,10 +514,7 @@ mod tests {
 
         assert_eq!(renamed.negations.len(), 1);
         assert_eq!(renamed.negations[0].between_start.0, "x_e1");
-        assert_eq!(
-            renamed.negations[0].between_end.as_ref().unwrap().0,
-            "x_e2"
-        );
+        assert_eq!(renamed.negations[0].between_end.as_ref().unwrap().0, "x_e2");
         assert_eq!(renamed.negations[0].clauses[0].source.0, "x_mid");
     }
 
@@ -556,12 +587,8 @@ mod tests {
         use crate::datasource::ValueConstraint;
 
         let p = PatternBuilder::<String, String>::new("test")
-            .stage("e1", |s| {
-                s.edge_bind("e1", "price".into(), "base_price")
-            })
-            .stage("e2", |s| {
-                s.edge_gt_var("e2", "price".into(), "base_price")
-            })
+            .stage("e1", |s| s.edge_bind("e1", "price".into(), "base_price"))
+            .stage("e2", |s| s.edge_gt_var("e2", "price".into(), "base_price"))
             .build();
 
         let keep = HashSet::new();
@@ -587,12 +614,8 @@ mod tests {
         use crate::datasource::ValueConstraint;
 
         let p = PatternBuilder::<String, String>::new("test")
-            .stage("e1", |s| {
-                s.edge_bind("e1", "price".into(), "shared_val")
-            })
-            .stage("e2", |s| {
-                s.edge_gt_var("e2", "price".into(), "shared_val")
-            })
+            .stage("e1", |s| s.edge_bind("e1", "price".into(), "shared_val"))
+            .stage("e2", |s| s.edge_gt_var("e2", "price".into(), "shared_val"))
             .build();
 
         let mut keep = HashSet::new();
@@ -605,5 +628,72 @@ mod tests {
             }
             other => panic!("expected GtVar, got {:?}", other),
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Unordered group composition tests
+    // -----------------------------------------------------------------------
+
+    fn make_pattern_with_group(name: &str) -> Pattern<String, String> {
+        PatternBuilder::<String, String>::new(name)
+            .stage("s", |s| s.edge("s", "type".to_string(), "start".to_string()))
+            .unordered_group(|g| {
+                g.stage("a", |s| s.edge("a", "type".to_string(), "alpha".to_string()))
+                    .stage("b", |s| s.edge("b", "type".to_string(), "beta".to_string()))
+            })
+            .build()
+    }
+
+    #[test]
+    fn sequence_shifts_unordered_group_indices() {
+        let a = make_pattern_with_group("left");
+        let b = make_pattern_with_group("right");
+        let composed = sequence("seq", &a, &b, &[]);
+
+        // a has 3 stages [s, a, b] with group [1, 2]
+        // b has 3 stages [s, a, b] with group [1, 2]
+        // composed: 6 stages, a's group at [1,2], b's group at [4,5]
+        assert_eq!(composed.stages.len(), 6);
+        assert_eq!(composed.unordered_groups.len(), 2);
+        assert_eq!(composed.unordered_groups[0], vec![1, 2]);
+        assert_eq!(composed.unordered_groups[1], vec![4, 5]);
+    }
+
+    #[test]
+    fn repeat_shifts_unordered_group_indices() {
+        let p = make_pattern_with_group("base");
+        let rep = repeat("triple", &p, 3, &[]);
+
+        // base has 3 stages with group [1, 2]
+        // rep0: stages [0,1,2], group [1,2]
+        // rep1: stages [3,4,5], group [4,5]
+        // rep2: stages [6,7,8], group [7,8]
+        assert_eq!(rep.stages.len(), 9);
+        assert_eq!(rep.unordered_groups.len(), 3);
+        assert_eq!(rep.unordered_groups[0], vec![1, 2]);
+        assert_eq!(rep.unordered_groups[1], vec![4, 5]);
+        assert_eq!(rep.unordered_groups[2], vec![7, 8]);
+    }
+
+    #[test]
+    fn repeat_range_shifts_unordered_group_indices() {
+        let p = make_pattern_with_group("base");
+        let rr = repeat_range("range", &p, 2, None, &[]);
+
+        // first_ copy: stages [0,1,2], group [1,2]
+        // last_ copy: stages [3,4,5], group [4,5]
+        assert_eq!(rr.stages.len(), 6);
+        assert_eq!(rr.unordered_groups.len(), 2);
+        assert_eq!(rr.unordered_groups[0], vec![1, 2]);
+        assert_eq!(rr.unordered_groups[1], vec![4, 5]);
+    }
+
+    #[test]
+    fn rename_vars_preserves_unordered_groups() {
+        let p = make_pattern_with_group("base");
+        let keep = HashSet::new();
+        let renamed = rename_vars(&p, "x", &keep);
+
+        assert_eq!(renamed.unordered_groups, vec![vec![1, 2]]);
     }
 }

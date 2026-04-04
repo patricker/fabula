@@ -100,6 +100,7 @@ impl Parser {
             temporals: body.temporals,
             metadata: body.metadata,
             deadline: body.deadline,
+            unordered_groups: body.unordered_groups,
         })
     }
 
@@ -127,12 +128,32 @@ impl Parser {
         let mut temporals = Vec::new();
         let mut metadata = Vec::new();
         let mut deadline = None;
+        let mut unordered_groups = Vec::new();
 
         while !self.check(TokenKind::RBrace) && !self.at_eof() {
             match &self.peek().kind {
                 TokenKind::Stage => stages.push(self.parse_stage()?),
                 TokenKind::Unless => negations.push(self.parse_negation()?),
                 TokenKind::Temporal => temporals.push(self.parse_temporal()?),
+                TokenKind::Concurrent => {
+                    self.advance();
+                    self.expect(TokenKind::LBrace)?;
+                    let group_start = stages.len();
+                    while !self.check(TokenKind::RBrace) && !self.at_eof() {
+                        if !self.check(TokenKind::Stage) {
+                            return Err(self.error(
+                                "only 'stage' blocks are allowed inside 'concurrent'",
+                            ));
+                        }
+                        stages.push(self.parse_stage()?);
+                    }
+                    self.expect(TokenKind::RBrace)?;
+                    let group_end = stages.len();
+                    if group_end > group_start {
+                        let indices: Vec<usize> = (group_start..group_end).collect();
+                        unordered_groups.push(indices);
+                    }
+                }
                 TokenKind::Ident(s) if s == "meta" => {
                     metadata.push(self.parse_meta()?);
                 }
@@ -140,11 +161,22 @@ impl Parser {
                     self.advance();
                     deadline = Some(self.expect_number()?);
                 }
-                _ => return Err(self.error("expected 'stage', 'unless', 'temporal', 'meta', or 'deadline'")),
+                _ => {
+                    return Err(self.error(
+                        "expected 'stage', 'unless', 'temporal', 'concurrent', 'meta', or 'deadline'",
+                    ))
+                }
             }
         }
 
-        Ok(PatternBody { stages, negations, temporals, metadata, deadline })
+        Ok(PatternBody {
+            stages,
+            negations,
+            temporals,
+            metadata,
+            deadline,
+            unordered_groups,
+        })
     }
 
     /// Parse a `meta("key", "value")` clause.
@@ -228,14 +260,21 @@ impl Parser {
         let right = self.expect_ident()?;
 
         // Optional: gap min..max
-        let (gap_min, gap_max) = if matches!(self.peek().kind, TokenKind::Ident(ref s) if s == "gap") {
+        let (gap_min, gap_max) = if matches!(self.peek().kind, TokenKind::Ident(ref s) if s == "gap")
+        {
             self.advance();
             self.parse_gap_range()?
         } else {
             (None, None)
         };
 
-        Ok(TemporalAst { left, relation, right, gap_min, gap_max })
+        Ok(TemporalAst {
+            left,
+            relation,
+            right,
+            gap_min,
+            gap_max,
+        })
     }
 
     fn parse_gap_range(&mut self) -> Result<(Option<f64>, Option<f64>), ParseError> {
@@ -283,7 +322,11 @@ impl Parser {
             self.advance();
             let second = self.expect_ident()?;
             let shared = self.parse_sharing_clause()?;
-            ComposeBody::Sequence { left: first, right: second, shared }
+            ComposeBody::Sequence {
+                left: first,
+                right: second,
+                shared,
+            }
         } else if self.check(TokenKind::Pipe) {
             // Choice: first | second | third ...
             let mut alternatives = vec![first];
@@ -311,11 +354,21 @@ impl Parser {
             match max {
                 None => {
                     // Exact: * N → min=N, max=Some(N)
-                    ComposeBody::Repeat { pattern: first, min, max: Some(min), shared }
+                    ComposeBody::Repeat {
+                        pattern: first,
+                        min,
+                        max: Some(min),
+                        shared,
+                    }
                 }
                 Some(max_val) => {
                     // Range: * N..M or * N..
-                    ComposeBody::Repeat { pattern: first, min, max: max_val, shared }
+                    ComposeBody::Repeat {
+                        pattern: first,
+                        min,
+                        max: max_val,
+                        shared,
+                    }
                 }
             }
         } else {
@@ -404,7 +457,13 @@ impl Parser {
             return Err(self.error("expected '=', '->', '<', '>', '<=', or '>='"));
         };
 
-        Ok(ClauseAst { source, source_kind, label, target, negated })
+        Ok(ClauseAst {
+            source,
+            source_kind,
+            label,
+            target,
+            negated,
+        })
     }
 
     fn parse_literal_target(&mut self) -> Result<ClauseTarget, ParseError> {
@@ -534,7 +593,13 @@ impl Parser {
             return Err(self.error("expected '=' or '->' in graph edge"));
         };
 
-        Ok(EdgeAst { time_start, time_end, source, label, target })
+        Ok(EdgeAst {
+            time_start,
+            time_end,
+            source,
+            label,
+            target,
+        })
     }
 
     fn parse_edge_target_literal(&mut self) -> Result<EdgeTarget, ParseError> {
@@ -619,10 +684,26 @@ impl Parser {
                 }
             }
             // Allow keywords as identifiers in certain positions
-            TokenKind::Between => { self.advance(); Ok("between".to_string()) }
-            TokenKind::After => { self.advance(); Ok("after".to_string()) }
-            TokenKind::Compose => { self.advance(); Ok("compose".to_string()) }
-            TokenKind::Sharing => { self.advance(); Ok("sharing".to_string()) }
+            TokenKind::Between => {
+                self.advance();
+                Ok("between".to_string())
+            }
+            TokenKind::After => {
+                self.advance();
+                Ok("after".to_string())
+            }
+            TokenKind::Compose => {
+                self.advance();
+                Ok("compose".to_string())
+            }
+            TokenKind::Sharing => {
+                self.advance();
+                Ok("sharing".to_string())
+            }
+            TokenKind::Concurrent => {
+                self.advance();
+                Ok("concurrent".to_string())
+            }
             _ => Err(self.error("expected identifier")),
         }
     }

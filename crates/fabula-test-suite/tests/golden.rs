@@ -17,8 +17,8 @@
 //! 3. Add `my_scenario,` to the `golden_tests!` invocation below.
 //! 4. `cargo test -p fabula-test-suite` now runs it against all three adapters.
 
-use fabula_test_suite::{MemGraph, PetGraph, GrafeoGraph};
 use fabula_test_suite::scenarios;
+use fabula_test_suite::{GrafeoGraph, MemGraph, PetGraph};
 
 // ===========================================================================
 // The golden_tests! macro
@@ -158,4 +158,12 @@ golden_tests! {
     batch_cross_stage_lt_matches,
     batch_cross_stage_eq_matches,
     incremental_cross_stage_gt,
+
+    // --- Unordered (concurrent) stage groups ---
+    batch_unordered_group_any_order,
+    batch_unordered_group_after_ordered,
+    batch_unordered_group_before_ordered,
+    batch_unordered_group_ordering_with_ordered,
+    incremental_unordered_group,
+    batch_unordered_group_shared_binding,
 }

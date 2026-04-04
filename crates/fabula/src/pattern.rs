@@ -130,6 +130,13 @@ pub struct Pattern<L, V> {
     /// of stages instead of completing after the last stage. Enables "at least
     /// N, up to M" matching with first/last binding bookends.
     pub repeat_range: Option<RepeatRange>,
+    /// Unordered stage groups. Each inner Vec contains stage indices that may
+    /// match in any order (must be consecutive indices, max stage index < 64).
+    /// Stages within the same group have no implicit temporal ordering — the
+    /// engine tries all unmatched group stages against each incoming edge and
+    /// advances past the group when all are matched.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub unordered_groups: Vec<Vec<usize>>,
 }
 
 /// Configuration for looping repeat patterns (`* N..M` or `* N..`).
@@ -202,7 +209,11 @@ impl<L, V> Stage<L, V> {
     ) -> Stage<L2, V2> {
         Stage {
             anchor: self.anchor.clone(),
-            clauses: self.clauses.iter().map(|c| c.map_types(label_fn, value_fn)).collect(),
+            clauses: self
+                .clauses
+                .iter()
+                .map(|c| c.map_types(label_fn, value_fn))
+                .collect(),
         }
     }
 }
@@ -217,7 +228,11 @@ impl<L, V> Negation<L, V> {
         Negation {
             between_start: self.between_start.clone(),
             between_end: self.between_end.clone(),
-            clauses: self.clauses.iter().map(|c| c.map_types(label_fn, value_fn)).collect(),
+            clauses: self
+                .clauses
+                .iter()
+                .map(|c| c.map_types(label_fn, value_fn))
+                .collect(),
             is_global: self.is_global,
         }
     }
@@ -236,14 +251,37 @@ impl<L, V> Pattern<L, V> {
     ) -> Pattern<L2, V2> {
         Pattern {
             name: self.name.clone(),
-            stages: self.stages.iter().map(|s| s.map_types(&label_fn, &value_fn)).collect(),
+            stages: self
+                .stages
+                .iter()
+                .map(|s| s.map_types(&label_fn, &value_fn))
+                .collect(),
             temporal: self.temporal.clone(),
-            negations: self.negations.iter().map(|n| n.map_types(&label_fn, &value_fn)).collect(),
+            negations: self
+                .negations
+                .iter()
+                .map(|n| n.map_types(&label_fn, &value_fn))
+                .collect(),
             group: self.group.clone(),
             metadata: self.metadata.clone(),
             deadline_ticks: self.deadline_ticks,
             repeat_range: self.repeat_range.clone(),
+            unordered_groups: self.unordered_groups.clone(),
         }
+    }
+
+    /// Return the unordered group containing this stage index, if any.
+    pub fn unordered_group_for(&self, stage_idx: usize) -> Option<&Vec<usize>> {
+        self.unordered_groups
+            .iter()
+            .find(|g| g.contains(&stage_idx))
+    }
+
+    /// Check if two stage indices are in the same unordered group.
+    pub fn same_unordered_group(&self, a: usize, b: usize) -> bool {
+        self.unordered_groups
+            .iter()
+            .any(|g| g.contains(&a) && g.contains(&b))
     }
 
     /// All variables used in this pattern (across all stages and negations).
@@ -291,22 +329,26 @@ mod tests {
     #[test]
     fn map_types_transforms_labels_and_values() {
         let pattern = PatternBuilder::<String, String>::new("test")
-            .stage("e1", |s| s
-                .edge("e1", "eventType".into(), "betray".into())
-                .edge_bind("e1", "actor".into(), "char"))
+            .stage("e1", |s| {
+                s.edge("e1", "eventType".into(), "betray".into()).edge_bind(
+                    "e1",
+                    "actor".into(),
+                    "char",
+                )
+            })
             .build();
 
-        let mapped = pattern.map_types(
-            |l| l.len() as u32,
-            |v| v.len() as i64,
-        );
+        let mapped = pattern.map_types(|l| l.len() as u32, |v| v.len() as i64);
 
         assert_eq!(mapped.name, "test");
         assert_eq!(mapped.stages[0].clauses[0].label, 9); // "eventType".len()
         assert_eq!(mapped.stages[0].clauses[0].target, Target::Literal(6)); // "betray".len()
-        // Bind targets are unchanged (variables, not values)
+                                                                            // Bind targets are unchanged (variables, not values)
         assert_eq!(mapped.stages[0].clauses[1].label, 5); // "actor".len()
-        assert!(matches!(mapped.stages[0].clauses[1].target, Target::Bind(_)));
+        assert!(matches!(
+            mapped.stages[0].clauses[1].target,
+            Target::Bind(_)
+        ));
     }
 
     #[test]
@@ -330,17 +372,23 @@ mod tests {
         assert_eq!(mapped.negations[0].between_start, Var::new("e1"));
         // Values transformed
         assert_eq!(mapped.stages[0].clauses[0].label, "TYPE");
-        assert_eq!(mapped.stages[0].clauses[0].target, Target::Literal("SETUP".into()));
+        assert_eq!(
+            mapped.stages[0].clauses[0].target,
+            Target::Literal("SETUP".into())
+        );
     }
 
     #[test]
     fn condition_count_sums_clauses_across_stages() {
         let pattern = PatternBuilder::<String, String>::new("test")
-            .stage("e1", |s| s
-                .edge("e1", "eventType".into(), "betray".into())
-                .edge_bind("e1", "actor".into(), "char"))
-            .stage("e2", |s| s
-                .edge("e2", "eventType".into(), "betray".into()))
+            .stage("e1", |s| {
+                s.edge("e1", "eventType".into(), "betray".into()).edge_bind(
+                    "e1",
+                    "actor".into(),
+                    "char",
+                )
+            })
+            .stage("e2", |s| s.edge("e2", "eventType".into(), "betray".into()))
             .build();
         assert_eq!(pattern.condition_count(), 3);
 
@@ -351,8 +399,7 @@ mod tests {
         let with_negation = PatternBuilder::<String, String>::new("neg")
             .stage("e1", |s| s.edge("e1", "type".into(), "start".into()))
             .stage("e2", |s| s.edge("e2", "type".into(), "end".into()))
-            .unless_between("e1", "e2", |n|
-                n.edge("mid", "type".into(), "block".into()))
+            .unless_between("e1", "e2", |n| n.edge("mid", "type".into(), "block".into()))
             .build();
         assert_eq!(with_negation.condition_count(), 2); // 2 stage clauses, not 3
     }
@@ -364,8 +411,14 @@ mod tests {
         assert_eq!(ValueConstraint::Eq(5).map(&double), ValueConstraint::Eq(10));
         assert_eq!(ValueConstraint::Lt(3).map(&double), ValueConstraint::Lt(6));
         assert_eq!(ValueConstraint::Gt(4).map(&double), ValueConstraint::Gt(8));
-        assert_eq!(ValueConstraint::Lte(2).map(&double), ValueConstraint::Lte(4));
-        assert_eq!(ValueConstraint::Gte(1).map(&double), ValueConstraint::Gte(2));
+        assert_eq!(
+            ValueConstraint::Lte(2).map(&double),
+            ValueConstraint::Lte(4)
+        );
+        assert_eq!(
+            ValueConstraint::Gte(1).map(&double),
+            ValueConstraint::Gte(2)
+        );
         assert_eq!(
             ValueConstraint::Between(1, 10).map(&double),
             ValueConstraint::Between(2, 20)
