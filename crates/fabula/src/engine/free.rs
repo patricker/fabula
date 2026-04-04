@@ -265,8 +265,7 @@ where
                 candidates = next;
             }
             StageStep::Unordered(indices) => {
-                candidates =
-                    expand_unordered_group(ds, pattern, &candidates, indices, now);
+                candidates = expand_unordered_group(ds, pattern, &candidates, indices, now);
             }
         }
     }

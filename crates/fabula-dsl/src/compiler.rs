@@ -205,10 +205,12 @@ pub fn compile_pattern_with<M: TypeMapper>(
         // Reject unless_between where both anchors are in the same concurrent group
         if let NegationKind::Between(start, end) = &neg.kind {
             for group in &ast.unordered_groups {
-                let start_in =
-                    group.iter().any(|&i| ast.stages.get(i).is_some_and(|s| s.anchor == *start));
-                let end_in =
-                    group.iter().any(|&i| ast.stages.get(i).is_some_and(|s| s.anchor == *end));
+                let start_in = group
+                    .iter()
+                    .any(|&i| ast.stages.get(i).is_some_and(|s| s.anchor == *start));
+                let end_in = group
+                    .iter()
+                    .any(|&i| ast.stages.get(i).is_some_and(|s| s.anchor == *end));
                 if start_in && end_in {
                     return Err(ParseError {
                         line: 0,
@@ -1178,8 +1180,7 @@ mod tests {
 
         assert_eq!(doc.patterns[0].unordered_groups, vec![vec![0, 1]]);
 
-        let mut engine =
-            fabula::engine::SiftEngine::<String, String, MemValue, i64>::new();
+        let mut engine = fabula::engine::SiftEngine::<String, String, MemValue, i64>::new();
         engine.register(doc.patterns[0].clone());
         let matches = engine.evaluate(&doc.graphs[0]);
         assert_eq!(matches.len(), 1);

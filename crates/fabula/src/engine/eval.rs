@@ -148,12 +148,7 @@ where
                         };
                         self.stats.total_fingerprints += 1;
                         let fp = Self::compute_fingerprint_full(
-                            pat_idx,
-                            final_next,
-                            &bindings,
-                            &intervals,
-                            0,
-                            init_mask,
+                            pat_idx, final_next, &bindings, &intervals, 0, init_mask,
                         );
                         if !seen.insert(fp) {
                             continue;
@@ -217,17 +212,17 @@ where
             }
 
             // Determine which stages to try based on unordered group membership
-            let try_stages: Vec<usize> =
-                if let Some(group) = pattern.unordered_group_for(stage_idx) {
-                    // Try all unmatched stages in the group
-                    group
-                        .iter()
-                        .filter(|&&si| pm.matched_stages & (1u64 << si) == 0)
-                        .copied()
-                        .collect()
-                } else {
-                    vec![stage_idx]
-                };
+            let try_stages: Vec<usize> = if let Some(group) = pattern.unordered_group_for(stage_idx)
+            {
+                // Try all unmatched stages in the group
+                group
+                    .iter()
+                    .filter(|&&si| pm.matched_stages & (1u64 << si) == 0)
+                    .copied()
+                    .collect()
+            } else {
+                vec![stage_idx]
+            };
 
             for &try_idx in &try_stages {
                 let stage = &pattern.stages[try_idx];
@@ -240,10 +235,8 @@ where
                         // (those have no ordering requirement).
                         let temporal_ok = pm.intervals.iter().all(|(var, prev_iv)| {
                             // Find the stage index for this interval variable
-                            if let Some(prev_stage_idx) = pattern
-                                .stages
-                                .iter()
-                                .position(|s| s.anchor.0 == *var)
+                            if let Some(prev_stage_idx) =
+                                pattern.stages.iter().position(|s| s.anchor.0 == *var)
                             {
                                 if pattern.same_unordered_group(prev_stage_idx, try_idx) {
                                     return true; // no ordering within group
@@ -261,22 +254,21 @@ where
                         merged_intervals.extend(new_intervals);
 
                         // Compute the new matched_stages mask and determine next_stage
-                        let (next, new_mask) = if let Some(group) =
-                            pattern.unordered_group_for(stage_idx)
-                        {
-                            let mask = pm.matched_stages | (1u64 << try_idx);
-                            let all_matched = group.iter().all(|&si| mask & (1u64 << si) != 0);
-                            if all_matched {
-                                // Group complete — advance past it
-                                let group_end = *group.iter().max().unwrap() + 1;
-                                (group_end, mask)
+                        let (next, new_mask) =
+                            if let Some(group) = pattern.unordered_group_for(stage_idx) {
+                                let mask = pm.matched_stages | (1u64 << try_idx);
+                                let all_matched = group.iter().all(|&si| mask & (1u64 << si) != 0);
+                                if all_matched {
+                                    // Group complete — advance past it
+                                    let group_end = *group.iter().max().unwrap() + 1;
+                                    (group_end, mask)
+                                } else {
+                                    // Stay at group start
+                                    (group[0], mask)
+                                }
                             } else {
-                                // Stay at group start
-                                (group[0], mask)
-                            }
-                        } else {
-                            (stage_idx + 1, pm.matched_stages)
-                        };
+                                (stage_idx + 1, pm.matched_stages)
+                            };
 
                         let is_past_end = next >= pattern.stages.len();
 
@@ -286,8 +278,7 @@ where
                                 let increment = if pm.repetition_count == 0 { 2 } else { 1 };
                                 let new_rep = pm.repetition_count + increment;
                                 let min_met = new_rep >= rr.min_reps as u32;
-                                let max_reached =
-                                    rr.max_reps.is_some_and(|m| new_rep >= m as u32);
+                                let max_reached = rr.max_reps.is_some_and(|m| new_rep >= m as u32);
 
                                 if min_met && free::check_temporal(pattern, &merged_intervals) {
                                     self.stats.total_fingerprints += 1;

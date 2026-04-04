@@ -451,9 +451,7 @@ pub struct UnorderedGroupBuilder<L, V> {
 
 impl<L: Clone, V: Clone> UnorderedGroupBuilder<L, V> {
     fn new() -> Self {
-        Self {
-            stages: Vec::new(),
-        }
+        Self { stages: Vec::new() }
     }
 
     /// Add a stage to the unordered group.

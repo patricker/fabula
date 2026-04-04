@@ -39,7 +39,9 @@ pub fn batch_unordered_group_any_order<G: TestGraph>() {
 /// Batch: Unordered group with a preceding ordered stage.
 pub fn batch_unordered_group_after_ordered<G: TestGraph>() {
     let pattern = PatternBuilder::<String, G::V>::new("setup_then_concurrent")
-        .stage("setup", |s| s.edge("setup", "type".into(), G::str_val("start")))
+        .stage("setup", |s| {
+            s.edge("setup", "type".into(), G::str_val("start"))
+        })
         .unordered_group(|g| {
             g.stage("a", |s| s.edge("a", "type".into(), G::str_val("alpha")))
                 .stage("b", |s| s.edge("b", "type".into(), G::str_val("beta")))
@@ -65,7 +67,9 @@ pub fn batch_unordered_group_before_ordered<G: TestGraph>() {
             g.stage("a", |s| s.edge("a", "type".into(), G::str_val("alpha")))
                 .stage("b", |s| s.edge("b", "type".into(), G::str_val("beta")))
         })
-        .stage("end", |s| s.edge("end", "type".into(), G::str_val("finish")))
+        .stage("end", |s| {
+            s.edge("end", "type".into(), G::str_val("finish"))
+        })
         .build();
 
     let mut g = G::new_graph();
@@ -87,7 +91,9 @@ pub fn batch_unordered_group_ordering_with_ordered<G: TestGraph>() {
             g.stage("a", |s| s.edge("a", "type".into(), G::str_val("alpha")))
                 .stage("b", |s| s.edge("b", "type".into(), G::str_val("beta")))
         })
-        .stage("end", |s| s.edge("end", "type".into(), G::str_val("finish")))
+        .stage("end", |s| {
+            s.edge("end", "type".into(), G::str_val("finish"))
+        })
         .build();
 
     // Finish happens before one of the concurrent events -> should not match
@@ -102,7 +108,11 @@ pub fn batch_unordered_group_ordering_with_ordered<G: TestGraph>() {
     let matches = engine.evaluate(&g);
     // This should not match because "finish" at t=2 comes before "beta" at t=3,
     // but "finish" must come after the entire concurrent group
-    assert_eq!(matches.len(), 0, "finish before group completion should not match");
+    assert_eq!(
+        matches.len(),
+        0,
+        "finish before group completion should not match"
+    );
 }
 
 /// Incremental: unordered group matches with events arriving in any order.
@@ -122,10 +132,13 @@ pub fn incremental_unordered_group<G: TestGraph>() {
     g.add_str_edge("ev1", "type", "beta", 1);
     g.set_current_time(1);
     let iv1 = fabula::interval::Interval::open(1);
-    let events1 = engine.on_edge_added(&g, &"ev1".into(), &"type".into(), &G::str_val("beta"), &iv1);
+    let events1 =
+        engine.on_edge_added(&g, &"ev1".into(), &"type".into(), &G::str_val("beta"), &iv1);
     // Should advance (one stage of two matched)
     assert!(
-        events1.iter().any(|e| matches!(e, fabula::engine::SiftEvent::Advanced { .. })),
+        events1
+            .iter()
+            .any(|e| matches!(e, fabula::engine::SiftEvent::Advanced { .. })),
         "should advance after first stage match"
     );
 
@@ -133,10 +146,18 @@ pub fn incremental_unordered_group<G: TestGraph>() {
     g.add_str_edge("ev2", "type", "alpha", 2);
     g.set_current_time(2);
     let iv2 = fabula::interval::Interval::open(2);
-    let events2 = engine.on_edge_added(&g, &"ev2".into(), &"type".into(), &G::str_val("alpha"), &iv2);
+    let events2 = engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"type".into(),
+        &G::str_val("alpha"),
+        &iv2,
+    );
     // Should complete
     assert!(
-        events2.iter().any(|e| matches!(e, fabula::engine::SiftEvent::Completed { .. })),
+        events2
+            .iter()
+            .any(|e| matches!(e, fabula::engine::SiftEvent::Completed { .. })),
         "should complete after both stages matched"
     );
 }
@@ -146,12 +167,18 @@ pub fn batch_unordered_group_shared_binding<G: TestGraph>() {
     let pattern = PatternBuilder::<String, G::V>::new("shared_actor")
         .unordered_group(|g| {
             g.stage("a", |s| {
-                s.edge("a", "type".into(), G::str_val("alpha"))
-                    .edge_bind("a", "actor".into(), "person")
+                s.edge("a", "type".into(), G::str_val("alpha")).edge_bind(
+                    "a",
+                    "actor".into(),
+                    "person",
+                )
             })
             .stage("b", |s| {
-                s.edge("b", "type".into(), G::str_val("beta"))
-                    .edge_bind("b", "actor".into(), "person")
+                s.edge("b", "type".into(), G::str_val("beta")).edge_bind(
+                    "b",
+                    "actor".into(),
+                    "person",
+                )
             })
         })
         .build();
@@ -168,7 +195,10 @@ pub fn batch_unordered_group_shared_binding<G: TestGraph>() {
     engine.register(pattern.clone());
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].bindings["person"], BoundValue::Node("alice".into()));
+    assert_eq!(
+        matches[0].bindings["person"],
+        BoundValue::Node("alice".into())
+    );
 
     // Different actors — should not match
     let mut g2 = G::new_graph();

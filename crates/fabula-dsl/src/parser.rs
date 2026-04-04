@@ -141,9 +141,9 @@ impl Parser {
                     let group_start = stages.len();
                     while !self.check(TokenKind::RBrace) && !self.at_eof() {
                         if !self.check(TokenKind::Stage) {
-                            return Err(self.error(
-                                "only 'stage' blocks are allowed inside 'concurrent'",
-                            ));
+                            return Err(
+                                self.error("only 'stage' blocks are allowed inside 'concurrent'")
+                            );
                         }
                         stages.push(self.parse_stage()?);
                     }
@@ -161,11 +161,9 @@ impl Parser {
                     self.advance();
                     deadline = Some(self.expect_number()?);
                 }
-                _ => {
-                    return Err(self.error(
-                        "expected 'stage', 'unless', 'temporal', 'concurrent', 'meta', or 'deadline'",
-                    ))
-                }
+                _ => return Err(self.error(
+                    "expected 'stage', 'unless', 'temporal', 'concurrent', 'meta', or 'deadline'",
+                )),
             }
         }
 

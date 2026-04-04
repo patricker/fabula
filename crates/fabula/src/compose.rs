@@ -636,10 +636,14 @@ mod tests {
 
     fn make_pattern_with_group(name: &str) -> Pattern<String, String> {
         PatternBuilder::<String, String>::new(name)
-            .stage("s", |s| s.edge("s", "type".to_string(), "start".to_string()))
+            .stage("s", |s| {
+                s.edge("s", "type".to_string(), "start".to_string())
+            })
             .unordered_group(|g| {
-                g.stage("a", |s| s.edge("a", "type".to_string(), "alpha".to_string()))
-                    .stage("b", |s| s.edge("b", "type".to_string(), "beta".to_string()))
+                g.stage("a", |s| {
+                    s.edge("a", "type".to_string(), "alpha".to_string())
+                })
+                .stage("b", |s| s.edge("b", "type".to_string(), "beta".to_string()))
             })
             .build()
     }

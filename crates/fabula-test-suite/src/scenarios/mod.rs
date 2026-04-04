@@ -19,8 +19,8 @@ mod negation;
 mod romantic_arc;
 mod temporal;
 mod two_betrayals;
-mod value_constraints;
 mod unordered_groups;
+mod value_constraints;
 mod winnow_replay;
 
 pub use allen_temporal::*;
