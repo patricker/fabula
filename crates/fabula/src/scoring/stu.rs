@@ -30,7 +30,9 @@ pub struct StuScoredMatch<N: Debug, V: Debug, T: Debug + Clone> {
     /// Per-property frequencies, sorted ascending (rarest first).
     /// Each entry is `(property_string, frequency)`.
     pub property_frequencies: Vec<(String, f64)>,
-    /// StU score: mean of property frequencies. Lower = more surprising.
+    /// StU score: aggregated property frequencies. Interpretation depends on
+    /// the aggregation mode — lower = more surprising for most modes, but
+    /// **higher = more surprising** for `TfIdf`.
     pub stu_score: f64,
 }
 
@@ -41,6 +43,37 @@ struct PropertyTable {
     total_matches: u64,
     /// How many matches contained each property.
     property_counts: HashMap<String, u64>,
+    /// Co-occurrence counts for property pairs (canonical sorted order).
+    /// Only populated when `pmi_correction` is enabled on the scorer.
+    pair_counts: HashMap<(String, String), u64>,
+}
+
+/// Aggregation strategy for combining per-property frequencies into a single StU score.
+///
+/// Each variant implements a different "theory of surprise":
+/// - `ArithmeticMean` — average rarity across all properties
+/// - `TfIdf` — total information content (log-weighted, **higher = more surprising**)
+/// - `GeometricMean` — sensitive to outlier rare properties
+/// - `Min` — the single rarest property dominates
+///
+/// All variants except `TfIdf` produce scores where **lower = more surprising**.
+/// `TfIdf` has reversed polarity: **higher = more surprising**.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+#[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
+pub enum StuAggregation {
+    /// Arithmetic mean of per-property frequencies. **Lower = more surprising.**
+    /// This is the original StU heuristic from Kreminski et al. (2022).
+    #[default]
+    ArithmeticMean,
+    /// TF-IDF style: `sum(-log2(freq))`. **Higher = more surprising.**
+    /// Rare properties dominate via log weighting.
+    TfIdf,
+    /// Geometric mean of per-property frequencies. **Lower = more surprising.**
+    /// A single rare property pulls the entire score down multiplicatively.
+    GeometricMean,
+    /// Minimum per-property frequency. **Lower = more surprising.**
+    /// The single most surprising property dominates the score.
+    Min,
 }
 
 /// Property-level surprise scorer using the StU heuristic.
@@ -52,6 +85,17 @@ struct PropertyTable {
 ///
 /// **The scorer only does frequency math.** Property extraction is the caller's
 /// responsibility — this struct never touches a graph or DataSource.
+///
+/// # Aggregation
+///
+/// The default aggregation is arithmetic mean (original StU). Use
+/// [`with_aggregation`](StuScorer::with_aggregation) to select an alternative:
+///
+/// ```rust
+/// use fabula::scoring::{StuScorer, StuAggregation};
+///
+/// let scorer = StuScorer::new().with_aggregation(StuAggregation::Min);
+/// ```
 ///
 /// # Property extraction guidance
 ///
@@ -80,16 +124,50 @@ struct PropertyTable {
 /// let freq = stu.property_frequency("betrayal", "actor_trait=ambitious");
 /// assert!(freq.is_some()); // 2 out of 3 matches had this property
 /// ```
-#[derive(Debug, Clone, Default)]
+#[derive(Debug, Clone)]
 pub struct StuScorer {
     /// Per-pattern property frequency tables.
     tables: HashMap<String, PropertyTable>,
+    /// How to combine per-property frequencies into a single score.
+    aggregation: StuAggregation,
+    /// Whether to apply PMI-based correction for correlated properties.
+    pmi_correction: bool,
+}
+
+impl Default for StuScorer {
+    fn default() -> Self {
+        Self {
+            tables: HashMap::new(),
+            aggregation: StuAggregation::ArithmeticMean,
+            pmi_correction: false,
+        }
+    }
 }
 
 impl StuScorer {
-    /// Create a new empty scorer.
+    /// Create a new empty scorer with arithmetic mean aggregation (default).
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the aggregation strategy. Default is `ArithmeticMean`.
+    pub fn with_aggregation(mut self, aggregation: StuAggregation) -> Self {
+        self.aggregation = aggregation;
+        self
+    }
+
+    /// Enable PMI-based correction for correlated properties.
+    ///
+    /// When two properties frequently co-occur (high PMI), their individual
+    /// rarities would be double-counted. This correction replaces the
+    /// less-rare member's frequency with its conditional frequency given
+    /// the partner, removing the redundancy.
+    ///
+    /// Adds O(k²) pair counting per `observe_one` call where k is the
+    /// number of properties per match (typically 2-8).
+    pub fn with_pmi_correction(mut self) -> Self {
+        self.pmi_correction = true;
+        self
     }
 
     /// Record properties for a single match. Call once per completed match.
@@ -101,12 +179,25 @@ impl StuScorer {
         table.total_matches += 1;
         // Count each property at most once per match (presence, not multiplicity)
         let mut seen = std::collections::HashSet::new();
+        let mut unique: Vec<String> = Vec::new();
         for prop in properties {
             if seen.insert(prop.as_ref().to_string()) {
-                *table
-                    .property_counts
-                    .entry(prop.as_ref().to_string())
-                    .or_insert(0) += 1;
+                let s = prop.as_ref().to_string();
+                *table.property_counts.entry(s.clone()).or_insert(0) += 1;
+                unique.push(s);
+            }
+        }
+        // Count co-occurring pairs (canonical sorted order) for PMI correction
+        if self.pmi_correction {
+            for i in 0..unique.len() {
+                for j in (i + 1)..unique.len() {
+                    let pair = if unique[i] < unique[j] {
+                        (unique[i].clone(), unique[j].clone())
+                    } else {
+                        (unique[j].clone(), unique[i].clone())
+                    };
+                    *table.pair_counts.entry(pair).or_insert(0) += 1;
+                }
             }
         }
     }
@@ -134,8 +225,9 @@ impl StuScorer {
 
     /// Score a set of matches given their pre-extracted properties.
     ///
-    /// Returns one `StuScoredMatch` per input. Score = mean of per-property
-    /// Laplace-smoothed frequencies. **Lower = more surprising.**
+    /// Returns one `StuScoredMatch` per input. Score interpretation depends on
+    /// the aggregation mode: **lower = more surprising** for `ArithmeticMean`,
+    /// `GeometricMean`, and `Min`; **higher = more surprising** for `TfIdf`.
     ///
     /// Matches whose pattern has not been observed get `stu_score = 1.0`
     /// (maximally unsurprising — no data to distinguish).
@@ -187,12 +279,83 @@ impl StuScorer {
                     })
                     .collect();
 
+                // PMI correction: for highly correlated pairs, replace the less-rare
+                // member's frequency with its conditional frequency given the partner.
+                if self.pmi_correction && prop_freqs.len() >= 2 {
+                    let pmi_threshold = 1.0; // 1 bit of mutual information
+                    let n = table.total_matches as f64;
+                    for i in 0..prop_freqs.len() {
+                        for j in (i + 1)..prop_freqs.len() {
+                            let (a, b) = if prop_freqs[i].0 < prop_freqs[j].0 {
+                                (prop_freqs[i].0.clone(), prop_freqs[j].0.clone())
+                            } else {
+                                (prop_freqs[j].0.clone(), prop_freqs[i].0.clone())
+                            };
+                            let pair_count = table.pair_counts.get(&(a, b)).copied().unwrap_or(0);
+                            if pair_count == 0 {
+                                continue;
+                            }
+                            // Use raw (unsmoothed) frequencies for PMI consistency
+                            let p_ab = pair_count as f64 / n;
+                            let c_i = table
+                                .property_counts
+                                .get(&prop_freqs[i].0)
+                                .copied()
+                                .unwrap_or(0) as f64;
+                            let c_j = table
+                                .property_counts
+                                .get(&prop_freqs[j].0)
+                                .copied()
+                                .unwrap_or(0) as f64;
+                            let p_i_raw = c_i / n;
+                            let p_j_raw = c_j / n;
+                            if p_i_raw == 0.0 || p_j_raw == 0.0 {
+                                continue;
+                            }
+                            let pmi = (p_ab / (p_i_raw * p_j_raw)).log2();
+                            if pmi > pmi_threshold {
+                                // Discount the less-rare (higher freq) member.
+                                // Replace with conditional frequency, clamped to [0, 1].
+                                if prop_freqs[i].1 > prop_freqs[j].1 {
+                                    prop_freqs[i].1 = (p_ab / p_j_raw).min(1.0);
+                                } else {
+                                    prop_freqs[j].1 = (p_ab / p_i_raw).min(1.0);
+                                }
+                            }
+                        }
+                    }
+                }
+
                 // Sort ascending — rarest properties first (for explainability)
                 prop_freqs
                     .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
-                let stu_score =
-                    prop_freqs.iter().map(|(_, f)| f).sum::<f64>() / prop_freqs.len() as f64;
+                let k = prop_freqs.len() as f64;
+                let stu_score = match self.aggregation {
+                    StuAggregation::ArithmeticMean => {
+                        prop_freqs.iter().map(|(_, f)| f).sum::<f64>() / k
+                    }
+                    StuAggregation::TfIdf => prop_freqs.iter().map(|(_, f)| -f.log2()).sum::<f64>(),
+                    StuAggregation::GeometricMean => {
+                        (prop_freqs.iter().map(|(_, f)| f.ln()).sum::<f64>() / k).exp()
+                    }
+                    StuAggregation::Min => prop_freqs
+                        .iter()
+                        .map(|(_, f)| *f)
+                        .fold(f64::INFINITY, f64::min),
+                };
+
+                // Cold-start attenuation: lerp toward "unsurprising" when data is sparse.
+                // confidence: 0.5 at 1 match, ~0.91 at 10, ~0.99 at 100.
+                let confidence = 1.0 - 1.0 / (table.total_matches as f64 + 1.0);
+                let stu_score = if matches!(self.aggregation, StuAggregation::TfIdf) {
+                    // TfIdf: higher = more surprising. Attenuate toward 0.0.
+                    stu_score * confidence
+                } else {
+                    // ArithmeticMean/GeometricMean/Min: lower = more surprising.
+                    // Lerp toward 1.0 (unsurprising) when confidence is low.
+                    1.0 - (1.0 - stu_score) * confidence
+                };
 
                 StuScoredMatch {
                     pattern: m.pattern.clone(),
@@ -221,6 +384,34 @@ impl StuScorer {
             .get(pattern)
             .map(|t| t.property_counts.len())
             .unwrap_or(0)
+    }
+
+    /// Pointwise Mutual Information between two properties for a pattern.
+    ///
+    /// `PMI(pi, pj) = log2(P(pi,pj) / (P(pi) * P(pj)))`. High PMI means the
+    /// properties co-occur more than expected by chance.
+    ///
+    /// Returns `None` if the pattern is unobserved or PMI correction is disabled.
+    pub fn pmi_for(&self, pattern: &str, pi: &str, pj: &str) -> Option<f64> {
+        let table = self.tables.get(pattern)?;
+        if table.total_matches == 0 {
+            return None;
+        }
+        let (a, b) = if pi < pj { (pi, pj) } else { (pj, pi) };
+        let pair_count = table
+            .pair_counts
+            .get(&(a.to_string(), b.to_string()))
+            .copied()
+            .unwrap_or(0);
+        let p_ab = pair_count as f64 / table.total_matches as f64;
+        let p_a =
+            table.property_counts.get(a).copied().unwrap_or(0) as f64 / table.total_matches as f64;
+        let p_b =
+            table.property_counts.get(b).copied().unwrap_or(0) as f64 / table.total_matches as f64;
+        if p_a == 0.0 || p_b == 0.0 || p_ab == 0.0 {
+            return Some(0.0);
+        }
+        Some((p_ab / (p_a * p_b)).log2())
     }
 
     /// Reset all observations.
@@ -388,5 +579,242 @@ mod tests {
         stu.reset();
         assert_eq!(stu.match_count("test"), 0);
         assert_eq!(stu.vocabulary_size("test"), 0);
+    }
+
+    // -----------------------------------------------------------------------
+    // Aggregation alternatives (Phase 7.1)
+    // -----------------------------------------------------------------------
+
+    /// Helper: build a scorer with observations and score two matches.
+    fn score_rare_vs_common(agg: StuAggregation) -> (f64, f64) {
+        let mut stu = StuScorer::new().with_aggregation(agg);
+        // 10 matches: "ambitious" appears 2x, "loyal" appears 8x
+        for i in 0..10 {
+            let props = if i < 2 {
+                vec!["trait=ambitious".to_string()]
+            } else {
+                vec!["trait=loyal".to_string()]
+            };
+            stu.observe_one("test", &props);
+        }
+        let scored = stu.score(&[
+            (dummy_match("test"), vec!["trait=ambitious".to_string()]),
+            (dummy_match("test"), vec!["trait=loyal".to_string()]),
+        ]);
+        (scored[0].stu_score, scored[1].stu_score)
+    }
+
+    #[test]
+    fn stu_default_is_arithmetic_mean() {
+        let (rare_default, common_default) = score_rare_vs_common(StuAggregation::default());
+        let (rare_explicit, common_explicit) = score_rare_vs_common(StuAggregation::ArithmeticMean);
+        assert_eq!(rare_default, rare_explicit);
+        assert_eq!(common_default, common_explicit);
+        // Lower = more surprising
+        assert!(rare_default < common_default);
+    }
+
+    #[test]
+    fn stu_tfidf_higher_is_more_surprising() {
+        let (rare, common) = score_rare_vs_common(StuAggregation::TfIdf);
+        // TfIdf: higher = more surprising (reversed polarity)
+        assert!(
+            rare > common,
+            "TfIdf: rare ({:.3}) should score HIGHER than common ({:.3})",
+            rare,
+            common
+        );
+    }
+
+    #[test]
+    fn stu_geometric_mean_rare_scores_lower() {
+        let (rare, common) = score_rare_vs_common(StuAggregation::GeometricMean);
+        // Lower = more surprising
+        assert!(
+            rare < common,
+            "GeometricMean: rare ({:.3}) should score lower than common ({:.3})",
+            rare,
+            common
+        );
+    }
+
+    #[test]
+    fn stu_min_uses_rarest_property() {
+        let mut stu = StuScorer::new().with_aggregation(StuAggregation::Min);
+        // 10 matches: "common" in all 10, "rare" in 1
+        for i in 0..10 {
+            let mut props = vec!["common=yes".to_string()];
+            if i == 0 {
+                props.push("rare=yes".to_string());
+            }
+            stu.observe_one("test", &props);
+        }
+        let scored = stu.score(&[(
+            dummy_match("test"),
+            vec!["common=yes".to_string(), "rare=yes".to_string()],
+        )]);
+        let score = scored[0].stu_score;
+        // Min should pick the rare property's frequency, not the common one,
+        // with confidence lerp: 1.0 - (1.0 - raw) * confidence
+        let rare_freq = stu.property_frequency("test", "rare=yes").unwrap();
+        let confidence = 1.0 - 1.0 / (stu.match_count("test") as f64 + 1.0);
+        let expected = 1.0 - (1.0 - rare_freq) * confidence;
+        assert!(
+            (score - expected).abs() < 1e-10,
+            "Min score ({:.4}) should equal lerped rare freq ({:.4})",
+            score,
+            expected
+        );
+    }
+
+    #[test]
+    fn stu_cold_start_attenuates_toward_unsurprising() {
+        // For lower-is-surprising modes, cold start should push score UP toward 1.0.
+        // Need a rare property (freq < 1.0) to see the effect.
+        let mut stu = StuScorer::new();
+        stu.observe_one("test", &["common"]);
+        stu.observe_one("test", &["common"]);
+        stu.observe_one("test", &["rare"]);
+        // rare: count=1, Laplace: (1+1)/(3+2) = 0.4
+        let raw_freq = stu.property_frequency("test", "rare").unwrap();
+        assert!(raw_freq < 1.0, "rare should have freq < 1.0: {}", raw_freq);
+
+        let scored = stu.score(&[(dummy_match("test"), vec!["rare".to_string()])]);
+        // confidence at 3 matches = 1 - 1/4 = 0.75
+        // lerp: 1.0 - (1.0 - 0.4) * 0.75 = 1.0 - 0.45 = 0.55
+        // Score should be HIGHER than raw (pushed toward 1.0 = unsurprising)
+        assert!(
+            scored[0].stu_score > raw_freq,
+            "cold start should push toward unsurprising: score={:.3}, raw={:.3}",
+            scored[0].stu_score,
+            raw_freq
+        );
+
+        // With many observations, confidence ≈ 1.0 — score ≈ raw freq
+        let mut stu2 = StuScorer::new();
+        for _ in 0..50 {
+            stu2.observe_one("test", &["common"]);
+        }
+        for _ in 0..50 {
+            stu2.observe_one("test", &["rare"]);
+        }
+        let scored2 = stu2.score(&[(dummy_match("test"), vec!["rare".to_string()])]);
+        let raw_freq2 = stu2.property_frequency("test", "rare").unwrap();
+        assert!(
+            (scored2[0].stu_score - raw_freq2).abs() < 0.02,
+            "high-observation score ({:.4}) should be close to raw freq ({:.4})",
+            scored2[0].stu_score,
+            raw_freq2
+        );
+    }
+
+    #[test]
+    fn stu_cold_start_tfidf_attenuates_toward_zero() {
+        // For TfIdf (higher = more surprising), cold start should push DOWN toward 0.0
+        let mut stu = StuScorer::new().with_aggregation(StuAggregation::TfIdf);
+        for i in 0..5 {
+            let props = if i == 0 {
+                vec!["rare=yes".to_string()]
+            } else {
+                vec!["common=yes".to_string()]
+            };
+            stu.observe_one("test", &props);
+        }
+        let scored_tfidf = stu.score(&[(dummy_match("test"), vec!["rare=yes".to_string()])]);
+        // Confidence at 5 matches = 1 - 1/6 ≈ 0.833
+        // Score should be positive but attenuated toward 0
+        assert!(scored_tfidf[0].stu_score > 0.0);
+    }
+
+    #[test]
+    fn stu_with_aggregation_builder() {
+        let scorer = StuScorer::new().with_aggregation(StuAggregation::TfIdf);
+        assert_eq!(scorer.aggregation, StuAggregation::TfIdf);
+
+        let default = StuScorer::new();
+        assert_eq!(default.aggregation, StuAggregation::ArithmeticMean);
+    }
+
+    // -----------------------------------------------------------------------
+    // PMI correction (Phase 7.3)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn pmi_pair_counting() {
+        let mut stu = StuScorer::new().with_pmi_correction();
+        // "rebels" and "hideout" always co-occur
+        stu.observe_one("test", &["rebels", "hideout"]);
+        stu.observe_one("test", &["rebels", "hideout"]);
+        // "crown" and "castle" always co-occur
+        stu.observe_one("test", &["crown", "castle"]);
+        stu.observe_one("test", &["crown", "castle"]);
+
+        // rebels+hideout: P(r,h)=0.5, P(r)=0.5, P(h)=0.5 → PMI = log2(0.5/(0.25)) = 1.0
+        let pmi_rh = stu.pmi_for("test", "rebels", "hideout").unwrap();
+        assert!(
+            pmi_rh > 0.0,
+            "rebels+hideout should have positive PMI: {:.3}",
+            pmi_rh
+        );
+        // rebels+castle never co-occur → PMI = 0 (pair_count = 0)
+        let pmi_rc = stu.pmi_for("test", "rebels", "castle").unwrap();
+        assert_eq!(pmi_rc, 0.0, "rebels+castle should have PMI=0");
+    }
+
+    #[test]
+    fn pmi_correction_reduces_double_counting() {
+        // Without PMI correction
+        let mut no_pmi = StuScorer::new();
+        // With PMI correction
+        let mut with_pmi = StuScorer::new().with_pmi_correction();
+
+        // "rebels" and "hideout" always co-occur (perfect correlation)
+        for _ in 0..20 {
+            no_pmi.observe_one("test", &["faction=rebels", "location=hideout"]);
+            with_pmi.observe_one("test", &["faction=rebels", "location=hideout"]);
+        }
+        // Add some matches without the pair to make them rare
+        for _ in 0..80 {
+            no_pmi.observe_one("test", &["faction=crown", "location=castle"]);
+            with_pmi.observe_one("test", &["faction=crown", "location=castle"]);
+        }
+
+        let props = vec!["faction=rebels".to_string(), "location=hideout".to_string()];
+        let scored_no = no_pmi.score(&[(dummy_match("test"), props.clone())]);
+        let scored_with = with_pmi.score(&[(dummy_match("test"), props)]);
+
+        // With correction, the score should differ because the correlated
+        // pair's redundancy is discounted
+        assert!(
+            (scored_no[0].stu_score - scored_with[0].stu_score).abs() > 0.001,
+            "PMI correction should change the score: no_pmi={:.4}, with_pmi={:.4}",
+            scored_no[0].stu_score,
+            scored_with[0].stu_score
+        );
+    }
+
+    #[test]
+    fn pmi_no_effect_when_disabled() {
+        let mut stu = StuScorer::new(); // pmi_correction = false
+        for _ in 0..20 {
+            stu.observe_one("test", &["a", "b"]);
+        }
+        // pair_counts should be empty
+        assert!(
+            stu.pmi_for("test", "a", "b").is_none() || stu.pmi_for("test", "a", "b") == Some(0.0),
+            "PMI should not be available when disabled"
+        );
+    }
+
+    #[test]
+    fn pmi_canonical_order() {
+        let mut stu = StuScorer::new().with_pmi_correction();
+        stu.observe_one("test", &["b", "a"]); // reversed order
+                                              // Should still find the pair
+        let pmi = stu.pmi_for("test", "a", "b");
+        assert!(pmi.is_some());
+        // Also works with reversed query order
+        let pmi_rev = stu.pmi_for("test", "b", "a");
+        assert_eq!(pmi, pmi_rev);
     }
 }

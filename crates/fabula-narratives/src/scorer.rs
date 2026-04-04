@@ -42,6 +42,8 @@ pub struct NarrativeWeights {
     pub pivot_reward: f64,
     /// Reward for surprise (unexpected patterns).
     pub surprise_reward: f64,
+    /// Reward for sequential surprise (unexpected transitions between patterns).
+    pub sequential_surprise_reward: f64,
 }
 
 impl Default for NarrativeWeights {
@@ -56,6 +58,7 @@ impl Default for NarrativeWeights {
             tension_fit: 2.0,
             pivot_reward: 1.5,
             surprise_reward: 1.0,
+            sequential_surprise_reward: 1.0,
         }
     }
 }
@@ -86,6 +89,8 @@ pub struct NarrativeSignals {
     pub pivot_magnitude: f64,
     /// Pattern-level surprise score (from SurpriseScorer, higher = more surprising).
     pub surprise: f64,
+    /// Sequential surprise score (from SequentialScorer, higher = more surprising).
+    pub sequential_surprise: f64,
 }
 
 /// Composite narrative quality score with explainable sub-scores.
@@ -109,6 +114,7 @@ pub struct ScoreBreakdown {
     pub tension: f64,
     pub pivot: f64,
     pub surprise: f64,
+    pub sequential_surprise: f64,
 }
 
 /// Score narrative quality from assembled signals.
@@ -140,6 +146,7 @@ pub fn score(signals: &NarrativeSignals, weights: &NarrativeWeights) -> Narrativ
         tension: signals.tension_fit * weights.tension_fit,
         pivot: signals.pivot_magnitude * weights.pivot_reward,
         surprise: signals.surprise * weights.surprise_reward,
+        sequential_surprise: signals.sequential_surprise * weights.sequential_surprise_reward,
     };
 
     let total = breakdown.progress
@@ -150,7 +157,8 @@ pub fn score(signals: &NarrativeSignals, weights: &NarrativeWeights) -> Narrativ
         + breakdown.filo_penalty
         + breakdown.tension
         + breakdown.pivot
-        + breakdown.surprise;
+        + breakdown.surprise
+        + breakdown.sequential_surprise;
 
     NarrativeScore { total, breakdown }
 }
@@ -177,6 +185,7 @@ pub fn tension_fit(actual: Trajectory, desired: Trajectory) -> f64 {
 /// Convenience function for the common MCTS evaluation path. Computes
 /// signal values from a tick delta and pre-collected tracker state so
 /// callers don't need to manually plumb 9 fields every evaluation.
+#[allow(clippy::too_many_arguments)]
 pub fn assemble_signals(
     delta: &TickDelta,
     plant_statuses: &[PlantStatus],
@@ -185,6 +194,7 @@ pub fn assemble_signals(
     desired_trajectory: Trajectory,
     pivot_magnitude: f64,
     surprise: f64,
+    sequential_surprise: f64,
 ) -> NarrativeSignals {
     NarrativeSignals {
         advancements: delta.advanced.len(),
@@ -203,6 +213,7 @@ pub fn assemble_signals(
         tension_fit: tension_fit(tension_trajectory, desired_trajectory),
         pivot_magnitude,
         surprise,
+        sequential_surprise,
     }
 }
 
@@ -296,6 +307,7 @@ mod tests {
             Trajectory::Rising,
             0.5,
             0.3,
+            1.7,
         );
         assert_eq!(signals.advancements, 2);
         assert_eq!(signals.completions, 1);
@@ -306,6 +318,7 @@ mod tests {
         assert_eq!(signals.tension_fit, 1.0); // Rising matches Rising
         assert_eq!(signals.pivot_magnitude, 0.5);
         assert_eq!(signals.surprise, 0.3);
+        assert_eq!(signals.sequential_surprise, 1.7);
     }
 
     #[test]

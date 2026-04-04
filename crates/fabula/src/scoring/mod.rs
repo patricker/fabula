@@ -15,8 +15,10 @@
 //!   of their *properties* — two matches of the same pattern score differently
 //!   if one involves rarer attributes.
 
+mod sequential;
 mod stu;
 mod surprise;
 
-pub use stu::{StuScoredMatch, StuScorer};
+pub use sequential::SequentialScorer;
+pub use stu::{StuAggregation, StuScoredMatch, StuScorer};
 pub use surprise::{ScoredMatch, SurpriseScorer};

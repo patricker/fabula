@@ -58,5 +58,7 @@ pub mod prelude {
     pub use crate::pattern::{
         Clause, MetricGap, Negation, Pattern, Stage, Target, TemporalConstraint, Var,
     };
-    pub use crate::scoring::{ScoredMatch, StuScoredMatch, StuScorer, SurpriseScorer};
+    pub use crate::scoring::{
+        ScoredMatch, SequentialScorer, StuAggregation, StuScoredMatch, StuScorer, SurpriseScorer,
+    };
 }
