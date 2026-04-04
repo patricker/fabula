@@ -39,7 +39,7 @@
 //! ```
 
 use crate::pattern::*;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 // ---------------------------------------------------------------------------
 // rename_vars — the core utility
@@ -110,6 +110,8 @@ pub fn rename_vars<L: Clone, V: Clone>(
         temporal,
         negations,
         group: pattern.group.clone(),
+        metadata: pattern.metadata.clone(),
+        deadline_ticks: pattern.deadline_ticks,
     }
 }
 
@@ -145,12 +147,18 @@ pub fn sequence<L: Clone, V: Clone>(
     let mut negations = a_renamed.negations;
     negations.extend(b_renamed.negations);
 
+    // Merge metadata: union with last-writer-wins on key conflicts.
+    let mut metadata = a_renamed.metadata;
+    metadata.extend(b_renamed.metadata);
+
     Pattern {
         name: name.to_string(),
         stages,
         temporal,
         negations,
         group: None,
+        metadata,
+        deadline_ticks: None,
     }
 }
 
@@ -216,12 +224,14 @@ pub fn repeat<L: Clone, V: Clone>(
     let mut temporal = Vec::new();
     let mut negations = Vec::new();
 
+    let mut metadata = HashMap::new();
     for i in 0..count {
         let prefix = format!("rep{}", i);
         let renamed = rename_vars(pattern, &prefix, &keep);
         stages.extend(renamed.stages);
         temporal.extend(renamed.temporal);
         negations.extend(renamed.negations);
+        metadata.extend(renamed.metadata);
     }
 
     Pattern {
@@ -230,6 +240,8 @@ pub fn repeat<L: Clone, V: Clone>(
         temporal,
         negations,
         group: None,
+        metadata,
+        deadline_ticks: None,
     }
 }
 
@@ -401,5 +413,51 @@ mod tests {
         // A's negation should be carried over (with renamed vars)
         assert_eq!(composed.negations.len(), 1);
         assert_eq!(composed.negations[0].between_start.0, "a_e1");
+    }
+
+    #[test]
+    fn sequence_merges_metadata() {
+        let a = PatternBuilder::<String, String>::new("a")
+            .metadata("source", "a_val")
+            .metadata("shared", "from_a")
+            .stage("e1", |s| s.edge("e1", "type".into(), "x".into()))
+            .build();
+        let b = PatternBuilder::<String, String>::new("b")
+            .metadata("target", "b_val")
+            .metadata("shared", "from_b")
+            .stage("e2", |s| s.edge("e2", "type".into(), "y".into()))
+            .build();
+        let composed = sequence("arc", &a, &b, &[]);
+
+        assert_eq!(composed.metadata.get("source").unwrap(), "a_val");
+        assert_eq!(composed.metadata.get("target").unwrap(), "b_val");
+        // Last-writer-wins: b overwrites a's value
+        assert_eq!(composed.metadata.get("shared").unwrap(), "from_b");
+    }
+
+    #[test]
+    fn choice_preserves_metadata() {
+        let a = PatternBuilder::<String, String>::new("a")
+            .metadata("severity", "high")
+            .stage("e1", |s| s.edge("e1", "type".into(), "x".into()))
+            .build();
+        let b = PatternBuilder::<String, String>::new("b")
+            .metadata("severity", "low")
+            .stage("e2", |s| s.edge("e2", "type".into(), "y".into()))
+            .build();
+        let choices = choice("crisis", &[&a, &b], true);
+
+        assert_eq!(choices[0].metadata.get("severity").unwrap(), "high");
+        assert_eq!(choices[1].metadata.get("severity").unwrap(), "low");
+    }
+
+    #[test]
+    fn repeat_merges_metadata() {
+        let p = PatternBuilder::<String, String>::new("strike")
+            .metadata("category", "offense")
+            .stage("e1", |s| s.edge("e1", "type".into(), "x".into()))
+            .build();
+        let rep = repeat("three_strikes", &p, 3, &[]);
+        assert_eq!(rep.metadata.get("category").unwrap(), "offense");
     }
 }

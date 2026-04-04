@@ -68,6 +68,8 @@ pub struct PatternAst {
     pub stages: Vec<StageAst>,
     pub negations: Vec<NegationAst>,
     pub temporals: Vec<TemporalAst>,
+    pub metadata: Vec<(String, String)>,
+    pub deadline: Option<f64>,
 }
 
 /// The interior of a pattern — stages, negations, and temporal constraints,
@@ -81,6 +83,8 @@ pub struct PatternBody {
     pub stages: Vec<StageAst>,
     pub negations: Vec<NegationAst>,
     pub temporals: Vec<TemporalAst>,
+    pub metadata: Vec<(String, String)>,
+    pub deadline: Option<f64>,
 }
 
 /// A stage within a pattern.

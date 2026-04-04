@@ -275,6 +275,7 @@ mod tests {
             advanced: vec!["pattern_a".into(), "pattern_b".into()],
             completed: vec!["payoff_x".into()],
             negated: vec![],
+            expired: vec![],
             stalled: vec!["stale_one".into()],
             active_pm_count: 5,
         };

@@ -1,7 +1,7 @@
 # Fabula Roadmap
 
 **Status**: Living document
-**Date**: 2026-04-03 (restructured)
+**Date**: 2026-04-03 (updated)
 
 ---
 
@@ -80,6 +80,43 @@ rounds of work to unblock the downstream consumer.
 | `MemGraph`: `Clone` + `end_edge` + `upsert_edge` | `Clone` for Monte Carlo simulation. `end_edge` closes open intervals. `upsert_edge` = end + insert. |
 | Composable DSL parser (Option B) | `Parser::parse_pattern_body()` for downstream DSLs. `pos()`, `from_tokens_at()`, `into_inner()` for resumable parsing. 13 methods made public. `PatternBody` AST type. `compile_pattern_body[_with]()`. |
 
+### Pattern Metadata / Tags (DONE — 2026-04-03)
+
+Arbitrary key-value metadata on patterns, propagated through the full
+pipeline: `Pattern` → `Match` → `SiftEvent` → scoring types.
+
+| Item | Summary |
+|------|---------|
+| `Pattern.metadata: HashMap<String, String>` | Metadata field on `Pattern<L, V>`, preserved through `map_types()`. Default empty. |
+| `PatternBuilder::metadata(key, value)` | Fluent builder API, consumed-self style. |
+| `Match.metadata` | Propagated from pattern at all construction sites (engine batch, incremental, free functions, `drain_completed`). Included in `Hash` impl. |
+| `SiftEvent` metadata | All 3 variants (`Advanced`, `Completed`, `Negated`) carry `metadata: HashMap<String, String>` from the matched pattern. |
+| `ScoredMatch` / `StuScoredMatch` metadata | Scoring types propagate metadata from `Match`. |
+| DSL `meta("key", "value")` syntax | Parsed as identifier (no new keyword). Allowed before/after/between stages. AST preserves order as `Vec<(String, String)>`, compiler converts to `HashMap` (last-write-wins). |
+| Composition merge semantics | `rename_vars` preserves, `sequence`/`repeat` merge (union, last-writer-wins), `choice` preserves per-alternative via Clone. |
+| 10 new tests | Builder API, DSL parse/compile, duplicate-key semantics, `compile_pattern_body`, composition merge (sequence, choice, repeat). |
+
+**Follow-up** (not yet done): `fabula-narratives` auto-configuration from
+metadata keys (`thread_type`, `priority`, `narrative_role`).
+
+### Timeout-Based Absence Detection (DONE — 2026-04-03)
+
+Event-driven deadline expiry: when a partial match exceeds a configurable
+deadline (in engine ticks) without completing, `end_tick()` emits
+`SiftEvent::Expired` and kills the PM.
+
+| Item | Summary |
+|------|---------|
+| `Pattern.deadline_ticks: Option<u64>` | Optional deadline field. `None` = no deadline (default). Preserved in `map_types()`. |
+| `PatternBuilder::deadline(ticks)` | Fluent builder API. |
+| `PartialMatch.created_at_tick: u64` | Engine tick at PM creation. Inherited (not reset) on advancement — deadline measures total lifecycle. |
+| `SiftEvent::Expired` | New variant with `pattern`, `match_id`, `bindings`, `stage_reached`, `ticks_elapsed`, `metadata`. |
+| `end_tick()` → `(TickDelta, Vec<SiftEvent>)` | Returns both the delta summary and full `Expired` event objects. Expiry scan runs after tick increment, before stale check. Strict `>` check (`elapsed > deadline`). |
+| `TickDelta.expired: Vec<String>` | Pattern names of expired PMs this tick. |
+| DSL `deadline N` syntax | Parsed as Ident (no new keyword). Compiler validates `>= 1` (rejects zero/negative). |
+| Composition | `rename_vars` preserves, `sequence`/`repeat` set `None` (composed patterns set their own), `choice` preserves per-alternative via Clone. |
+| 11 new tests | Expiry timing, no-expiry without deadline, completion preempts expiry, negation preempts expiry, `created_at_tick` inheritance, `SiftEvent::Expired` field validation, DSL parse/compile, zero-deadline rejection. |
+
 ---
 
 ## Active Roadmap
@@ -94,160 +131,6 @@ IoT, and gaming domains.
 
 No item in this phase requires external dependencies. All changes are in
 the zero-dependency `fabula` core crate (plus DSL support in `fabula-dsl`).
-
-#### 5.1 Pattern metadata / tags
-
-Add arbitrary key-value metadata to patterns, propagated to events and
-matches.
-
-**Narrative use cases** — metadata replaces several ad-hoc registration
-APIs and enables auto-wiring of engine features:
-- **Kernel vs. satellite** (Chatman): `meta("narrative_role", "kernel")`
-  classifies patterns as turning points vs. elaboration. Subsumes the
-  separate kernel/satellite feature (old item 7.8).
-- **MICE thread type**: `meta("thread_type", "milieu")` — `ThreadTracker`
-  in fabula-narratives can classify threads by reading metadata instead
-  of requiring callers to hardcode names at registration.
-- **Plant/payoff roles**: `meta("role", "plant")` and
-  `meta("role", "payoff")` with `meta("pair", "hospitality_arc")` — the
-  engine could auto-discover `PlantPayoffPair`s from metadata instead of
-  requiring explicit `register_plant_payoff()` calls with indices.
-- **Narrative weight**: `meta("priority", "A-plot")` — the MCTS scorer
-  can weight A-plot completions higher than C-plot without a separate
-  priority registry.
-- **Propp function tags**: `meta("propp", "villainy")` — when the pattern
-  library exists, patterns carry their morphological classification
-  intrinsically.
-- **Pattern provenance**: `meta("source", "kreminski2019")` — tracking
-  which research paper or design iteration a sifting pattern came from.
-
-**Cross-domain use cases** — every non-narrative domain needs domain
-context on patterns:
-- Security: `meta("mitre", "T1078")`, `meta("severity", "critical")`
-- Compliance: `meta("regulation", "SOX-404")`, `meta("section", "3.2")`
-- Clinical: `meta("protocol", "sepsis-bundle")`, `meta("evidence", "1A")`
-- Observability: `meta("service_owner", "payments-team")`,
-  `meta("runbook", "https://...")`
-
-Without metadata, callers must maintain a separate name-to-context
-mapping outside the engine. Metadata on events means consumers can
-react to pattern matches without a lookup table.
-
-**Changes required:**
-
-1. **Pattern struct** (`fabula/src/pattern.rs`): Add field
-   `pub metadata: HashMap<String, String>`. Default empty.
-
-2. **PatternBuilder** (`fabula/src/builder.rs`): Add
-   `pub fn metadata(mut self, key: &str, value: &str) -> Self`.
-
-3. **SiftEvent** (`fabula/src/engine/types.rs`): Include
-   `metadata: HashMap<String, String>` on `Advanced`, `Completed`,
-   `Negated` variants so consumers don't need to look up the pattern.
-
-4. **Match** (`fabula/src/engine/types.rs`): Include metadata on batch
-   match results.
-
-5. **DSL** (`fabula-dsl/`): New clause in pattern blocks:
-   ```
-   pattern my_rule {
-     meta("severity", "high")
-     meta("mitre", "T1078")
-     meta("narrative_role", "kernel")
-     stage e1 { ... }
-   }
-   ```
-
-6. **Composition**: `sequence`, `choice`, `repeat` should merge metadata
-   from sub-patterns (union, last-writer-wins on conflicts).
-
-7. **fabula-narratives** (follow-up): `ThreadTracker` and `NarrativeScorer`
-   can optionally read metadata keys (`thread_type`, `priority`,
-   `narrative_role`) to auto-configure instead of requiring explicit
-   registration calls. This is additive — existing APIs remain unchanged.
-
-**Files**: `fabula/src/pattern.rs`, `builder.rs`, `engine/types.rs`,
-`engine/eval.rs`, `compose.rs`, `fabula-dsl/src/{ast,parser,compiler}.rs`
-**Tests**: Builder metadata, DSL parse/compile, metadata in events,
-composition metadata merge
-**Effort**: Small (~50-80 LoC core, ~30 LoC fabula-narratives follow-up)
-
----
-
-#### 5.2 Timeout-based absence detection (`SiftEvent::Expired`)
-
-Transform staleness from a query-only state into an event-driven signal.
-When a partial match exceeds a configurable deadline without advancing,
-the engine emits a new `SiftEvent::Expired` and marks the PM as Dead.
-
-"Expected event that never happened within a time bound" is the core
-detection signal across every non-narrative domain:
-- Security: "No MFA challenge within 5min of privileged login"
-- Clinical: "No antibiotics within 1hr of sepsis diagnosis"
-- Compliance: "No review within 48hrs of submission"
-- Observability: "No recovery within 15min of SLO burn"
-- IoT: "Valve opened but flow never reached threshold within 60s"
-
-Currently `stale_patterns(threshold)` returns pattern indices on query.
-This makes absence detection polling-based. Making it event-driven
-enables the same callback/reaction patterns as `Completed` or `Negated`.
-
-**Changes required:**
-
-1. **Pattern struct** (`fabula/src/pattern.rs`): Add field
-   `pub deadline_ticks: Option<u64>`. Default `None` (no deadline).
-
-2. **PatternBuilder** (`fabula/src/builder.rs`): Add
-   `pub fn deadline(mut self, ticks: u64) -> Self`.
-
-3. **SiftEvent** (`fabula/src/engine/types.rs`): New variant:
-   ```rust
-   Expired {
-       pattern: String,
-       match_id: usize,
-       bindings: HashMap<String, BoundValue<N, V>>,
-       stage_reached: usize,
-       ticks_elapsed: u64,
-   }
-   ```
-   `stage_reached` tells consumers how far the pattern got before timing
-   out — critical for gap-analysis-style diagnostics.
-
-4. **Engine `end_tick()`** (`fabula/src/engine/mod.rs`): After incrementing
-   `tick_counter`, scan active PMs. For each PM whose pattern has a
-   deadline, check `tick_counter - pm.created_at_tick > deadline`. If
-   exceeded, emit `SiftEvent::Expired`, set `pm.state = Dead`.
-
-   Need to add `created_at_tick: u64` to `PartialMatch` (set from
-   `tick_counter` at initiation time, inherited on advancement). This
-   complements the existing `created_at: T` (which stores the data-layer
-   time, not the engine tick).
-
-5. **TickDelta** (`fabula/src/engine/types.rs`): Add `expired: Vec<String>`
-   alongside `advanced`, `completed`, `negated`, `stalled`.
-
-6. **DSL** (`fabula-dsl/`): New keyword in pattern blocks:
-   ```
-   pattern sla_check {
-     deadline 2880           // ticks (e.g., minutes → 48 hours)
-     stage submission { ... }
-     stage review { ... }
-   }
-   ```
-
-**Design note**: Deadline is in engine ticks, not wall time. The caller
-controls tick granularity. A caller using 1 tick = 1 minute sets
-`deadline(2880)` for 48 hours. This keeps the engine time-agnostic.
-
-**Files**: `fabula/src/pattern.rs`, `builder.rs`, `engine/types.rs`,
-`engine/mod.rs`, `fabula-dsl/src/{ast,parser,compiler}.rs`
-**Tests**: PM expiry on `end_tick()`, `Expired` event contents,
-`stage_reached` accuracy, TickDelta inclusion, deadline + negation
-interaction (negation kills before deadline fires), no expiry when
-deadline is None, DSL parse/compile
-**Effort**: Small-medium (~100-150 LoC)
-
----
 
 #### 5.3 Cross-stage value comparison (`ValueConstraint::BoundVar`)
 

@@ -9,6 +9,7 @@
 
 use crate::datasource::ValueConstraint;
 use crate::interval::AllenRelation;
+use std::collections::HashMap;
 use std::fmt;
 
 /// A named position in a pattern traversal.
@@ -118,6 +119,13 @@ pub struct Pattern<L, V> {
     /// all other active partial matches in the same group are killed.
     /// Used by `compose::choice()` with `exclusive: true`.
     pub group: Option<String>,
+    /// Arbitrary key-value metadata attached to this pattern.
+    /// Propagated to Match results and SiftEvent notifications.
+    pub metadata: HashMap<String, String>,
+    /// Optional deadline in engine ticks. If a partial match does not
+    /// complete within this many ticks of its creation, the engine
+    /// emits `SiftEvent::Expired` and kills the PM.
+    pub deadline_ticks: Option<u64>,
 }
 
 /// A stage is a group of clauses anchored to a single event/node variable.
@@ -206,6 +214,8 @@ impl<L, V> Pattern<L, V> {
             temporal: self.temporal.clone(),
             negations: self.negations.iter().map(|n| n.map_types(&label_fn, &value_fn)).collect(),
             group: self.group.clone(),
+            metadata: self.metadata.clone(),
+            deadline_ticks: self.deadline_ticks,
         }
     }
 
@@ -347,5 +357,37 @@ mod tests {
         };
         let mapped = clause.map_types(&|l: &String| l.clone(), &double);
         assert_eq!(mapped.target, Target::Constraint(ValueConstraint::Gt(100)));
+    }
+
+    #[test]
+    fn builder_metadata_propagates() {
+        let pattern = PatternBuilder::<String, String>::new("test")
+            .metadata("severity", "high")
+            .metadata("mitre", "T1078")
+            .stage("e1", |s| s.edge("e1", "type".into(), "x".into()))
+            .build();
+
+        assert_eq!(pattern.metadata.get("severity").unwrap(), "high");
+        assert_eq!(pattern.metadata.get("mitre").unwrap(), "T1078");
+        assert_eq!(pattern.metadata.len(), 2);
+    }
+
+    #[test]
+    fn metadata_empty_by_default() {
+        let pattern = PatternBuilder::<String, String>::new("test")
+            .stage("e1", |s| s.edge("e1", "type".into(), "x".into()))
+            .build();
+        assert!(pattern.metadata.is_empty());
+    }
+
+    #[test]
+    fn map_types_preserves_metadata() {
+        let pattern = PatternBuilder::<String, String>::new("test")
+            .metadata("key", "value")
+            .stage("e1", |s| s.edge("e1", "type".into(), "x".into()))
+            .build();
+
+        let mapped = pattern.map_types(|l| l.to_uppercase(), |v| v.to_uppercase());
+        assert_eq!(mapped.metadata.get("key").unwrap(), "value");
     }
 }

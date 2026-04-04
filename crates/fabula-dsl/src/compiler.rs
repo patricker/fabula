@@ -108,6 +108,8 @@ pub fn compile_pattern_body_with<M: TypeMapper>(
         stages: body.stages.clone(),
         negations: body.negations.clone(),
         temporals: body.temporals.clone(),
+        metadata: body.metadata.clone(),
+        deadline: body.deadline,
     };
     compile_pattern_with(&ast, mapper)
 }
@@ -199,6 +201,21 @@ pub fn compile_pattern_with<M: TypeMapper>(
         } else {
             builder = builder.temporal(&temp.left, relation, &temp.right);
         }
+    }
+
+    // Convert ordered metadata pairs to HashMap (last-write-wins for duplicates)
+    for (key, value) in &ast.metadata {
+        builder = builder.metadata(key, value);
+    }
+
+    if let Some(deadline) = ast.deadline {
+        if deadline < 1.0 {
+            return Err(ParseError {
+                line: 0, column: 0, span: (0, 0),
+                message: format!("deadline must be a positive integer, got {}", deadline),
+            });
+        }
+        builder = builder.deadline(deadline as u64);
     }
 
     Ok(builder.build())
@@ -651,5 +668,119 @@ mod tests {
         let ast = parse_ast(input);
         // The mapper error propagates as a panic from within the builder callback
         let _ = compile_pattern_with(&ast, &StrictMapper);
+    }
+
+    #[test]
+    fn metadata_parsed_and_compiled() {
+        let input = r#"pattern my_rule {
+            meta("severity", "high")
+            meta("mitre", "T1078")
+            stage e1 {
+                e1.eventType = "betray"
+            }
+        }"#;
+        let ast = parse_ast(input);
+        assert_eq!(ast.metadata.len(), 2);
+        assert_eq!(ast.metadata[0], ("severity".to_string(), "high".to_string()));
+        assert_eq!(ast.metadata[1], ("mitre".to_string(), "T1078".to_string()));
+
+        let pattern = compile_pattern(&ast).unwrap();
+        assert_eq!(pattern.metadata.get("severity").unwrap(), "high");
+        assert_eq!(pattern.metadata.get("mitre").unwrap(), "T1078");
+    }
+
+    #[test]
+    fn metadata_after_stages() {
+        let input = r#"pattern test {
+            stage e1 { e1.type = "x" }
+            meta("key", "val")
+        }"#;
+        let ast = parse_ast(input);
+        let pattern = compile_pattern(&ast).unwrap();
+        assert_eq!(pattern.metadata.get("key").unwrap(), "val");
+        assert_eq!(pattern.stages.len(), 1);
+    }
+
+    #[test]
+    fn metadata_duplicate_key_last_wins() {
+        let input = r#"pattern test {
+            meta("key", "first")
+            meta("key", "second")
+            stage e1 { e1.type = "x" }
+        }"#;
+        let ast = parse_ast(input);
+        assert_eq!(ast.metadata.len(), 2); // AST preserves both
+
+        let pattern = compile_pattern(&ast).unwrap();
+        assert_eq!(pattern.metadata.get("key").unwrap(), "second"); // last wins
+        assert_eq!(pattern.metadata.len(), 1);
+    }
+
+    #[test]
+    fn compile_pattern_body_with_metadata() {
+        let input = r#"pattern wrapper {
+            meta("source", "test")
+            stage e1 { e1.type = "x" }
+        }"#;
+        let tokens = Lexer::new(input).tokenize().unwrap();
+        let mut parser = Parser::new(tokens);
+        parser.expect(crate::lexer::TokenKind::Pattern).unwrap();
+        let _name = parser.expect_ident().unwrap();
+        parser.expect(crate::lexer::TokenKind::LBrace).unwrap();
+        let body = parser.parse_pattern_body().unwrap();
+
+        assert_eq!(body.metadata.len(), 1);
+
+        let pattern = compile_pattern_body("renamed", &body).unwrap();
+        assert_eq!(pattern.name, "renamed");
+        assert_eq!(pattern.metadata.get("source").unwrap(), "test");
+    }
+
+    #[test]
+    fn deadline_parsed_and_compiled() {
+        let input = r#"pattern sla {
+            deadline 2880
+            stage e1 { e1.type = "submit" }
+        }"#;
+        let ast = parse_ast(input);
+        assert_eq!(ast.deadline, Some(2880.0));
+
+        let pattern = compile_pattern(&ast).unwrap();
+        assert_eq!(pattern.deadline_ticks, Some(2880));
+    }
+
+    #[test]
+    fn no_deadline_is_none() {
+        let input = r#"pattern test {
+            stage e1 { e1.type = "x" }
+        }"#;
+        let ast = parse_ast(input);
+        assert_eq!(ast.deadline, None);
+
+        let pattern = compile_pattern(&ast).unwrap();
+        assert_eq!(pattern.deadline_ticks, None);
+    }
+
+    #[test]
+    fn deadline_with_metadata() {
+        let input = r#"pattern sla {
+            meta("severity", "high")
+            deadline 100
+            stage e1 { e1.type = "x" }
+        }"#;
+        let pattern = compile_pattern(&parse_ast(input)).unwrap();
+        assert_eq!(pattern.deadline_ticks, Some(100));
+        assert_eq!(pattern.metadata.get("severity").unwrap(), "high");
+    }
+
+    #[test]
+    fn deadline_zero_rejected() {
+        let input = r#"pattern bad {
+            deadline 0
+            stage e1 { e1.type = "x" }
+        }"#;
+        let result = compile_pattern(&parse_ast(input));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().message.contains("positive integer"));
     }
 }

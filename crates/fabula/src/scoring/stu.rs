@@ -25,6 +25,8 @@ pub struct StuScoredMatch<N: Debug, V: Debug, T: Debug + Clone> {
     pub bindings: HashMap<String, BoundValue<N, V>>,
     /// Stage anchor variable -> matched time interval.
     pub intervals: HashMap<String, Interval<T>>,
+    /// Metadata from the matched pattern.
+    pub metadata: HashMap<String, String>,
     /// Per-property frequencies, sorted ascending (rarest first).
     /// Each entry is `(property_string, frequency)`.
     pub property_frequencies: Vec<(String, f64)>,
@@ -153,6 +155,7 @@ impl StuScorer {
                         pattern_idx: m.pattern_idx,
                         bindings: m.bindings.clone(),
                         intervals: m.intervals.clone(),
+                        metadata: m.metadata.clone(),
                         property_frequencies: Vec::new(),
                         stu_score: 1.0,
                     };
@@ -188,6 +191,7 @@ impl StuScorer {
                     pattern_idx: m.pattern_idx,
                     bindings: m.bindings.clone(),
                     intervals: m.intervals.clone(),
+                    metadata: m.metadata.clone(),
                     property_frequencies: prop_freqs,
                     stu_score,
                 }
@@ -229,6 +233,7 @@ mod tests {
             pattern_idx: None,
             bindings: HashMap::new(),
             intervals: HashMap::new(),
+            metadata: HashMap::new(),
         }
     }
 

@@ -78,6 +78,7 @@ where
                     match_id: pm.id,
                     clause_label: neg_label,
                     trigger_source: source.clone(),
+                    metadata: pattern.metadata.clone(),
                 });
             }
         }
@@ -115,6 +116,7 @@ where
                             state: if is_last_stage { MatchState::Complete } else { MatchState::Active },
                             id,
                             fingerprint: fp,
+                            created_at_tick: self.tick_counter,
                         };
 
                         if is_last_stage {
@@ -122,12 +124,14 @@ where
                                 pattern: pattern.name.clone(),
                                 match_id: id,
                                 bindings,
+                                metadata: pattern.metadata.clone(),
                             });
                         } else {
                             events.push(SiftEvent::Advanced {
                                 pattern: pattern.name.clone(),
                                 match_id: id,
                                 stage_index: 0,
+                                metadata: pattern.metadata.clone(),
                             });
                         }
                         new_matches.push(pm);
@@ -188,6 +192,7 @@ where
                         state: if is_complete { MatchState::Complete } else { MatchState::Active },
                         id,
                         fingerprint: fp,
+                        created_at_tick: pm.created_at_tick,
                     };
 
                     if is_complete {
@@ -195,12 +200,14 @@ where
                             pattern: pattern.name.clone(),
                             match_id: id,
                             bindings: merged_bindings,
+                            metadata: pattern.metadata.clone(),
                         });
                     } else {
                         events.push(SiftEvent::Advanced {
                             pattern: pattern.name.clone(),
                             match_id: id,
                             stage_index: stage_idx,
+                            metadata: pattern.metadata.clone(),
                         });
                     }
                     advanced.push(new_pm);
@@ -228,7 +235,7 @@ where
                     }
                     self.tick_completed.insert(pattern.clone());
                 }
-                SiftEvent::Negated { pattern, .. } => {
+                SiftEvent::Negated { pattern, .. } | SiftEvent::Expired { pattern, .. } => {
                     if let Some(idx) = self.patterns.iter().position(|p| p.name == *pattern) {
                         self.negation_count[idx] += 1;
                     }

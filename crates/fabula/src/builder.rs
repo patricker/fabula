@@ -22,6 +22,7 @@
 
 use crate::interval::AllenRelation;
 use crate::pattern::*;
+use std::collections::HashMap;
 
 /// Builder for constructing a [`Pattern`].
 pub struct PatternBuilder<L, V> {
@@ -29,6 +30,8 @@ pub struct PatternBuilder<L, V> {
     stages: Vec<Stage<L, V>>,
     temporal: Vec<TemporalConstraint>,
     negations: Vec<Negation<L, V>>,
+    metadata: HashMap<String, String>,
+    deadline_ticks: Option<u64>,
 }
 
 impl<L: Clone, V: Clone> PatternBuilder<L, V> {
@@ -39,6 +42,8 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             stages: Vec::new(),
             temporal: Vec::new(),
             negations: Vec::new(),
+            metadata: HashMap::new(),
+            deadline_ticks: None,
         }
     }
 
@@ -113,6 +118,18 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
         self
     }
 
+    /// Set a deadline in engine ticks for partial match expiry.
+    pub fn deadline(mut self, ticks: u64) -> Self {
+        self.deadline_ticks = Some(ticks);
+        self
+    }
+
+    /// Attach a metadata key-value pair to the pattern.
+    pub fn metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.metadata.insert(key.into(), value.into());
+        self
+    }
+
     /// Add a negation that spans the entire pattern (first stage to last stage).
     /// Equivalent to Winnow's `(unless-event ... where ...)` with no `between`.
     pub fn unless_global(
@@ -153,6 +170,8 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             temporal: self.temporal,
             negations: self.negations,
             group: None,
+            metadata: self.metadata,
+            deadline_ticks: self.deadline_ticks,
         }
     }
 }

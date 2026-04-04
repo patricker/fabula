@@ -20,6 +20,8 @@ pub struct ScoredMatch<N: Debug, V: Debug, T: Debug + Clone> {
     pub bindings: HashMap<String, BoundValue<N, V>>,
     /// Stage anchor variable -> matched time interval.
     pub intervals: HashMap<String, Interval<T>>,
+    /// Metadata from the matched pattern.
+    pub metadata: HashMap<String, String>,
     /// Surprise score in bits. Higher = more unexpected.
     /// Negative = pattern fires more often than baseline (less surprising).
     /// Uses Laplace smoothing to handle zero-observation cases.
@@ -128,6 +130,7 @@ impl SurpriseScorer {
                     pattern_idx: m.pattern_idx,
                     bindings: m.bindings.clone(),
                     intervals: m.intervals.clone(),
+                    metadata: m.metadata.clone(),
                     surprise,
                 }
             })
@@ -180,6 +183,7 @@ mod tests {
             pattern_idx: None,
             bindings: HashMap::new(),
             intervals: HashMap::new(),
+            metadata: HashMap::new(),
         }
     }
 
@@ -288,17 +292,28 @@ mod tests {
                 pattern: "test".into(),
                 match_id: 0,
                 stage_index: 0,
+                metadata: HashMap::new(),
             },
             SiftEvent::Completed {
                 pattern: "test".into(),
                 match_id: 1,
                 bindings: HashMap::new(),
+                metadata: HashMap::new(),
             },
             SiftEvent::Negated {
                 pattern: "test".into(),
                 match_id: 2,
                 clause_label: "x".into(),
                 trigger_source: "src".into(),
+                metadata: HashMap::new(),
+            },
+            SiftEvent::Expired {
+                pattern: "test".into(),
+                match_id: 3,
+                bindings: HashMap::new(),
+                stage_reached: 0,
+                ticks_elapsed: 10,
+                metadata: HashMap::new(),
             },
         ];
 

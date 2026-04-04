@@ -98,6 +98,8 @@ impl Parser {
             stages: body.stages,
             negations: body.negations,
             temporals: body.temporals,
+            metadata: body.metadata,
+            deadline: body.deadline,
         })
     }
 
@@ -123,17 +125,56 @@ impl Parser {
         let mut stages = Vec::new();
         let mut negations = Vec::new();
         let mut temporals = Vec::new();
+        let mut metadata = Vec::new();
+        let mut deadline = None;
 
         while !self.check(TokenKind::RBrace) && !self.at_eof() {
             match &self.peek().kind {
                 TokenKind::Stage => stages.push(self.parse_stage()?),
                 TokenKind::Unless => negations.push(self.parse_negation()?),
                 TokenKind::Temporal => temporals.push(self.parse_temporal()?),
-                _ => return Err(self.error("expected 'stage', 'unless', or 'temporal'")),
+                TokenKind::Ident(s) if s == "meta" => {
+                    metadata.push(self.parse_meta()?);
+                }
+                TokenKind::Ident(s) if s == "deadline" => {
+                    self.advance();
+                    deadline = Some(self.expect_number()?);
+                }
+                _ => return Err(self.error("expected 'stage', 'unless', 'temporal', 'meta', or 'deadline'")),
             }
         }
 
-        Ok(PatternBody { stages, negations, temporals })
+        Ok(PatternBody { stages, negations, temporals, metadata, deadline })
+    }
+
+    /// Parse a `meta("key", "value")` clause.
+    fn parse_meta(&mut self) -> Result<(String, String), ParseError> {
+        // "meta" identifier already matched by caller; consume it
+        self.advance();
+        self.expect(TokenKind::LParen)?;
+        let key = match &self.peek().kind {
+            TokenKind::String(_) => {
+                if let TokenKind::String(s) = &self.advance().kind {
+                    s.clone()
+                } else {
+                    unreachable!()
+                }
+            }
+            _ => return Err(self.error("expected string literal for meta key")),
+        };
+        self.expect(TokenKind::Comma)?;
+        let value = match &self.peek().kind {
+            TokenKind::String(_) => {
+                if let TokenKind::String(s) = &self.advance().kind {
+                    s.clone()
+                } else {
+                    unreachable!()
+                }
+            }
+            _ => return Err(self.error("expected string literal for meta value")),
+        };
+        self.expect(TokenKind::RParen)?;
+        Ok((key, value))
     }
 
     /// Parse a `stage anchor { clauses... }` block.

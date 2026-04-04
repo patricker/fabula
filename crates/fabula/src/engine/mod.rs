@@ -93,6 +93,7 @@ pub struct SiftEngine<N: Debug + Clone, L, V: Debug + Clone, T: Clone> {
     pub(super) tick_advanced: HashSet<String>,
     pub(super) tick_completed: HashSet<String>,
     pub(super) tick_negated: HashSet<String>,
+    pub(super) tick_expired: HashSet<String>,
 }
 
 /// Convenience alias: extract type params from a [`DataSource`] impl.
@@ -140,6 +141,7 @@ where
             tick_advanced: HashSet::new(),
             tick_completed: HashSet::new(),
             tick_negated: HashSet::new(),
+            tick_expired: HashSet::new(),
         }
     }
 
@@ -242,8 +244,33 @@ where
     /// let delta = engine.end_tick(50); // stale threshold = 50 ticks
     /// if !delta.stalled.is_empty() { /* alert GM */ }
     /// ```
-    pub fn end_tick(&mut self, stale_threshold: u64) -> TickDelta {
+    pub fn end_tick(&mut self, stale_threshold: u64) -> (TickDelta, Vec<SiftEvent<N, V>>) {
         self.tick_counter += 1;
+
+        // Scan for expired partial matches (deadline exceeded).
+        let mut expired_events = Vec::new();
+        for pm in &mut self.partial_matches {
+            if pm.state != MatchState::Active {
+                continue;
+            }
+            let pattern = &self.patterns[pm.pattern_idx];
+            if let Some(deadline) = pattern.deadline_ticks {
+                let elapsed = self.tick_counter.saturating_sub(pm.created_at_tick);
+                if elapsed > deadline {
+                    expired_events.push(SiftEvent::Expired {
+                        pattern: pattern.name.clone(),
+                        match_id: pm.id,
+                        bindings: pm.bindings.clone(),
+                        stage_reached: pm.next_stage,
+                        ticks_elapsed: elapsed,
+                        metadata: pattern.metadata.clone(),
+                    });
+                    pm.state = MatchState::Dead;
+                    self.tick_expired.insert(pattern.name.clone());
+                }
+            }
+        }
+        self.partial_matches.retain(|pm| pm.state != MatchState::Dead);
 
         let stalled: Vec<String> = self.stale_patterns(stale_threshold)
             .iter()
@@ -257,17 +284,21 @@ where
         let mut advanced: Vec<String> = self.tick_advanced.drain().collect();
         let mut completed: Vec<String> = self.tick_completed.drain().collect();
         let mut negated: Vec<String> = self.tick_negated.drain().collect();
+        let mut expired: Vec<String> = self.tick_expired.drain().collect();
         advanced.sort();
         completed.sort();
         negated.sort();
+        expired.sort();
 
-        TickDelta {
+        let delta = TickDelta {
             advanced,
             completed,
             negated,
+            expired,
             stalled,
             active_pm_count,
-        }
+        };
+        (delta, expired_events)
     }
 
     /// Current tick counter.
@@ -392,9 +423,11 @@ where
         let mut advanced = Vec::new();
         let mut completed = Vec::new();
         let mut negated = Vec::new();
+        let mut expired = Vec::new();
         let mut seen_advanced = HashSet::new();
         let mut seen_completed = HashSet::new();
         let mut seen_negated = HashSet::new();
+        let mut seen_expired = HashSet::new();
 
         for event in events {
             match event {
@@ -413,6 +446,11 @@ where
                         negated.push(pattern.clone());
                     }
                 }
+                SiftEvent::Expired { pattern, .. } => {
+                    if seen_expired.insert(pattern.clone()) {
+                        expired.push(pattern.clone());
+                    }
+                }
             }
         }
 
@@ -429,6 +467,7 @@ where
             advanced,
             completed,
             negated,
+            expired,
             stalled,
             active_pm_count,
         }
@@ -443,6 +482,7 @@ where
                     pattern_idx: Some(pm.pattern_idx),
                     bindings: pm.bindings.clone(),
                     intervals: pm.intervals.clone(),
+                    metadata: self.patterns[pm.pattern_idx].metadata.clone(),
                 });
                 false
             } else {
@@ -534,6 +574,7 @@ impl<N: Debug + Clone, L: Clone, V: Debug + Clone, T: Clone> Clone for SiftEngin
             tick_advanced: HashSet::new(),
             tick_completed: HashSet::new(),
             tick_negated: HashSet::new(),
+            tick_expired: HashSet::new(),
         }
     }
 }

@@ -399,13 +399,13 @@ fn end_tick_accumulates_and_clears() {
         &MemValue::Str("start".into()), &Interval::open(1));
 
     // end_tick summarizes everything
-    let delta = engine.end_tick(50);
+    let (delta, _) = engine.end_tick(50);
     assert!(delta.completed.contains(&"quick".to_string()), "quick should complete");
     assert!(delta.advanced.contains(&"slow".to_string()), "slow should advance");
     assert_eq!(engine.current_tick(), 1);
 
     // Next tick with no events — accumulators should be cleared
-    let delta2 = engine.end_tick(50);
+    let (delta2, _) = engine.end_tick(50);
     assert!(delta2.completed.is_empty(), "no events this tick");
     assert!(delta2.advanced.is_empty(), "no events this tick");
     assert_eq!(engine.current_tick(), 2);
@@ -428,15 +428,15 @@ fn end_tick_detects_stale_after_many_ticks() {
     g.set_time(1);
     engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
         &MemValue::Str("start".into()), &Interval::open(1));
-    engine.end_tick(50); // tick 1
+    let _ = engine.end_tick(50); // tick 1
 
     // 100 empty ticks
     for _ in 0..100 {
-        engine.end_tick(50);
+        let _ = engine.end_tick(50);
     }
 
     // The 101st end_tick should report stale
-    let delta = engine.end_tick(50);
+    let (delta, _) = engine.end_tick(50);
     assert!(delta.stalled.contains(&"stuck".to_string()));
 }
 
@@ -510,6 +510,194 @@ fn pm_created_at_inherited_on_advance() {
     let advanced = active.iter().find(|pm| pm.next_stage == 2).unwrap();
     assert_eq!(advanced.created_at, 10,
         "advanced PM should inherit parent's created_at, not the advancing edge's timestamp");
+}
+
+// ===========================================================================
+// 5.2 Deadline-based expiration
+// ===========================================================================
+
+#[test]
+fn pm_expires_after_deadline_ticks() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("sla")
+            .deadline(5)
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("submit".into())))
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("review".into())))
+            .build(),
+    );
+
+    // Initiate a PM at tick 0 (end_tick increments to 1)
+    g.add_str("ev1", "type", "submit", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("submit".into()), &Interval::open(1));
+
+    assert_eq!(engine.partial_matches().iter()
+        .filter(|pm| pm.state == MatchState::Active).count(), 1);
+
+    // Tick 1-5: PM is still alive
+    for _ in 0..5 {
+        let (delta, _) = engine.end_tick(50);
+        assert!(delta.expired.is_empty(), "should not expire within deadline");
+    }
+    // PM was created at tick 0, now at tick 5: elapsed = 5, NOT > 5 yet
+    assert_eq!(engine.partial_matches().iter()
+        .filter(|pm| pm.state == MatchState::Active).count(), 1);
+
+    // Tick 6: elapsed = 6 > 5, PM expires
+    let (delta, expired_events) = engine.end_tick(50);
+    assert!(delta.expired.contains(&"sla".to_string()), "should expire after deadline");
+    assert_eq!(engine.partial_matches().iter()
+        .filter(|pm| pm.state == MatchState::Active).count(), 0, "expired PM should be removed");
+
+    // Verify the SiftEvent::Expired contents
+    assert_eq!(expired_events.len(), 1);
+    match &expired_events[0] {
+        SiftEvent::Expired { pattern, stage_reached, ticks_elapsed, metadata, .. } => {
+            assert_eq!(pattern, "sla");
+            assert_eq!(*stage_reached, 1, "PM was at stage 1 (next_stage)");
+            assert_eq!(*ticks_elapsed, 6);
+            assert!(metadata.is_empty());
+        }
+        other => panic!("expected Expired event, got {:?}", other),
+    }
+}
+
+#[test]
+fn no_expiry_without_deadline() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("no_deadline")
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("start".into())))
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("end".into())))
+            .build(),
+    );
+
+    g.add_str("ev1", "type", "start", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("start".into()), &Interval::open(1));
+
+    // 200 ticks without completing — should never expire
+    for _ in 0..200 {
+        let (delta, _) = engine.end_tick(50);
+        assert!(delta.expired.is_empty());
+    }
+    assert_eq!(engine.partial_matches().iter()
+        .filter(|pm| pm.state == MatchState::Active).count(), 1);
+}
+
+#[test]
+fn completed_before_deadline_no_expiry() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+
+    // Single-stage pattern: completion removes the PM entirely.
+    engine.register(
+        PatternBuilder::new("fast")
+            .deadline(10)
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("done".into())))
+            .build(),
+    );
+
+    // Complete at tick 0 (well within deadline)
+    g.add_str("ev1", "type", "done", 1);
+    g.set_time(1);
+    let events = engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("done".into()), &Interval::open(1));
+    assert!(events.iter().any(|e| matches!(e, SiftEvent::Completed { .. })));
+
+    // Drain the completed PM
+    engine.drain_completed();
+
+    // 20 more ticks — no expiry (PM already completed and drained)
+    for _ in 0..20 {
+        let (delta, _) = engine.end_tick(50);
+        assert!(delta.expired.is_empty());
+    }
+}
+
+#[test]
+fn negation_kills_before_deadline() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("negatable")
+            .deadline(100)
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("start".into())))
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("end".into())))
+            .unless_between("e1", "e2", |n|
+                n.edge("mid", "type".into(), MemValue::Str("cancel".into())))
+            .build(),
+    );
+
+    // Initiate
+    g.add_str("ev1", "type", "start", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("start".into()), &Interval::open(1));
+    let _ = engine.end_tick(50);
+
+    // Negate at tick 2
+    g.add_str("mid1", "type", "cancel", 2);
+    g.set_time(2);
+    let events = engine.on_edge_added(&g, &"mid1".into(), &"type".into(),
+        &MemValue::Str("cancel".into()), &Interval::open(2));
+    assert!(events.iter().any(|e| matches!(e, SiftEvent::Negated { .. })));
+
+    // PM is dead — no expiry should fire later
+    for _ in 0..200 {
+        let (delta, _) = engine.end_tick(50);
+        assert!(delta.expired.is_empty(), "negated PM should not also expire");
+    }
+}
+
+#[test]
+fn deadline_created_at_tick_inherited_on_advance() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("three_stage_deadline")
+            .deadline(8)
+            .stage("e1", |s| s.edge("e1", "type".into(), MemValue::Str("a".into())))
+            .stage("e2", |s| s.edge("e2", "type".into(), MemValue::Str("b".into())))
+            .stage("e3", |s| s.edge("e3", "type".into(), MemValue::Str("c".into())))
+            .build(),
+    );
+
+    // Initiate at tick 0
+    g.add_str("ev1", "type", "a", 1);
+    g.set_time(1);
+    engine.on_edge_added(&g, &"ev1".into(), &"type".into(),
+        &MemValue::Str("a".into()), &Interval::open(1));
+
+    // Advance to stage 2 at tick 3
+    for _ in 0..3 {
+        let _ = engine.end_tick(50);
+    }
+    g.add_str("ev2", "type", "b", 4);
+    g.set_time(4);
+    engine.on_edge_added(&g, &"ev2".into(), &"type".into(),
+        &MemValue::Str("b".into()), &Interval::open(4));
+
+    // 5 more ticks (total 8 from tick 3 → tick 8)
+    // But created_at_tick = 0, so at tick 9: elapsed = 9 > 8, should expire
+    for _ in 0..5 {
+        let (delta, _) = engine.end_tick(50);
+        assert!(delta.expired.is_empty());
+    }
+    // Now at tick 8, elapsed = 8, not > 8 yet
+    // Tick 9: elapsed = 9 > 8
+    let (delta, _) = engine.end_tick(50);
+    assert!(delta.expired.contains(&"three_stage_deadline".to_string()),
+        "should expire based on original creation tick, not advancement tick");
 }
 
 // ===========================================================================

@@ -104,6 +104,7 @@ where
             pattern_idx: None,
             bindings,
             intervals,
+            metadata: pattern.metadata.clone(),
         })
         .collect()
 }
@@ -182,6 +183,7 @@ where
             pattern_idx: None,
             bindings,
             intervals,
+            metadata: pattern.metadata.clone(),
         })
         .collect()
 }

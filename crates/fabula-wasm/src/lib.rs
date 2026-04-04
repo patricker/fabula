@@ -379,6 +379,7 @@ fn convert_event(
             pattern,
             match_id,
             stage_index,
+            ..
         } => EventJson {
             event_type: "advanced".to_string(),
             pattern: pattern.clone(),
@@ -391,6 +392,7 @@ fn convert_event(
             pattern,
             match_id,
             bindings,
+            ..
         } => EventJson {
             event_type: "completed".to_string(),
             pattern: pattern.clone(),
@@ -416,6 +418,19 @@ fn convert_event(
             stage_index: None,
             bindings: None,
             clause_label: Some(clause_label.clone()),
+        },
+        fabula::engine::SiftEvent::Expired {
+            pattern,
+            match_id,
+            stage_reached,
+            ..
+        } => EventJson {
+            event_type: "expired".to_string(),
+            pattern: pattern.clone(),
+            match_id: *match_id,
+            stage_index: Some(*stage_reached),
+            bindings: None,
+            clause_label: None,
         },
     }
 }

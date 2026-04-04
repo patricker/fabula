@@ -30,6 +30,8 @@ pub struct Match<N: Debug + PartialEq, V: Debug + PartialEq, T: Debug + Clone + 
     pub bindings: HashMap<String, BoundValue<N, V>>,
     /// Stage anchor variable -> matched time interval.
     pub intervals: HashMap<String, Interval<T>>,
+    /// Metadata from the matched pattern, propagated for downstream consumers.
+    pub metadata: HashMap<String, String>,
 }
 
 /// Order-independent hash of a HashMap. Uses XOR of per-entry hashes
@@ -57,6 +59,7 @@ where
         self.pattern_idx.hash(state);
         hash_map_order_independent(&self.bindings, state);
         hash_map_order_independent(&self.intervals, state);
+        hash_map_order_independent(&self.metadata, state);
     }
 }
 
@@ -121,6 +124,9 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
     pub created_at: T,
     /// Precomputed dedup hash of (pattern_idx, next_stage, bindings, intervals).
     pub fingerprint: u64,
+    /// Engine tick at which this partial match was first created.
+    /// Used for deadline-based expiration. Inherited on advancement.
+    pub created_at_tick: u64,
 }
 
 /// State of a partial match.
@@ -142,12 +148,14 @@ pub enum SiftEvent<N: Debug, V: Debug> {
         pattern: String,
         match_id: usize,
         stage_index: usize,
+        metadata: HashMap<String, String>,
     },
     /// A pattern fully matched.
     Completed {
         pattern: String,
         match_id: usize,
         bindings: HashMap<String, BoundValue<N, V>>,
+        metadata: HashMap<String, String>,
     },
     /// A partial match was killed by a negation.
     Negated {
@@ -157,6 +165,18 @@ pub enum SiftEvent<N: Debug, V: Debug> {
         clause_label: String,
         /// The source node of the edge that triggered the kill.
         trigger_source: N,
+        metadata: HashMap<String, String>,
+    },
+    /// A partial match expired — its pattern's deadline was exceeded.
+    Expired {
+        pattern: String,
+        match_id: usize,
+        bindings: HashMap<String, BoundValue<N, V>>,
+        /// How far the PM got (next_stage index at time of expiry).
+        stage_reached: usize,
+        /// How many ticks elapsed since the PM was created.
+        ticks_elapsed: u64,
+        metadata: HashMap<String, String>,
     },
 }
 
@@ -265,6 +285,8 @@ pub struct TickDelta {
     pub completed: Vec<String>,
     /// Patterns that had PMs negated this tick.
     pub negated: Vec<String>,
+    /// Patterns that had PMs expire (deadline exceeded) this tick.
+    pub expired: Vec<String>,
     /// Patterns with active PMs that have not advanced for `stale_threshold` ticks.
     pub stalled: Vec<String>,
     /// Total active PM count across all patterns.
