@@ -10,7 +10,7 @@ Fabula provides a text DSL for defining patterns and graphs. The DSL compiles to
 ## Pattern Syntax
 
 ```
-pattern <name> {
+[private] pattern <name> {
   stage <event_var> {
     <clause>+
   }+
@@ -29,6 +29,22 @@ pattern <name> {
   [deadline <ticks>]
 }
 ```
+
+### Private patterns
+
+Prefix a pattern with `private` to suppress its matches and events from engine output. The engine still evaluates the pattern internally — useful for composition building blocks.
+
+```
+private pattern helper {
+  stage e1 { e1.type = "setup" }
+}
+pattern main_flow {
+  stage e1 { e1.type = "action" }
+}
+compose full = helper >> main_flow sharing(...)
+```
+
+Only `full` matches appear in output. `helper` matches are suppressed.
 
 ### Sources
 
@@ -280,6 +296,7 @@ Compose directives combine named patterns into larger patterns. Three operators 
 ```
 compose <name> = <pattern_a> >> <pattern_b> sharing(<var>, ...)   // sequence
 compose <name> = <pattern_a> | <pattern_b> | <pattern_c>         // exclusive choice
+compose <name> = <pattern_a> | <pattern_b> nonexclusive          // non-exclusive choice
 compose <name> = <pattern> * <count> sharing(<var>, ...)          // exact repeat
 compose <name> = <pattern> * <min>..<max> sharing(<var>, ...)     // repeat range
 compose <name> = <pattern> * <min>.. sharing(<var>, ...)          // repeat (unbounded)
@@ -306,6 +323,12 @@ Registers all alternatives as separate patterns with a shared `group`. When one 
 
 ```
 compose crisis = war | famine | plague
+```
+
+Add `nonexclusive` after the alternatives to allow all of them to match independently (no group, no mutual kill):
+
+```
+compose any_crisis = war | famine | plague nonexclusive
 ```
 
 ### Repeat (`*`)

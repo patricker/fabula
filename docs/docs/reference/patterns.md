@@ -178,6 +178,7 @@ pub struct Pattern<L, V> {
     pub deadline_ticks: Option<u64>,
     pub repeat_range: Option<RepeatRange>,
     pub unordered_groups: Vec<Vec<usize>>,
+    pub private: bool,
 }
 ```
 
@@ -192,6 +193,7 @@ pub struct Pattern<L, V> {
 | `deadline_ticks` | `Option<u64>` | If set, active partial matches for this pattern are expired (killed with `SiftEvent::Expired`) when they have been alive for more than this many ticks without completing. Checked during `end_tick()`. |
 | `repeat_range` | `Option<RepeatRange>` | Looping repeat configuration. Set by `compose::repeat_range()` or DSL `* N..M` / `* N..`. When present, the engine loops over a segment of stages instead of completing after the last stage. See [DSL Reference — Repeat](dsl#repeat-). |
 | `unordered_groups` | `Vec<Vec<usize>>` | Stage groups that can match in any order. Each inner `Vec<usize>` lists stage indices that form a concurrent group. Set by `PatternBuilder::unordered_group()` or DSL `concurrent { }`. See [DSL Reference — Concurrent Groups](dsl#concurrent-groups). |
+| `private` | `bool` | If true, this pattern's matches and events are suppressed from engine output (`evaluate()`, `drain_completed()`, `on_edge_added()`). The engine still evaluates the pattern internally for composition and exclusive group handling. Default `false`. Set by `PatternBuilder::private()` or DSL `private pattern`. |
 
 #### Methods
 
@@ -444,6 +446,18 @@ pub fn deadline(self, ticks: u64) -> Self
 | Parameter | Type | Required | Default | Description |
 |-----------|------|----------|---------|-------------|
 | `ticks` | `u64` | yes | -- | Maximum ticks before expiry. Must be >= 1. |
+
+**Returns:** `PatternBuilder<L, V>` (chainable)
+
+---
+
+#### `private`
+
+Marks this pattern as private. Private patterns are evaluated by the engine but their matches and events are suppressed from output (`evaluate()`, `drain_completed()`, `on_edge_added()`). Use for composition building blocks that should not appear in results.
+
+```rust
+pub fn private(self) -> Self
+```
 
 **Returns:** `PatternBuilder<L, V>` (chainable)
 
