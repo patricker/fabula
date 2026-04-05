@@ -11,6 +11,7 @@ members = [
     "crates/fabula-bench",
     "crates/fabula-narratives",
     "crates/fabula-examples",
+    "crates/fabula-discovery",
 ]
 
 [workspace.package]

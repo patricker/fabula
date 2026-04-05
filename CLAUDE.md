@@ -10,9 +10,9 @@ Incremental pattern matching over temporal graphs. A Rust port/extension of Felt
 
 ```bash
 cargo build --workspace                    # build everything
-cargo test --workspace                     # all tests (~420+)
+cargo test --workspace                     # all tests (~650+)
 cargo clippy --workspace -- -D warnings    # lint (CI enforces -D warnings)
-cargo test -p fabula-test-suite            # golden tests only (61 scenarios x 3 adapters)
+cargo test -p fabula-test-suite            # golden tests only (81 scenarios x 3 adapters)
 cargo test -p fabula -- test_name          # single test in a crate
 cargo test -p fabula-test-suite mem__batch_hospitality_matches  # single golden test
 cargo bench -p fabula-bench                # divan benchmarks
@@ -21,7 +21,7 @@ wasm-pack build --target web crates/fabula-wasm  # WASM build (needs wasm32-unkn
 
 **CI enforces all four gates**: clippy with `-D warnings`, full test suite, wasm-pack build, on every push to main and all PRs. No warnings can be merged.
 
-## Workspace Layout (9 crates)
+## Workspace Layout (11 crates)
 
 | Crate | Purpose |
 |---|---|
@@ -33,15 +33,17 @@ wasm-pack build --target web crates/fabula-wasm  # WASM build (needs wasm32-unkn
 | `fabula-narratives` | Narrative scoring: thread tracking (MICE), tension arcs, pivot detection, MCTS quality |
 | `fabula-wasm` | WebAssembly bindings via wasm-bindgen |
 | `fabula-test-suite` | Golden tests: scenarios generic over `TestGraph`, run against all 3 adapters |
+| `fabula-discovery` | Pattern discovery: generate-evaluate framework, MINERful generator, DSL emission |
+| `fabula-examples` | Doc code examples: 20 test files, 48 DSL files, glob-based validation |
 | `fabula-bench` | Benchmarks (divan) and heap profiling (dhat) |
 
 ## Architecture
 
 ### Core abstractions
 
-**`DataSource` trait** (`fabula/src/datasource.rs`): The integration point for any graph backend. Has 4 associated types (`N`ode, `L`abel, `V`alue, `T`ime) and 6 methods. All adapters (memory, petgraph, grafeo) implement this trait.
+**`DataSource` trait** (`fabula/src/datasource.rs`): The integration point for any graph backend. Has 4 associated types (`N`ode, `L`abel, `V`alue, `T`ime) and 6 methods (`edges_from`, `scan`, `edges_from_any_time`, `scan_any_time`, `now`, `value_as_node`). All adapters (memory, petgraph, grafeo) implement this trait.
 
-**`Pattern<L, V>`** (`fabula/src/pattern.rs`): Ordered sequence of `Stage`s with temporal constraints and negation windows. Each stage has `Clause`s that match edges. Variables appearing in multiple stages create joins.
+**`Pattern<L, V>`** (`fabula/src/pattern.rs`): Ordered sequence of `Stage`s with temporal constraints and negation windows. Each stage has `Clause`s that match edges. Variables appearing in multiple stages create joins. Patterns may be marked `private: bool` — private patterns participate in matching (including exclusive choice groups) but their events are filtered from all engine output (`on_edge_added`, `evaluate`, `drain_completed`, `end_tick`, `tick_delta`).
 
 **`SiftEngine<N, L, V, T>`** (`fabula/src/engine/`): The matching engine, parameterized independently from `DataSource`. Key design: engine can outlive any particular data source, enabling MCTS forking (clone engine + fork DataSource, speculate, discard).
 
@@ -76,7 +78,7 @@ Each `on_edge_added()` call runs these phases in order:
 ### Key patterns
 
 - **`PatternBuilder`** (`builder.rs`): Fluent API for constructing patterns
-- **Composition operators** (`compose.rs`): `sequence`, `choice`, `repeat` with shared variables. These work by renaming all variables in sub-patterns (except shared ones) with prefixes (`a_`, `b_`, `rep0_`), then merging into a single pattern.
+- **Composition operators** (`compose.rs`): `sequence`, `choice`, `repeat` with shared variables. `choice` accepts an `exclusive: bool` parameter — exclusive (default) creates a choice group where only one branch can match; non-exclusive allows all branches to match independently. These work by renaming all variables in sub-patterns (except shared ones) with prefixes (`a_`, `b_`, `rep0_`), then merging into a single pattern.
 - **`SiftEngineFor<DS>`**: Type alias that extracts `N,L,V,T` from a `DataSource` impl — use this when you have a concrete data source type
 - **Allen interval algebra** (`interval.rs`): 13 temporal relations + metric gap constraints (STN-style bounded distances). Returns `Option<AllenRelation>` — `None` for open-ended intervals.
 - **`why_not` gap analysis**: Clause-by-clause breakdown of why a pattern hasn't matched
@@ -84,7 +86,7 @@ Each `on_edge_added()` call runs these phases in order:
 
 ### DSL pipeline (`fabula-dsl`)
 
-Lexer → Parser → Compiler. The lexer/parser are type-agnostic; the compiler uses a `TypeMapper` trait to convert DSL literals to target types. Default `MemMapper` produces `Pattern<String, MemValue>`. Custom `TypeMapper` implementations support arbitrary label/value type systems (e.g., `u32` predicates) by implementing `label()`, `string_value()`, `num_value()`, `bool_value()`, `node_ref()` — each returns `Result<T, String>` for fallible mappings.
+Lexer → Parser → Compiler. The lexer/parser are type-agnostic; the compiler uses a `TypeMapper` trait to convert DSL literals to target types. Default `MemMapper` produces `Pattern<String, MemValue>`. Custom `TypeMapper` implementations support arbitrary label/value type systems (e.g., `u32` predicates) by implementing `label()`, `string_value()`, `num_value()`, `bool_value()`, `node_ref()` — each returns `Result<T, String>` for fallible mappings. DSL keywords: `private pattern name { }` marks a pattern as private; `compose x = a | b nonexclusive` produces a non-exclusive choice.
 
 ### Narrative scoring (`fabula-narratives`)
 

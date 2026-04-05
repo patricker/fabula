@@ -303,6 +303,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "fabula-discovery"
+version = "0.1.0"
+dependencies = [
+ "fabula",
+ "fabula-dsl",
+ "fabula-memory",
+]
+
+[[package]]
 name = "fabula-dsl"
 version = "0.1.0"
 dependencies = [
