@@ -1,7 +1,7 @@
 # Fabula Roadmap
 
 **Status**: Living document
-**Date**: 2026-04-03 (updated)
+**Date**: 2026-04-04 (updated)
 
 ---
 
@@ -191,91 +191,21 @@ most recent match without intermediate bloat.
 
 ---
 
-#### 5.5 Unordered / concurrent stage groups
+### Unordered / Concurrent Stage Groups (DONE — 2026-04-03)
 
-Allow a group of stages that must all match but in any order. Currently
-stages are strictly sequential (left-to-right temporal ordering). This
-blocks multi-signal correlation patterns where ordering is irrelevant.
+Allow a group of stages that must all match but in any order.
+`unordered_groups: Vec<Vec<usize>>` on Pattern, u64 bitmask tracking on
+PartialMatch, `PatternBuilder::unordered_group()`, DSL `concurrent { }`
+block. Multi-stage initiation in Phase 2, any-order advancement in Phase 3.
 
-- Observability: "Error rate spike AND latency increase co-occur"
-- Security: "Recon scan AND social engineering simultaneously"
-- Clinical: "Fever AND tachycardia AND leukocytosis present concurrently"
-- IoT: "Temperature high AND pressure low at the same time"
-- Canary: "Errors on pod A AND errors on pod B" (spread, order irrelevant)
-
-**Design:**
-
-Introduce a `StageOrdering` enum on `Pattern`:
-
-```rust
-pub enum StageOrdering {
-    Sequential,                     // current behavior (default)
-    Unordered { indices: Vec<usize> }, // these stage indices may match in any order
-}
-```
-
-A pattern can have a mix: stages 0-1 sequential, stages 2-4 unordered,
-stage 5 sequential after the unordered group completes.
-
-**Changes required:**
-
-1. **Pattern struct** (`fabula/src/pattern.rs`): Add field
-   `pub unordered_groups: Vec<Vec<usize>>`. Each inner vec is a set of
-   stage indices that form an unordered group. Empty by default
-   (all stages sequential). Stages in an unordered group must be
-   contiguous.
-
-2. **Engine Phase 3** (`fabula/src/engine/eval.rs`): When advancing a PM,
-   check if `next_stage` falls within an unordered group. If so, try
-   ALL unmatched stages in the group against the incoming edge (not just
-   `next_stage`). Track which stages in the group have been matched via
-   a bitmask on the PM: `pub matched_stages: u64` (supports up to 64
-   stages — sufficient for all practical patterns).
-
-   When all stages in the group are matched, advance `next_stage` past
-   the group to the first sequential stage after it.
-
-3. **Temporal constraints**: Within an unordered group, implicit
-   left-to-right ordering does NOT apply. Explicit temporal constraints
-   (Allen relations) between stages in the group are still respected.
-   Between an unordered group and the surrounding sequential stages,
-   the group as a whole must satisfy the ordering (all group stages
-   must occur after the preceding sequential stage and before the
-   following one).
-
-4. **PatternBuilder** (`fabula/src/builder.rs`):
-   ```rust
-   .unordered_group(|g| g
-       .stage("a", |s| s.edge(...))
-       .stage("b", |s| s.edge(...))
-       .stage("c", |s| s.edge(...))
-   )
-   ```
-
-5. **DSL** (`fabula-dsl/`):
-   ```
-   pattern multi_signal {
-     stage setup { ... }
-     concurrent {
-       stage error_spike { ... }
-       stage latency_spike { ... }
-     }
-     stage cascade { ... }
-   }
-   ```
-
-6. **Fingerprint**: Unordered group matching order should NOT affect
-   the fingerprint. The fingerprint already uses order-independent
-   XOR hashing on bindings, so this should work naturally as long as
-   the same set of bindings produces the same hash regardless of
-   which stage matched first.
-
-**Files**: `fabula/src/pattern.rs`, `engine/eval.rs`, `engine/types.rs`,
-`builder.rs`, `fabula-dsl/src/{ast,parser,compiler}.rs`
-**Tests**: Unordered match in both orders, mixed sequential + unordered,
-temporal constraints within group, fingerprint stability, golden test
-**Effort**: Medium (~200-300 LoC). Most architecturally invasive item on
-this list — touches the core advancement loop.
+| Item | Summary |
+|------|---------|
+| `Pattern.unordered_groups` | `Vec<Vec<usize>>` — each inner vec is contiguous stage indices. Empty = all sequential. |
+| `PartialMatch.matched_stages: u64` | Bitmask tracking which stages in an unordered group have matched. Included in fingerprint. |
+| `PatternBuilder::unordered_group()` | Fluent builder with `UnorderedGroupBuilder::stage()`. |
+| DSL `concurrent { }` | New keyword. Parser, AST (`unordered_groups` on PatternBody), compiler validation. |
+| Engine Phase 2+3 | Multi-stage initiation for unordered groups, any-order advancement, temporal ordering relaxed within group. |
+| 8 new tests | Both orders, mixed sequential + unordered, temporal constraints within group, fingerprint stability, golden test. |
 
 ---
 
@@ -420,50 +350,18 @@ in the Paracausality repo before this can proceed.
 Lower-priority enhancements to existing subsystems. These refine rather
 than extend core capabilities.
 
-#### 7.1 StU aggregation alternatives
+### Scoring Refinements (DONE — 2026-04-03)
 
-Replace arithmetic mean with information-theoretic aggregation:
-- **TF-IDF style**: `sum(-log(freq))` — rare properties dominate via log
-  weighting. Natural generalization of StU. ~5 LoC change.
-- **Geometric mean**: `(∏ freq(pi))^(1/k)` — single rare property pulls
-  entire score down. Needs Laplace smoothing (already have it). ~5 LoC.
-- **Minimum**: `min(freq(pi))` — most surprising property dominates.
-  Loses signal from multiple rare properties. ~3 LoC.
+Four scoring enhancements shipped together.
 
-Recommend: make aggregation configurable on `StuScorer` with an enum.
-Default remains arithmetic mean for backwards compatibility.
+| Item | Summary |
+|------|---------|
+| 7.1 StU aggregation | `StuAggregation` enum: `ArithmeticMean` (default), `GeometricMean`, `Min`, `TfIdf`. Configurable via `StuScorer::with_aggregation()`. |
+| 7.2 Confidence weighting | `confidence = 1 - 1/(total_matches + 1)`. Attenuates scores toward "unsurprising" until data accumulates. ~0.99 after 100 observations. |
+| 7.3 PMI correction | `with_pmi_correction()` on StuScorer. `pmi_for(a, b)` returns PMI in bits. Pairs exceeding 1-bit threshold have the less-rare member's frequency replaced with conditional frequency. |
+| 7.4 Sequential surprise | `SequentialScorer` — bigram transition frequencies. `observe()`, `score()` → `-log2(P(B\|A))`. `surprise_between()` for arbitrary pairs. |
 
-**Files**: `fabula/src/scoring/stu.rs`
-**Effort**: Small (~30 LoC)
-
-#### 7.2 StU confidence weighting (cold start)
-
-`final = stu_score * (1 - 1/(total_matches + 1))`. At 1 match,
-confidence = 0.5. At 10, confidence = 0.91. At 100, confidence = 0.99.
-Gently attenuates noisy scores from sparse data.
-
-**Files**: `fabula/src/scoring/stu.rs`
-**Effort**: Trivial (~5 LoC)
-
-#### 7.3 Correlated-unlikelihood correction (property-pair PMI)
-
-`PMI(pi, pj) = log(P(pi,pj) / P(pi)P(pj))`. High PMI means properties
-co-occur more than expected → don't double-count their rarity. Requires
-O(V²) pair counting per pattern.
-
-**Reference**: StU's known weakness per Kreminski et al.
-**Files**: `fabula/src/scoring/stu.rs`
-**Effort**: Small-medium (~50 LoC)
-
-#### 7.4 Sequential surprise (bigram transitions)
-
-`P(event_B | event_A)` from observed sequences. Sequential surprise =
-`-log P(current_event | previous_event)`. Simpler alternative to Schulz
-et al.'s full 5-measure framework, which requires a predictive model of
-next-state distributions.
-
-**Files**: New `fabula/src/scoring/sequential.rs`
-**Effort**: Small-medium (~80 LoC)
+---
 
 #### 7.5 DSL nested compose expressions
 
@@ -491,15 +389,10 @@ building blocks for composition.
 **Files**: `fabula-dsl/src/{ast,parser,compiler}.rs`, `fabula/src/pattern.rs`
 **Effort**: Small
 
-#### 7.8 Kernel/satellite metadata
+#### 7.8 Kernel/satellite metadata — SUBSUMED
 
-Optional metadata field on Pattern indicating whether it represents a
-kernel (turning point) or satellite (elaboration) event per Chatman's
-Story and Discourse. Trivial addition — the `group` field provides the
-precedent.
-
-**Files**: `fabula/src/pattern.rs`
-**Effort**: Trivial (2 lines — subsumed by 5.1 pattern metadata)
+Subsumed by pattern metadata (done in Salience integration). Use
+`meta("narrative_role", "kernel")` or `meta("narrative_role", "satellite")`.
 
 ---
 
@@ -575,6 +468,30 @@ Items explicitly deferred with conditions for reconsideration.
 | Implicit sharing by name (DSL) | Partial groundwork in binding validation; explicit `sharing()` works | Users frequently request it |
 | Windowed aggregation (5.6) | May be subsumed by repeat-with-range (5.4) | Repeat-with-range proves insufficient for counting use cases |
 
+### Documentation Expansion (DONE — 2026-04-04)
+
+Two-phase documentation overhaul: content expansion then infrastructure.
+
+**Phase 1 — Content (52 pages):**
+Diataxis-structured site from 24 to 52 pages. Learn section (5 pages with
+interactive WASM playgrounds), Build a Simulation Monitor (7-page project
+tutorial), 6 use-case tutorials, 3 concept deep-dives, 4 how-to guides,
+glossary (35+ terms), learning paths (2 tracks), scoring explorer
+playground. Homepage redesign, sidebar restructure, reference gap closure
+(45 items across 6 reference pages). Three review passes + 5 naive reader
+reviews.
+
+**Phase 2 — fabula-examples crate + remark-code-region:**
+Every doc code sample extracted to compiled test files. `fabula-examples`
+crate: 20 test files (83 tests), 48 DSL files (.fabula), glob-based DSL
+validation. `remark-code-region` Docusaurus plugin: build-time extraction
+of `// #region` markers from example files into doc code blocks. Missing
+file/region breaks the build. ~80 code blocks migrated across 30+ pages.
+12 naive reader feedback items addressed (performance page, DSL quick
+reference, schema mapping, false positive discussions, tool comparisons,
+weight tuning, PMI example, forking intro, composition output, and 3
+one-line fixes).
+
 ---
 
 ## Summary
@@ -586,16 +503,12 @@ Items explicitly deferred with conditions for reconsideration.
 | 3 | Composition | **DONE** | Pattern algebra, DSL compose syntax, surprise scoring (Shannon + StU) |
 | 4 | Narrative Scoring | **DONE** | Thread tracker, tension tracker, pivot detector, MCTS scorer |
 | — | Salience Integration | **DONE** | Free functions, Match intervals, early termination, serde, Eq+Hash, composable parser, MemGraph utilities |
-| **5** | **Platform Generalization** | **NEXT** | Metadata ✓, timeout events ✓, cross-stage comparison ✓, repeat range ✓, unordered stages |
+| 5 | Platform Generalization | **DONE** | Metadata, timeout events, cross-stage comparison, repeat range, unordered stages |
+| 7.1–7.4 | Scoring Refinements | **DONE** | StU aggregation (4 modes), confidence weighting, PMI correction, SequentialScorer |
+| — | Documentation | **DONE** | 52-page doc site, fabula-examples crate (83 tests), remark-code-region plugin |
 | **6** | **Narrative Stack** | PLANNED | Causality tracing, character appraisal, knowledge propagation |
-| **7** | **Scoring & DSL** | PLANNED | StU refinements, nested compose, non-exclusive choice, private patterns |
+| **7.5–7.7** | **DSL Refinements** | PLANNED | Nested compose, non-exclusive choice, private patterns |
 | **8** | **Research** | FUTURE | Formal semantics (30%), scalability paper (60%), expressiveness hierarchy (20%) |
-
-**Recommended execution for Phase 5:**
-Sprint 1 (quick wins): 5.1 (metadata) ✓ → 5.2 (timeout) ✓ → 5.3 (cross-stage comparison) ✓
-Sprint 2 (thresholds): 5.4 (repeat range) ✓
-Sprint 3 (concurrency): 5.5 (unordered stages)
-Evaluate: 5.6 (windowed aggregation) after 5.4
 
 ---
 
