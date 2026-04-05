@@ -152,6 +152,7 @@ golden_tests! {
     incremental_choice_nonexclusive,
     batch_repeat_shared_binding,
     batch_repeat_different_actors_no_match,
+    private_pattern_suppresses_events,
 
     // --- Cross-stage value comparison ---
     batch_cross_stage_gt_matches,

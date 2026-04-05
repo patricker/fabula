@@ -507,6 +507,13 @@ where
                 true
             }
         });
+        // Filter out matches from private patterns.
+        completed.retain(|m| {
+            !self
+                .patterns
+                .iter()
+                .any(|p| p.name == m.pattern && p.private)
+        });
         completed
     }
 

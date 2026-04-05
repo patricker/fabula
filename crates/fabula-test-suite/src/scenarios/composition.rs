@@ -363,6 +363,64 @@ pub fn batch_repeat_shared_binding<G: TestGraph>() {
     assert!(G::is_node_eq(&matches[0].bindings["offender"], "alice"));
 }
 
+// ---------------------------------------------------------------------------
+// Private patterns: events and matches suppressed from output
+// ---------------------------------------------------------------------------
+
+/// A private pattern and a public pattern match the same edge.
+/// Only the public pattern's events and matches appear in output.
+pub fn private_pattern_suppresses_events<G: TestGraph>() {
+    let public_pat = PatternBuilder::<String, G::V>::new("public_greet")
+        .stage("e1", |s| {
+            s.edge("e1", "eventType".into(), G::str_val("greet"))
+        })
+        .build();
+
+    let private_pat = PatternBuilder::<String, G::V>::new("private_greet")
+        .private()
+        .stage("e1", |s| {
+            s.edge("e1", "eventType".into(), G::str_val("greet"))
+        })
+        .build();
+
+    let mut g = G::new_graph();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    engine.register(public_pat);
+    engine.register(private_pat);
+
+    // --- Incremental: on_edge_added should suppress private events ---
+    g.add_str_edge("ev1", "eventType", "greet", 1);
+    g.set_current_time(1);
+    let events = engine.on_edge_added(
+        &g,
+        &"ev1".to_string(),
+        &"eventType".to_string(),
+        &G::str_val("greet"),
+        &Interval::open(1),
+    );
+
+    let event_names: Vec<&str> = events
+        .iter()
+        .map(|e| match e {
+            SiftEvent::Completed { pattern, .. } => pattern.as_str(),
+            SiftEvent::Advanced { pattern, .. } => pattern.as_str(),
+            SiftEvent::Negated { pattern, .. } => pattern.as_str(),
+            SiftEvent::Expired { pattern, .. } => pattern.as_str(),
+        })
+        .collect();
+    assert_eq!(event_names, vec!["public_greet"], "private pattern events must be suppressed");
+
+    // --- Batch: evaluate() should suppress private matches ---
+    let matches = engine.evaluate(&g);
+    assert_eq!(matches.len(), 1, "only public pattern should appear in evaluate()");
+    assert_eq!(matches[0].pattern, "public_greet");
+
+    // --- drain_completed should suppress private matches ---
+    let drained = engine.drain_completed();
+    assert_eq!(drained.len(), 1, "only public pattern should appear in drain_completed()");
+    assert_eq!(drained[0].pattern, "public_greet");
+}
+
 /// Repeat doesn't match when different actors commit the offenses.
 pub fn batch_repeat_different_actors_no_match<G: TestGraph>() {
     let offense = PatternBuilder::<String, G::V>::new("offense")

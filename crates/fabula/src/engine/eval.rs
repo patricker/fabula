@@ -45,6 +45,14 @@ where
             }
             results.extend(matches);
         }
+        // Filter out matches from private patterns.
+        results.retain(|m| {
+            !self
+                .patterns
+                .iter()
+                .any(|p| p.name == m.pattern && p.private)
+        });
+
         results
     }
 
@@ -518,6 +526,22 @@ where
         if active_count > self.stats.peak_active_pms {
             self.stats.peak_active_pms = active_count;
         }
+
+        // Filter out events from private patterns.
+        // This happens AFTER exclusive group handling — private patterns still
+        // participate in group kills, we only hide them from the returned events.
+        events.retain(|e| {
+            let pattern_name = match e {
+                SiftEvent::Advanced { pattern, .. } => pattern,
+                SiftEvent::Completed { pattern, .. } => pattern,
+                SiftEvent::Negated { pattern, .. } => pattern,
+                SiftEvent::Expired { pattern, .. } => pattern,
+            };
+            !self
+                .patterns
+                .iter()
+                .any(|p| p.name == *pattern_name && p.private)
+        });
 
         events
     }
