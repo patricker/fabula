@@ -4,26 +4,25 @@ use fabula_memory::{MemGraph, MemValue};
 #[test]
 fn batch_auditing() {
     // #region batch_auditing
-    let skipped_approval_pattern =
-        PatternBuilder::<String, MemValue>::new("skipped_approval")
-            .stage("e1", |s| {
-                s.edge(
-                    "e1",
-                    "type".into(),
-                    MemValue::Str("purchase_request".into()),
-                )
-                .edge_bind("e1", "order".into(), "order")
-                .edge_bind("e1", "requester".into(), "requester")
-            })
-            .stage("e2", |s| {
-                s.edge("e2", "type".into(), MemValue::Str("fulfillment".into()))
-                    .edge_bind("e2", "order".into(), "order")
-            })
-            .unless_between("e1", "e2", |neg| {
-                neg.edge("mid", "type".into(), MemValue::Str("approval".into()))
-                    .edge_bind("mid", "order".into(), "order")
-            })
-            .build();
+    let skipped_approval_pattern = PatternBuilder::<String, MemValue>::new("skipped_approval")
+        .stage("e1", |s| {
+            s.edge(
+                "e1",
+                "type".into(),
+                MemValue::Str("purchase_request".into()),
+            )
+            .edge_bind("e1", "order".into(), "order")
+            .edge_bind("e1", "requester".into(), "requester")
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("fulfillment".into()))
+                .edge_bind("e2", "order".into(), "order")
+        })
+        .unless_between("e1", "e2", |neg| {
+            neg.edge("mid", "type".into(), MemValue::Str("approval".into()))
+                .edge_bind("mid", "order".into(), "order")
+        })
+        .build();
 
     let payment_before_confirmation_pattern =
         PatternBuilder::<String, MemValue>::new("payment_before_confirmation")
@@ -37,12 +36,8 @@ fn batch_auditing() {
                 .edge_bind("e1", "amount".into(), "amount")
             })
             .stage("e2", |s| {
-                s.edge(
-                    "e2",
-                    "type".into(),
-                    MemValue::Str("order_confirmed".into()),
-                )
-                .edge_bind("e2", "order".into(), "order")
+                s.edge("e2", "type".into(), MemValue::Str("order_confirmed".into()))
+                    .edge_bind("e2", "order".into(), "order")
             })
             .build();
 

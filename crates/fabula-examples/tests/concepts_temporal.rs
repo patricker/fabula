@@ -7,18 +7,10 @@ fn during_pattern() {
     // #region during_pattern
     let pattern = PatternBuilder::<String, MemValue>::new("during_pattern")
         .stage("outer", |s| {
-            s.edge(
-                "outer",
-                "eventType".into(),
-                MemValue::Str("siege".into()),
-            )
+            s.edge("outer", "eventType".into(), MemValue::Str("siege".into()))
         })
         .stage("inner", |s| {
-            s.edge(
-                "inner",
-                "eventType".into(),
-                MemValue::Str("sortie".into()),
-            )
+            s.edge("inner", "eventType".into(), MemValue::Str("sortie".into()))
         })
         .temporal("inner", AllenRelation::During, "outer")
         .build();

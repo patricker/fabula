@@ -56,7 +56,10 @@ pub enum ComposeBody {
         shared: Vec<String>,
     },
     /// `A | B | C` (exclusive choice by default, `nonexclusive` keyword opts out)
-    Choice { alternatives: Vec<String>, exclusive: bool },
+    Choice {
+        alternatives: Vec<String>,
+        exclusive: bool,
+    },
     /// `A * 3 sharing(x, y)` (exact) or `A * 3..5 sharing(x, y)` (range)
     Repeat {
         pattern: String,
@@ -78,6 +81,8 @@ pub struct PatternAst {
     /// Unordered stage groups (concurrent blocks). Each entry contains the
     /// stage indices (into `stages`) that form a concurrent group.
     pub unordered_groups: Vec<Vec<usize>>,
+    /// If true, this pattern was declared with `private` keyword.
+    pub private: bool,
 }
 
 /// The interior of a pattern — stages, negations, and temporal constraints,
@@ -94,6 +99,7 @@ pub struct PatternBody {
     pub metadata: Vec<(String, String)>,
     pub deadline: Option<f64>,
     pub unordered_groups: Vec<Vec<usize>>,
+    pub private: bool,
 }
 
 /// A stage within a pattern.

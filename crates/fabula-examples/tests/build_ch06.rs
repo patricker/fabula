@@ -31,8 +31,12 @@ fn flash_crash_pattern() -> Pattern<String, MemValue> {
     PatternBuilder::new("flash_crash")
         .unordered_group(|g| {
             g.stage("drop", |s| {
-                s.edge("drop", "action".into(), MemValue::Str("price_change".into()))
-                    .edge_bind("drop", "stock".into(), "ticker")
+                s.edge(
+                    "drop",
+                    "action".into(),
+                    MemValue::Str("price_change".into()),
+                )
+                .edge_bind("drop", "stock".into(), "ticker")
             })
             .stage("alarm", |s| {
                 s.edge("alarm", "action".into(), MemValue::Str("alert".into()))
@@ -94,9 +98,16 @@ fn speculate_with_mcts() {
             &Interval::open(tick),
         );
 
-        let completed: Vec<String> = events.iter().filter_map(|e| {
-            if let SiftEvent::Completed { pattern, .. } = e { Some(pattern.clone()) } else { None }
-        }).collect();
+        let completed: Vec<String> = events
+            .iter()
+            .filter_map(|e| {
+                if let SiftEvent::Completed { pattern, .. } = e {
+                    Some(pattern.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
 
         let drained = forked_engine.drain_completed();
         let scored = surprise.score(&drained, forked_engine.patterns());
@@ -120,7 +131,10 @@ fn speculate_with_mcts() {
     // -- run setup: build state up to a decision point (tick 4) --
     let setup: Vec<Vec<(&str, &str, &str)>> = vec![
         vec![("insider_tip", "alice", "ACME"), ("trade", "carol", "ACME")],
-        vec![("promote", "carol", "ACME"), ("price_change", "market", "ACME")],
+        vec![
+            ("promote", "carol", "ACME"),
+            ("price_change", "market", "ACME"),
+        ],
         vec![("alert", "system", "ACME")],
         vec![("insider_tip", "bob", "ZINC")],
     ];
@@ -152,9 +166,9 @@ fn speculate_with_mcts() {
 
     // -- define 3 hypothetical actions at tick 5 --
     let hypotheses: Vec<(&str, &str, &str, &str)> = vec![
-        ("A: alice trades ACME",  "trade",  "alice",  "ACME"),
-        ("B: bob trades ZINC",    "trade",  "bob",    "ZINC"),
-        ("C: carol sells ACME",   "sell",   "carol",  "ACME"),
+        ("A: alice trades ACME", "trade", "alice", "ACME"),
+        ("B: bob trades ZINC", "trade", "bob", "ZINC"),
+        ("C: carol sells ACME", "sell", "carol", "ACME"),
     ];
 
     // -- fork, evaluate, score each --
@@ -162,9 +176,8 @@ fn speculate_with_mcts() {
     let mut results: Vec<(&str, Vec<String>, f64)> = Vec::new();
 
     for (label, action, actor, stock) in &hypotheses {
-        let (completed, score) = evaluate_hypothesis(
-            &engine, &graph, &surprise, "hyp", action, actor, stock, 5,
-        );
+        let (completed, score) =
+            evaluate_hypothesis(&engine, &graph, &surprise, "hyp", action, actor, stock, 5);
         println!("{}", label);
         if completed.is_empty() {
             println!("  no completions");
@@ -189,6 +202,14 @@ fn speculate_with_mcts() {
     println!("completed in original: {}", stale.len());
     // #endregion
 
-    assert_eq!(engine.current_tick(), 4, "original engine tick should be unchanged");
-    assert_eq!(stale.len(), 0, "original engine should have no new completions");
+    assert_eq!(
+        engine.current_tick(),
+        4,
+        "original engine tick should be unchanged"
+    );
+    assert_eq!(
+        stale.len(),
+        0,
+        "original engine should have no new completions"
+    );
 }

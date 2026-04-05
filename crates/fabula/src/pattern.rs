@@ -137,6 +137,12 @@ pub struct Pattern<L, V> {
     /// advances past the group when all are matched.
     #[cfg_attr(feature = "serde", serde(default))]
     pub unordered_groups: Vec<Vec<usize>>,
+    /// If true, this pattern's matches and events are suppressed from engine
+    /// output. The engine still evaluates the pattern internally (for
+    /// composition and exclusive group handling), but `evaluate()`,
+    /// `drain_completed()`, and `on_edge_added()` filter out its results.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub private: bool,
 }
 
 /// Configuration for looping repeat patterns (`* N..M` or `* N..`).
@@ -267,6 +273,7 @@ impl<L, V> Pattern<L, V> {
             deadline_ticks: self.deadline_ticks,
             repeat_range: self.repeat_range.clone(),
             unordered_groups: self.unordered_groups.clone(),
+            private: self.private,
         }
     }
 
@@ -458,6 +465,20 @@ mod tests {
             .stage("e1", |s| s.edge("e1", "type".into(), "x".into()))
             .build();
         assert!(pattern.metadata.is_empty());
+    }
+
+    #[test]
+    fn private_pattern_field() {
+        let pattern = PatternBuilder::<String, String>::new("helper")
+            .stage("e1", |s| s.edge("e1", "type".into(), "test".into()))
+            .private()
+            .build();
+        assert!(pattern.private);
+
+        let public = PatternBuilder::<String, String>::new("visible")
+            .stage("e1", |s| s.edge("e1", "type".into(), "test".into()))
+            .build();
+        assert!(!public.private);
     }
 
     #[test]

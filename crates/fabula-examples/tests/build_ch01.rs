@@ -14,25 +14,65 @@ fn build_market_graph() -> MemGraph {
     // Hardcoded event schedule: (action, actor, stock)
     let schedule: Vec<Vec<(&str, &str, &str)>> = vec![
         // tick 1
-        vec![("insider_tip", "alice", "ACME"), ("trade", "bob", "ZINC"), ("price_change", "market", "ACME")],
+        vec![
+            ("insider_tip", "alice", "ACME"),
+            ("trade", "bob", "ZINC"),
+            ("price_change", "market", "ACME"),
+        ],
         // tick 2
-        vec![("trade", "alice", "ACME"), ("trade", "charlie", "ZINC"), ("alert", "system", "ACME")],
+        vec![
+            ("trade", "alice", "ACME"),
+            ("trade", "charlie", "ZINC"),
+            ("alert", "system", "ACME"),
+        ],
         // tick 3
-        vec![("trade", "bob", "ACME"), ("trade", "bob", "ACME"), ("price_change", "market", "ZINC")],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("trade", "bob", "ACME"),
+            ("price_change", "market", "ZINC"),
+        ],
         // tick 4
-        vec![("insider_tip", "charlie", "ZINC"), ("alert", "system", "ZINC"), ("trade", "alice", "ACME")],
+        vec![
+            ("insider_tip", "charlie", "ZINC"),
+            ("alert", "system", "ZINC"),
+            ("trade", "alice", "ACME"),
+        ],
         // tick 5
-        vec![("trade", "bob", "ACME"), ("trade", "charlie", "ZINC"), ("price_change", "market", "ACME")],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("trade", "charlie", "ZINC"),
+            ("price_change", "market", "ACME"),
+        ],
         // tick 6
-        vec![("trade", "bob", "ACME"), ("alert", "system", "ACME"), ("trade", "alice", "ZINC")],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("alert", "system", "ACME"),
+            ("trade", "alice", "ZINC"),
+        ],
         // tick 7
-        vec![("price_change", "market", "ZINC"), ("trade", "charlie", "ZINC"), ("trade", "charlie", "ZINC")],
+        vec![
+            ("price_change", "market", "ZINC"),
+            ("trade", "charlie", "ZINC"),
+            ("trade", "charlie", "ZINC"),
+        ],
         // tick 8
-        vec![("insider_tip", "bob", "ACME"), ("trade", "alice", "ZINC"), ("alert", "system", "ACME")],
+        vec![
+            ("insider_tip", "bob", "ACME"),
+            ("trade", "alice", "ZINC"),
+            ("alert", "system", "ACME"),
+        ],
         // tick 9
-        vec![("trade", "bob", "ACME"), ("trade", "charlie", "ACME"), ("price_change", "market", "ZINC")],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("trade", "charlie", "ACME"),
+            ("price_change", "market", "ZINC"),
+        ],
         // tick 10
-        vec![("trade", "alice", "ACME"), ("alert", "system", "ZINC"), ("trade", "bob", "ZINC")],
+        vec![
+            ("trade", "alice", "ACME"),
+            ("alert", "system", "ZINC"),
+            ("trade", "bob", "ZINC"),
+        ],
     ];
 
     let mut event_id = 0;

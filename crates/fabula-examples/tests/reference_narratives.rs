@@ -46,7 +46,7 @@ fn pivot_detector_usage() {
     pivot.push("harm");
     let jsd = pivot.end_tick();
     assert!(jsd > 0.5); // dramatic shift
-    // #endregion
+                        // #endregion
 }
 
 #[test]

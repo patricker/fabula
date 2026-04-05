@@ -33,6 +33,7 @@ pub struct PatternBuilder<L, V> {
     metadata: HashMap<String, String>,
     deadline_ticks: Option<u64>,
     unordered_groups: Vec<Vec<usize>>,
+    private: bool,
 }
 
 impl<L: Clone, V: Clone> PatternBuilder<L, V> {
@@ -46,6 +47,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             metadata: HashMap::new(),
             deadline_ticks: None,
             unordered_groups: Vec::new(),
+            private: false,
         }
     }
 
@@ -123,6 +125,13 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
     /// Set a deadline in engine ticks for partial match expiry.
     pub fn deadline(mut self, ticks: u64) -> Self {
         self.deadline_ticks = Some(ticks);
+        self
+    }
+
+    /// Mark this pattern as private — the engine evaluates it internally but
+    /// suppresses its matches and events from output.
+    pub fn private(mut self) -> Self {
+        self.private = true;
         self
     }
 
@@ -215,6 +224,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             deadline_ticks: self.deadline_ticks,
             repeat_range: None,
             unordered_groups: self.unordered_groups,
+            private: self.private,
         }
     }
 }

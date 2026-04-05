@@ -121,6 +121,7 @@ pub fn compile_pattern_body_with<M: TypeMapper>(
         metadata: body.metadata.clone(),
         deadline: body.deadline,
         unordered_groups: body.unordered_groups.clone(),
+        private: body.private,
     };
     compile_pattern_with(&ast, mapper)
 }
@@ -279,6 +280,7 @@ pub fn compile_pattern_with<M: TypeMapper>(
 
     let mut pattern = builder.build();
     pattern.unordered_groups = ast.unordered_groups.clone();
+    pattern.private = ast.private;
     Ok(pattern)
 }
 
@@ -561,7 +563,10 @@ pub fn compile_compose_with<M: TypeMapper>(
             let shared_refs: Vec<&str> = shared.iter().map(|s| s.as_str()).collect();
             Ok(vec![compose::sequence(&ast.name, a, b, &shared_refs)])
         }
-        ComposeBody::Choice { alternatives, exclusive } => {
+        ComposeBody::Choice {
+            alternatives,
+            exclusive,
+        } => {
             let pats = alternatives
                 .iter()
                 .map(|name| resolve(name))

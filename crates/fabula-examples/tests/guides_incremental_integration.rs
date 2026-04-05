@@ -14,9 +14,13 @@ fn step1_register_patterns() {
                     .edge_bind("e1", "actor".into(), "guest")
             })
             .stage("e2", |s| {
-                s.edge("e2", "eventType".into(), MemValue::Str("showHospitality".into()))
-                    .edge_bind("e2", "actor".into(), "host")
-                    .edge_bind("e2", "target".into(), "guest")
+                s.edge(
+                    "e2",
+                    "eventType".into(),
+                    MemValue::Str("showHospitality".into()),
+                )
+                .edge_bind("e2", "actor".into(), "host")
+                .edge_bind("e2", "target".into(), "guest")
             })
             .stage("e3", |s| {
                 s.edge("e3", "eventType".into(), MemValue::Str("harm".into()))
@@ -24,8 +28,12 @@ fn step1_register_patterns() {
                     .edge_bind("e3", "target".into(), "guest")
             })
             .unless_between("e1", "e3", |neg| {
-                neg.edge("eMid", "eventType".into(), MemValue::Str("leaveTown".into()))
-                    .edge_bind("eMid", "actor".into(), "guest")
+                neg.edge(
+                    "eMid",
+                    "eventType".into(),
+                    MemValue::Str("leaveTown".into()),
+                )
+                .edge_bind("eMid", "actor".into(), "guest")
             })
             .build(),
     );
@@ -45,9 +53,13 @@ fn step2_feed_events() {
                     .edge_bind("e1", "actor".into(), "guest")
             })
             .stage("e2", |s| {
-                s.edge("e2", "eventType".into(), MemValue::Str("showHospitality".into()))
-                    .edge_bind("e2", "actor".into(), "host")
-                    .edge_bind("e2", "target".into(), "guest")
+                s.edge(
+                    "e2",
+                    "eventType".into(),
+                    MemValue::Str("showHospitality".into()),
+                )
+                .edge_bind("e2", "actor".into(), "host")
+                .edge_bind("e2", "target".into(), "guest")
             })
             .stage("e3", |s| {
                 s.edge("e3", "eventType".into(), MemValue::Str("harm".into()))
@@ -55,8 +67,12 @@ fn step2_feed_events() {
                     .edge_bind("e3", "target".into(), "guest")
             })
             .unless_between("e1", "e3", |neg| {
-                neg.edge("eMid", "eventType".into(), MemValue::Str("leaveTown".into()))
-                    .edge_bind("eMid", "actor".into(), "guest")
+                neg.edge(
+                    "eMid",
+                    "eventType".into(),
+                    MemValue::Str("leaveTown".into()),
+                )
+                .edge_bind("eMid", "actor".into(), "guest")
             })
             .build(),
     );
@@ -142,9 +158,13 @@ fn step3_simulation_loop() {
                     .edge_bind("e1", "actor".into(), "guest")
             })
             .stage("e2", |s| {
-                s.edge("e2", "eventType".into(), MemValue::Str("showHospitality".into()))
-                    .edge_bind("e2", "actor".into(), "host")
-                    .edge_bind("e2", "target".into(), "guest")
+                s.edge(
+                    "e2",
+                    "eventType".into(),
+                    MemValue::Str("showHospitality".into()),
+                )
+                .edge_bind("e2", "actor".into(), "host")
+                .edge_bind("e2", "target".into(), "guest")
             })
             .stage("e3", |s| {
                 s.edge("e3", "eventType".into(), MemValue::Str("harm".into()))
@@ -152,8 +172,12 @@ fn step3_simulation_loop() {
                     .edge_bind("e3", "target".into(), "guest")
             })
             .unless_between("e1", "e3", |neg| {
-                neg.edge("eMid", "eventType".into(), MemValue::Str("leaveTown".into()))
-                    .edge_bind("eMid", "actor".into(), "guest")
+                neg.edge(
+                    "eMid",
+                    "eventType".into(),
+                    MemValue::Str("leaveTown".into()),
+                )
+                .edge_bind("eMid", "actor".into(), "guest")
             })
             .build(),
     );
@@ -170,15 +194,7 @@ fn step3_simulation_loop() {
             Some(("target", "alice")),
             2,
         ),
-        (
-            "ev3",
-            "eventType",
-            "enterTown",
-            "actor",
-            "charlie",
-            None,
-            3,
-        ),
+        ("ev3", "eventType", "enterTown", "actor", "charlie", None, 3),
         (
             "ev4",
             "eventType",
@@ -189,15 +205,7 @@ fn step3_simulation_loop() {
             4,
         ),
         ("ev5", "eventType", "trade", "actor", "alice", None, 5),
-        (
-            "ev6",
-            "eventType",
-            "leaveTown",
-            "actor",
-            "charlie",
-            None,
-            6,
-        ),
+        ("ev6", "eventType", "leaveTown", "actor", "charlie", None, 6),
         (
             "ev7",
             "eventType",
@@ -267,7 +275,10 @@ fn step3_simulation_loop() {
                     stage_index,
                     ..
                 } => {
-                    println!("[t={}] ADVANCED: {} to stage {}", time, pattern, stage_index);
+                    println!(
+                        "[t={}] ADVANCED: {} to stage {}",
+                        time, pattern, stage_index
+                    );
                 }
                 SiftEvent::Expired {
                     pattern,

@@ -191,11 +191,7 @@ fn dsl_compose_choice() {
     .expect("choice compose should parse");
 
     // Choice creates 3 separate patterns with a shared group
-    let crisis_patterns: Vec<_> = doc
-        .patterns
-        .iter()
-        .filter(|p| p.group.is_some())
-        .collect();
+    let crisis_patterns: Vec<_> = doc.patterns.iter().filter(|p| p.group.is_some()).collect();
     assert_eq!(crisis_patterns.len(), 3);
     // #endregion
 }
@@ -257,4 +253,3 @@ fn dsl_concurrent_group() {
     assert_eq!(pattern.unordered_groups.len(), 1);
     // #endregion
 }
-

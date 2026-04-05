@@ -136,6 +136,7 @@ pub fn rename_vars<L: Clone, V: Clone>(
         repeat_range: pattern.repeat_range.clone(),
         // Unordered groups are stage indices (positional), not variable names — no renaming needed.
         unordered_groups: pattern.unordered_groups.clone(),
+        private: pattern.private,
     }
 }
 
@@ -193,6 +194,7 @@ pub fn sequence<L: Clone, V: Clone>(
         deadline_ticks: None,
         repeat_range: None,
         unordered_groups,
+        private: false,
     }
 }
 
@@ -286,6 +288,7 @@ pub fn repeat<L: Clone, V: Clone>(
         deadline_ticks: None,
         repeat_range: None,
         unordered_groups,
+        private: false,
     }
 }
 
@@ -359,6 +362,7 @@ pub fn repeat_range<L: Clone, V: Clone>(
             shared_vars,
         }),
         unordered_groups,
+        private: false,
     }
 }
 

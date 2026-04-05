@@ -15,9 +15,13 @@ fn setup_base() -> (SiftEngineFor<MemGraph>, MemGraph) {
                     .edge_bind("e1", "actor".into(), "guest")
             })
             .stage("e2", |s| {
-                s.edge("e2", "eventType".into(), MemValue::Str("showHospitality".into()))
-                    .edge_bind("e2", "actor".into(), "host")
-                    .edge_bind("e2", "target".into(), "guest")
+                s.edge(
+                    "e2",
+                    "eventType".into(),
+                    MemValue::Str("showHospitality".into()),
+                )
+                .edge_bind("e2", "actor".into(), "host")
+                .edge_bind("e2", "target".into(), "guest")
             })
             .stage("e3", |s| {
                 s.edge("e3", "eventType".into(), MemValue::Str("harm".into()))

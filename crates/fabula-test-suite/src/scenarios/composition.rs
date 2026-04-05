@@ -408,16 +408,28 @@ pub fn private_pattern_suppresses_events<G: TestGraph>() {
             SiftEvent::Expired { pattern, .. } => pattern.as_str(),
         })
         .collect();
-    assert_eq!(event_names, vec!["public_greet"], "private pattern events must be suppressed");
+    assert_eq!(
+        event_names,
+        vec!["public_greet"],
+        "private pattern events must be suppressed"
+    );
 
     // --- Batch: evaluate() should suppress private matches ---
     let matches = engine.evaluate(&g);
-    assert_eq!(matches.len(), 1, "only public pattern should appear in evaluate()");
+    assert_eq!(
+        matches.len(),
+        1,
+        "only public pattern should appear in evaluate()"
+    );
     assert_eq!(matches[0].pattern, "public_greet");
 
     // --- drain_completed should suppress private matches ---
     let drained = engine.drain_completed();
-    assert_eq!(drained.len(), 1, "only public pattern should appear in drain_completed()");
+    assert_eq!(
+        drained.len(),
+        1,
+        "only public pattern should appear in drain_completed()"
+    );
     assert_eq!(drained[0].pattern, "public_greet");
 }
 

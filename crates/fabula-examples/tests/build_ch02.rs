@@ -1,5 +1,5 @@
-use fabula::prelude::*;
 use fabula::compose;
+use fabula::prelude::*;
 use fabula_memory::{MemGraph, MemValue};
 
 fn add_event(g: &mut MemGraph, id: &str, action: &str, actor: &str, stock: &str, tick: i64) {
@@ -40,7 +40,12 @@ fn repeated_manipulation_pattern() -> Pattern<String, MemValue> {
         })
         .build();
 
-    compose::repeat("repeated_manipulation", &single_trade, 3, &["manipulator", "ticker"])
+    compose::repeat(
+        "repeated_manipulation",
+        &single_trade,
+        3,
+        &["manipulator", "ticker"],
+    )
 }
 // #endregion
 
@@ -49,8 +54,12 @@ fn flash_crash_pattern() -> Pattern<String, MemValue> {
     PatternBuilder::new("flash_crash")
         .unordered_group(|g| {
             g.stage("drop", |s| {
-                s.edge("drop", "action".into(), MemValue::Str("price_change".into()))
-                    .edge_bind("drop", "stock".into(), "ticker")
+                s.edge(
+                    "drop",
+                    "action".into(),
+                    MemValue::Str("price_change".into()),
+                )
+                .edge_bind("drop", "stock".into(), "ticker")
             })
             .stage("alarm", |s| {
                 s.edge("alarm", "action".into(), MemValue::Str("alert".into()))
@@ -80,16 +89,56 @@ fn run_all_patterns() {
     }
 
     let schedule: Vec<Vec<(&str, &str, &str)>> = vec![
-        vec![("insider_tip", "alice", "ACME"), ("trade", "bob", "ZINC"), ("price_change", "market", "ACME")],
-        vec![("trade", "alice", "ACME"), ("trade", "charlie", "ZINC"), ("alert", "system", "ACME")],
-        vec![("trade", "bob", "ACME"), ("trade", "bob", "ACME"), ("price_change", "market", "ZINC")],
-        vec![("insider_tip", "charlie", "ZINC"), ("alert", "system", "ZINC"), ("trade", "alice", "ACME")],
-        vec![("trade", "bob", "ACME"), ("trade", "charlie", "ZINC"), ("price_change", "market", "ACME")],
-        vec![("trade", "bob", "ACME"), ("alert", "system", "ACME"), ("trade", "alice", "ZINC")],
-        vec![("price_change", "market", "ZINC"), ("trade", "charlie", "ZINC"), ("trade", "charlie", "ZINC")],
-        vec![("insider_tip", "bob", "ACME"), ("trade", "alice", "ZINC"), ("alert", "system", "ACME")],
-        vec![("trade", "bob", "ACME"), ("trade", "charlie", "ACME"), ("price_change", "market", "ZINC")],
-        vec![("trade", "alice", "ACME"), ("alert", "system", "ZINC"), ("trade", "bob", "ZINC")],
+        vec![
+            ("insider_tip", "alice", "ACME"),
+            ("trade", "bob", "ZINC"),
+            ("price_change", "market", "ACME"),
+        ],
+        vec![
+            ("trade", "alice", "ACME"),
+            ("trade", "charlie", "ZINC"),
+            ("alert", "system", "ACME"),
+        ],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("trade", "bob", "ACME"),
+            ("price_change", "market", "ZINC"),
+        ],
+        vec![
+            ("insider_tip", "charlie", "ZINC"),
+            ("alert", "system", "ZINC"),
+            ("trade", "alice", "ACME"),
+        ],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("trade", "charlie", "ZINC"),
+            ("price_change", "market", "ACME"),
+        ],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("alert", "system", "ACME"),
+            ("trade", "alice", "ZINC"),
+        ],
+        vec![
+            ("price_change", "market", "ZINC"),
+            ("trade", "charlie", "ZINC"),
+            ("trade", "charlie", "ZINC"),
+        ],
+        vec![
+            ("insider_tip", "bob", "ACME"),
+            ("trade", "alice", "ZINC"),
+            ("alert", "system", "ACME"),
+        ],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("trade", "charlie", "ACME"),
+            ("price_change", "market", "ZINC"),
+        ],
+        vec![
+            ("trade", "alice", "ACME"),
+            ("alert", "system", "ZINC"),
+            ("trade", "bob", "ZINC"),
+        ],
     ];
 
     let mut event_id = 0;

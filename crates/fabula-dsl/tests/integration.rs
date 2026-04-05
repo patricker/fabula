@@ -1045,7 +1045,11 @@ fn parse_compose_choice_nonexclusive() {
     let doc = fabula_dsl::parse_document(src).unwrap();
     for p in &doc.patterns {
         if p.name.starts_with("crisis_") {
-            assert_eq!(p.group, None, "non-exclusive choice should have no group: {}", p.name);
+            assert_eq!(
+                p.group, None,
+                "non-exclusive choice should have no group: {}",
+                p.name
+            );
         }
     }
 }
@@ -1080,7 +1084,12 @@ fn parse_compose_choice_exclusive_default() {
     let doc = fabula_dsl::parse_document(src).unwrap();
     for p in &doc.patterns {
         if p.name.starts_with("crisis_") {
-            assert_eq!(p.group, Some("crisis".to_string()), "default choice should be exclusive: {}", p.name);
+            assert_eq!(
+                p.group,
+                Some("crisis".to_string()),
+                "default choice should be exclusive: {}",
+                p.name
+            );
         }
     }
 }
@@ -1100,7 +1109,9 @@ fn private_pattern_with_nonexclusive_choice() {
     assert!(setup.private);
 
     // choice alternatives are non-exclusive (no group)
-    let choices: Vec<_> = doc.patterns.iter()
+    let choices: Vec<_> = doc
+        .patterns
+        .iter()
         .filter(|p| p.name.starts_with("options_"))
         .collect();
     assert_eq!(choices.len(), 2);

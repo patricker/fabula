@@ -5,7 +5,7 @@ fn interval_creation() {
     // #region interval_creation
     let bounded = Interval::new(1, 5); // [1, 5)
     let open = Interval::open(3); // [3, inf)
-    // #endregion
+                                  // #endregion
 
     assert!(bounded.is_bounded());
     assert!(!open.is_bounded());

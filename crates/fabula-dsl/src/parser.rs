@@ -56,6 +56,16 @@ impl Parser {
 
         while !self.at_eof() {
             match &self.peek().kind {
+                TokenKind::Ident(ref s) if s == "private" => {
+                    self.advance(); // consume "private"
+                                    // Next token must be "pattern"
+                    if !self.check(TokenKind::Pattern) {
+                        return Err(self.error("expected 'pattern' after 'private'"));
+                    }
+                    let mut pat = self.parse_pattern()?;
+                    pat.private = true;
+                    items.push(DocumentItem::Pattern(pat));
+                }
                 TokenKind::Pattern => items.push(DocumentItem::Pattern(self.parse_pattern()?)),
                 TokenKind::Graph => items.push(DocumentItem::Graph(self.parse_graph()?)),
                 TokenKind::Compose => items.push(DocumentItem::Compose(self.parse_compose()?)),
@@ -101,6 +111,7 @@ impl Parser {
             metadata: body.metadata,
             deadline: body.deadline,
             unordered_groups: body.unordered_groups,
+            private: false,
         })
     }
 
@@ -174,6 +185,7 @@ impl Parser {
             metadata,
             deadline,
             unordered_groups,
+            private: false,
         })
     }
 
@@ -339,7 +351,10 @@ impl Parser {
                 }
                 _ => true,
             };
-            ComposeBody::Choice { alternatives, exclusive }
+            ComposeBody::Choice {
+                alternatives,
+                exclusive,
+            }
         } else if self.check(TokenKind::Star) {
             // Repeat: first * N sharing(...) or first * N..M sharing(...) or first * N.. sharing(...)
             self.advance();

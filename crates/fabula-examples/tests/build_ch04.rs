@@ -31,8 +31,12 @@ fn flash_crash_pattern() -> Pattern<String, MemValue> {
     PatternBuilder::new("flash_crash")
         .unordered_group(|g| {
             g.stage("drop", |s| {
-                s.edge("drop", "action".into(), MemValue::Str("price_change".into()))
-                    .edge_bind("drop", "stock".into(), "ticker")
+                s.edge(
+                    "drop",
+                    "action".into(),
+                    MemValue::Str("price_change".into()),
+                )
+                .edge_bind("drop", "stock".into(), "ticker")
             })
             .stage("alarm", |s| {
                 s.edge("alarm", "action".into(), MemValue::Str("alert".into()))
@@ -88,22 +92,51 @@ fn react_to_events() {
     fn handle_events(events: &[SiftEvent<String, MemValue>]) {
         for event in events {
             match event {
-                SiftEvent::Advanced { pattern, match_id, stage_index, .. } => {
-                    println!("  [advance] {} (match {}) reached stage {}", pattern, match_id, stage_index);
+                SiftEvent::Advanced {
+                    pattern,
+                    match_id,
+                    stage_index,
+                    ..
+                } => {
+                    println!(
+                        "  [advance] {} (match {}) reached stage {}",
+                        pattern, match_id, stage_index
+                    );
                 }
-                SiftEvent::Completed { pattern, match_id, bindings, .. } => {
+                SiftEvent::Completed {
+                    pattern,
+                    match_id,
+                    bindings,
+                    ..
+                } => {
                     println!("  [COMPLETE] {} (match {})", pattern, match_id);
                     for (var, val) in bindings {
                         println!("    {} = {:?}", var, val);
                     }
                 }
-                SiftEvent::Negated { pattern, match_id, clause_label, trigger_source, .. } => {
-                    println!("  [negated] {} (match {}): killed by '{}' from {}",
-                        pattern, match_id, clause_label, trigger_source);
+                SiftEvent::Negated {
+                    pattern,
+                    match_id,
+                    clause_label,
+                    trigger_source,
+                    ..
+                } => {
+                    println!(
+                        "  [negated] {} (match {}): killed by '{}' from {}",
+                        pattern, match_id, clause_label, trigger_source
+                    );
                 }
-                SiftEvent::Expired { pattern, match_id, stage_reached, ticks_elapsed, .. } => {
-                    println!("  [expired] {} (match {}): stuck at stage {} after {} ticks",
-                        pattern, match_id, stage_reached, ticks_elapsed);
+                SiftEvent::Expired {
+                    pattern,
+                    match_id,
+                    stage_reached,
+                    ticks_elapsed,
+                    ..
+                } => {
+                    println!(
+                        "  [expired] {} (match {}): stuck at stage {} after {} ticks",
+                        pattern, match_id, stage_reached, ticks_elapsed
+                    );
                 }
             }
         }
@@ -121,7 +154,10 @@ fn react_to_events() {
         // tick 1: alice gets tipped on ACME, carol buys ACME
         vec![("insider_tip", "alice", "ACME"), ("trade", "carol", "ACME")],
         // tick 2: carol promotes ACME, price change on ACME
-        vec![("promote", "carol", "ACME"), ("price_change", "market", "ACME")],
+        vec![
+            ("promote", "carol", "ACME"),
+            ("price_change", "market", "ACME"),
+        ],
         // tick 3: alert on ACME, alice trades ACME
         vec![("alert", "system", "ACME"), ("trade", "alice", "ACME")],
         // tick 4: carol sells ACME
@@ -171,7 +207,12 @@ fn react_to_events() {
         let completed = engine.drain_completed();
         let after = engine.partial_matches().len();
         if !completed.is_empty() {
-            println!("  drained {} match(es) ({} -> {} PMs)", completed.len(), before, after);
+            println!(
+                "  drained {} match(es) ({} -> {} PMs)",
+                completed.len(),
+                before,
+                after
+            );
         }
         all_completed.extend(completed);
 
@@ -184,7 +225,11 @@ fn react_to_events() {
     for pat in engine.patterns() {
         if !completed_names.contains(&pat.name.as_str()) {
             if let Some(gap) = engine.why_not(&graph, &pat.name) {
-                println!("'{}' closeness: {:.0}%", gap.pattern, gap.closeness() * 100.0);
+                println!(
+                    "'{}' closeness: {:.0}%",
+                    gap.pattern,
+                    gap.closeness() * 100.0
+                );
                 for stage in &gap.stages {
                     println!("  stage '{}': {:?}", stage.anchor, stage.status);
                     for clause in &stage.clauses {
@@ -204,5 +249,8 @@ fn react_to_events() {
     }
     // #endregion
 
-    assert!(!all_completed.is_empty(), "should have at least one completed match");
+    assert!(
+        !all_completed.is_empty(),
+        "should have at least one completed match"
+    );
 }

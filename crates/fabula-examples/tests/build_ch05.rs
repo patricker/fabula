@@ -31,8 +31,12 @@ fn flash_crash_pattern() -> Pattern<String, MemValue> {
     PatternBuilder::new("flash_crash")
         .unordered_group(|g| {
             g.stage("drop", |s| {
-                s.edge("drop", "action".into(), MemValue::Str("price_change".into()))
-                    .edge_bind("drop", "stock".into(), "ticker")
+                s.edge(
+                    "drop",
+                    "action".into(),
+                    MemValue::Str("price_change".into()),
+                )
+                .edge_bind("drop", "stock".into(), "ticker")
             })
             .stage("alarm", |s| {
                 s.edge("alarm", "action".into(), MemValue::Str("alert".into()))
@@ -105,14 +109,23 @@ fn score_and_rank() {
     // -- simulation: 10 ticks of market activity --
     let schedule: Vec<Vec<(&str, &str, &str)>> = vec![
         vec![("insider_tip", "alice", "ACME"), ("trade", "carol", "ACME")],
-        vec![("promote", "carol", "ACME"), ("price_change", "market", "ACME")],
+        vec![
+            ("promote", "carol", "ACME"),
+            ("price_change", "market", "ACME"),
+        ],
         vec![("trade", "alice", "ACME"), ("alert", "system", "ACME")],
-        vec![("sell", "carol", "ACME"), ("price_change", "market", "ZINC")],
+        vec![
+            ("sell", "carol", "ACME"),
+            ("price_change", "market", "ZINC"),
+        ],
         vec![("insider_tip", "bob", "ZINC"), ("alert", "system", "ZINC")],
         vec![("trade", "bob", "ZINC"), ("trade", "dan", "ACME")],
         vec![("promote", "dan", "ACME"), ("insider_tip", "eve", "BETA")],
         vec![("trade", "eve", "BETA"), ("sell", "dan", "ACME")],
-        vec![("price_change", "market", "BETA"), ("alert", "system", "BETA")],
+        vec![
+            ("price_change", "market", "BETA"),
+            ("alert", "system", "BETA"),
+        ],
         vec![("trade", "frank", "BETA")],
     ];
 
@@ -176,9 +189,15 @@ fn score_and_rank() {
     let scored_tfidf = stu_tfidf.score(&with_props);
 
     for (sm, st) in scored_mean.iter().zip(scored_tfidf.iter()) {
-        println!("{:<20} {:>12.4} {:>12.4}", sm.pattern, sm.stu_score, st.stu_score);
+        println!(
+            "{:<20} {:>12.4} {:>12.4}",
+            sm.pattern, sm.stu_score, st.stu_score
+        );
         if !sm.property_frequencies.is_empty() {
-            println!("  rarest: {} ({:.3})", sm.property_frequencies[0].0, sm.property_frequencies[0].1);
+            println!(
+                "  rarest: {} ({:.3})",
+                sm.property_frequencies[0].0, sm.property_frequencies[0].1
+            );
         }
     }
 
@@ -193,5 +212,8 @@ fn score_and_rank() {
     println!("\ntotal completed: {}", all_completed.len());
     // #endregion
 
-    assert!(!all_completed.is_empty(), "should have at least one completed match");
+    assert!(
+        !all_completed.is_empty(),
+        "should have at least one completed match"
+    );
 }

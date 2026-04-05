@@ -4,28 +4,23 @@ use fabula_memory::{MemGraph, MemValue};
 #[test]
 fn gap_analysis_auditing() {
     // #region gap_analysis_auditing
-    let violation_pattern =
-        PatternBuilder::<String, MemValue>::new("unauthorized_access")
-            .stage("e1", |s| {
-                s.edge("e1", "type".into(), MemValue::Str("revoke".into()))
-                    .edge_bind("e1", "user".into(), "user")
-                    .edge_bind("e1", "resource".into(), "resource")
-            })
-            .stage("e2", |s| {
-                s.edge("e2", "type".into(), MemValue::Str("access".into()))
-                    .edge_bind("e2", "user".into(), "user")
-                    .edge_bind("e2", "resource".into(), "resource")
-            })
-            .unless_between("e1", "e2", |neg| {
-                neg.edge(
-                    "mid",
-                    "type".into(),
-                    MemValue::Str("reauthorize".into()),
-                )
+    let violation_pattern = PatternBuilder::<String, MemValue>::new("unauthorized_access")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("revoke".into()))
+                .edge_bind("e1", "user".into(), "user")
+                .edge_bind("e1", "resource".into(), "resource")
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("access".into()))
+                .edge_bind("e2", "user".into(), "user")
+                .edge_bind("e2", "resource".into(), "resource")
+        })
+        .unless_between("e1", "e2", |neg| {
+            neg.edge("mid", "type".into(), MemValue::Str("reauthorize".into()))
                 .edge_bind("mid", "user".into(), "user")
                 .edge_bind("mid", "resource".into(), "resource")
-            })
-            .build();
+        })
+        .build();
 
     // Build a compliant graph — revoke then reauthorize then access.
     let mut graph = MemGraph::new();

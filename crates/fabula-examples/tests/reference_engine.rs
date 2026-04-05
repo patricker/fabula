@@ -52,9 +52,7 @@ fn end_tick_usage() {
         &interval,
     );
     let (delta, expired_events) = engine.end_tick(50);
-    if !delta.stalled.is_empty() {
-        /* alert GM about stale plants */
-    }
+    if !delta.stalled.is_empty() { /* alert GM about stale plants */ }
     for ev in &expired_events {
         if let SiftEvent::Expired {
             pattern,

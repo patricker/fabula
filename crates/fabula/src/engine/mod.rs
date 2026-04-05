@@ -280,7 +280,10 @@ where
         // Filter expired events for private patterns.
         expired_events.retain(|e| {
             if let SiftEvent::Expired { pattern, .. } = e {
-                !self.patterns.iter().any(|p| p.name == *pattern && p.private)
+                !self
+                    .patterns
+                    .iter()
+                    .any(|p| p.name == *pattern && p.private)
             } else {
                 true
             }
@@ -301,10 +304,26 @@ where
             .count();
 
         let is_private = |name: &String| self.patterns.iter().any(|p| p.name == *name && p.private);
-        let mut advanced: Vec<String> = self.tick_advanced.drain().filter(|n| !is_private(n)).collect();
-        let mut completed: Vec<String> = self.tick_completed.drain().filter(|n| !is_private(n)).collect();
-        let mut negated: Vec<String> = self.tick_negated.drain().filter(|n| !is_private(n)).collect();
-        let mut expired: Vec<String> = self.tick_expired.drain().filter(|n| !is_private(n)).collect();
+        let mut advanced: Vec<String> = self
+            .tick_advanced
+            .drain()
+            .filter(|n| !is_private(n))
+            .collect();
+        let mut completed: Vec<String> = self
+            .tick_completed
+            .drain()
+            .filter(|n| !is_private(n))
+            .collect();
+        let mut negated: Vec<String> = self
+            .tick_negated
+            .drain()
+            .filter(|n| !is_private(n))
+            .collect();
+        let mut expired: Vec<String> = self
+            .tick_expired
+            .drain()
+            .filter(|n| !is_private(n))
+            .collect();
         advanced.sort();
         completed.sort();
         negated.sort();

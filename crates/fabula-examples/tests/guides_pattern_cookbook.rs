@@ -40,7 +40,10 @@ fn recipe1_matching() {
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
-    assert_eq!(matches[0].bindings["char"], BoundValue::Node("alice".into()));
+    assert_eq!(
+        matches[0].bindings["char"],
+        BoundValue::Node("alice".into())
+    );
     // #endregion
 }
 
@@ -74,12 +77,20 @@ fn recipe2_pattern() -> Pattern<String, MemValue> {
                 .edge_bind("e1", "actor".into(), "person")
         })
         .stage("e2", |s| {
-            s.edge("e2", "eventType".into(), MemValue::Str("break_promise".into()))
-                .edge_bind("e2", "actor".into(), "person")
+            s.edge(
+                "e2",
+                "eventType".into(),
+                MemValue::Str("break_promise".into()),
+            )
+            .edge_bind("e2", "actor".into(), "person")
         })
         .unless_between("e1", "e2", |neg| {
-            neg.edge("apology", "eventType".into(), MemValue::Str("apologize".into()))
-                .edge_bind("apology", "actor".into(), "person")
+            neg.edge(
+                "apology",
+                "eventType".into(),
+                MemValue::Str("apologize".into()),
+            )
+            .edge_bind("apology", "actor".into(), "person")
         })
         .build()
     // #endregion
@@ -134,12 +145,16 @@ fn recipe3_matching() {
     // #region r3_pattern
     let pattern = PatternBuilder::<String, MemValue>::new("low_loyalty")
         .stage("e", |s| {
-            s.edge("e", "eventType".into(), MemValue::Str("loyalty_check".into()))
-                .edge_constrained(
-                    "e",
-                    "loyalty".into(),
-                    ValueConstraint::Lt(MemValue::Num(0.5)),
-                )
+            s.edge(
+                "e",
+                "eventType".into(),
+                MemValue::Str("loyalty_check".into()),
+            )
+            .edge_constrained(
+                "e",
+                "loyalty".into(),
+                ValueConstraint::Lt(MemValue::Num(0.5)),
+            )
         })
         .build();
     // #endregion
@@ -161,12 +176,16 @@ fn recipe3_matching() {
 fn recipe3_non_matching() {
     let pattern = PatternBuilder::<String, MemValue>::new("low_loyalty")
         .stage("e", |s| {
-            s.edge("e", "eventType".into(), MemValue::Str("loyalty_check".into()))
-                .edge_constrained(
-                    "e",
-                    "loyalty".into(),
-                    ValueConstraint::Lt(MemValue::Num(0.5)),
-                )
+            s.edge(
+                "e",
+                "eventType".into(),
+                MemValue::Str("loyalty_check".into()),
+            )
+            .edge_constrained(
+                "e",
+                "loyalty".into(),
+                ValueConstraint::Lt(MemValue::Num(0.5)),
+            )
         })
         .build();
 
@@ -201,11 +220,23 @@ fn recipe4_matching() {
 
     // #region r4_matching
     let mut g = MemGraph::new();
-    g.add_edge_bounded("ev_siege", "eventType", MemValue::Str("siege".into()), 1, 100);
-    g.add_edge_bounded("ev_sortie", "eventType", MemValue::Str("sortie".into()), 3, 5);
+    g.add_edge_bounded(
+        "ev_siege",
+        "eventType",
+        MemValue::Str("siege".into()),
+        1,
+        100,
+    );
+    g.add_edge_bounded(
+        "ev_sortie",
+        "eventType",
+        MemValue::Str("sortie".into()),
+        3,
+        5,
+    );
     g.set_time(4); // Both intervals active at t=4
-    // sortie [3, 5) is During siege [1, 100) -> match
-    // #endregion
+                   // sortie [3, 5) is During siege [1, 100) -> match
+                   // #endregion
 
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(pattern);
@@ -228,7 +259,13 @@ fn recipe4_non_matching() {
     // #region r4_non_matching
     let mut g = MemGraph::new();
     g.add_edge_bounded("ev_siege", "eventType", MemValue::Str("siege".into()), 1, 4);
-    g.add_edge_bounded("ev_sortie", "eventType", MemValue::Str("sortie".into()), 3, 7);
+    g.add_edge_bounded(
+        "ev_sortie",
+        "eventType",
+        MemValue::Str("sortie".into()),
+        3,
+        7,
+    );
     g.set_time(3);
     // sortie [3, 7) is NOT During siege [1, 4) -- sortie extends past siege
     // The Allen relation here is OverlappedBy, not During
@@ -250,8 +287,12 @@ fn recipe5_pattern() -> Pattern<String, MemValue> {
                 .edge_bind("e1", "actor".into(), "person")
         })
         .unless_after("e1", |neg| {
-            neg.edge("fulfillment", "eventType".into(), MemValue::Str("fulfill".into()))
-                .edge_bind("fulfillment", "actor".into(), "person")
+            neg.edge(
+                "fulfillment",
+                "eventType".into(),
+                MemValue::Str("fulfill".into()),
+            )
+            .edge_bind("fulfillment", "actor".into(), "person")
         })
         .build()
     // #endregion
@@ -461,8 +502,12 @@ fn recipe9_concurrent_signals() {
         })
         .unordered_group(|g| {
             g.stage("e2", |s| {
-                s.edge("e2", "type".into(), MemValue::Str("temperature_spike".into()))
-                    .edge_bind("e2", "sensor".into(), "sensor")
+                s.edge(
+                    "e2",
+                    "type".into(),
+                    MemValue::Str("temperature_spike".into()),
+                )
+                .edge_bind("e2", "sensor".into(), "sensor")
             })
             .stage("e3", |s| {
                 s.edge("e3", "type".into(), MemValue::Str("pressure_drop".into()))

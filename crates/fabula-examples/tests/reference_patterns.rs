@@ -6,20 +6,12 @@ fn pattern_builder_usage() {
     // #region pattern_builder_usage
     let pattern = PatternBuilder::<String, MemValue>::new("my_pattern")
         .stage("event1", |s| {
-            s.edge(
-                "event1",
-                "type".into(),
-                MemValue::Str("failure".into()),
-            )
-            .edge_bind("event1", "actor".into(), "character")
+            s.edge("event1", "type".into(), MemValue::Str("failure".into()))
+                .edge_bind("event1", "actor".into(), "character")
         })
         .stage("event2", |s| {
-            s.edge(
-                "event2",
-                "type".into(),
-                MemValue::Str("betrayal".into()),
-            )
-            .edge_bind("event2", "target".into(), "character")
+            s.edge("event2", "type".into(), MemValue::Str("betrayal".into()))
+                .edge_bind("event2", "target".into(), "character")
         })
         .unless_between("event1", "event2", |neg| {
             neg.edge(

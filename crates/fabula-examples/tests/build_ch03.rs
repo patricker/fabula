@@ -1,5 +1,5 @@
-use fabula::prelude::*;
 use fabula::compose;
+use fabula::prelude::*;
 use fabula_memory::{MemGraph, MemValue};
 
 fn add_event(g: &mut MemGraph, id: &str, action: &str, actor: &str, stock: &str, tick: i64) {
@@ -37,15 +37,24 @@ fn repeated_manipulation_pattern() -> Pattern<String, MemValue> {
         })
         .build();
 
-    compose::repeat("repeated_manipulation", &single_trade, 3, &["manipulator", "ticker"])
+    compose::repeat(
+        "repeated_manipulation",
+        &single_trade,
+        3,
+        &["manipulator", "ticker"],
+    )
 }
 
 fn flash_crash_pattern() -> Pattern<String, MemValue> {
     PatternBuilder::new("flash_crash")
         .unordered_group(|g| {
             g.stage("drop", |s| {
-                s.edge("drop", "action".into(), MemValue::Str("price_change".into()))
-                    .edge_bind("drop", "stock".into(), "ticker")
+                s.edge(
+                    "drop",
+                    "action".into(),
+                    MemValue::Str("price_change".into()),
+                )
+                .edge_bind("drop", "stock".into(), "ticker")
             })
             .stage("alarm", |s| {
                 s.edge("alarm", "action".into(), MemValue::Str("alert".into()))
@@ -70,16 +79,56 @@ fn incremental_matching() {
     engine.register(flash_crash_pattern());
 
     let schedule: Vec<Vec<(&str, &str, &str)>> = vec![
-        vec![("insider_tip", "alice", "ACME"), ("trade", "bob", "ZINC"), ("price_change", "market", "ACME")],
-        vec![("trade", "alice", "ACME"), ("trade", "charlie", "ZINC"), ("alert", "system", "ACME")],
-        vec![("trade", "bob", "ACME"), ("trade", "bob", "ACME"), ("price_change", "market", "ZINC")],
-        vec![("insider_tip", "charlie", "ZINC"), ("alert", "system", "ZINC"), ("trade", "alice", "ACME")],
-        vec![("trade", "bob", "ACME"), ("trade", "charlie", "ZINC"), ("price_change", "market", "ACME")],
-        vec![("trade", "bob", "ACME"), ("alert", "system", "ACME"), ("trade", "alice", "ZINC")],
-        vec![("price_change", "market", "ZINC"), ("trade", "charlie", "ZINC"), ("trade", "charlie", "ZINC")],
-        vec![("insider_tip", "bob", "ACME"), ("trade", "alice", "ZINC"), ("alert", "system", "ACME")],
-        vec![("trade", "bob", "ACME"), ("trade", "charlie", "ACME"), ("price_change", "market", "ZINC")],
-        vec![("trade", "alice", "ACME"), ("alert", "system", "ZINC"), ("trade", "bob", "ZINC")],
+        vec![
+            ("insider_tip", "alice", "ACME"),
+            ("trade", "bob", "ZINC"),
+            ("price_change", "market", "ACME"),
+        ],
+        vec![
+            ("trade", "alice", "ACME"),
+            ("trade", "charlie", "ZINC"),
+            ("alert", "system", "ACME"),
+        ],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("trade", "bob", "ACME"),
+            ("price_change", "market", "ZINC"),
+        ],
+        vec![
+            ("insider_tip", "charlie", "ZINC"),
+            ("alert", "system", "ZINC"),
+            ("trade", "alice", "ACME"),
+        ],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("trade", "charlie", "ZINC"),
+            ("price_change", "market", "ACME"),
+        ],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("alert", "system", "ACME"),
+            ("trade", "alice", "ZINC"),
+        ],
+        vec![
+            ("price_change", "market", "ZINC"),
+            ("trade", "charlie", "ZINC"),
+            ("trade", "charlie", "ZINC"),
+        ],
+        vec![
+            ("insider_tip", "bob", "ACME"),
+            ("trade", "alice", "ZINC"),
+            ("alert", "system", "ACME"),
+        ],
+        vec![
+            ("trade", "bob", "ACME"),
+            ("trade", "charlie", "ACME"),
+            ("price_change", "market", "ZINC"),
+        ],
+        vec![
+            ("trade", "alice", "ACME"),
+            ("alert", "system", "ZINC"),
+            ("trade", "bob", "ZINC"),
+        ],
     ];
 
     let mut event_id = 0;
@@ -105,17 +154,33 @@ fn incremental_matching() {
             // Print any events produced by this edge
             for ev in &events {
                 match ev {
-                    SiftEvent::Advanced { pattern, stage_index, .. } => {
+                    SiftEvent::Advanced {
+                        pattern,
+                        stage_index,
+                        ..
+                    } => {
                         println!("  >> {}: {} advanced stage {}", id, pattern, stage_index);
                     }
-                    SiftEvent::Completed { pattern, bindings, .. } => {
-                        let summary: Vec<String> = bindings.iter()
+                    SiftEvent::Completed {
+                        pattern, bindings, ..
+                    } => {
+                        let summary: Vec<String> = bindings
+                            .iter()
                             .filter(|(_, v)| matches!(v, BoundValue::Node(_)))
                             .map(|(k, v)| format!("{}={:?}", k, v))
                             .collect();
-                        println!("  ** {}: {} COMPLETED [{}]", id, pattern, summary.join(", "));
+                        println!(
+                            "  ** {}: {} COMPLETED [{}]",
+                            id,
+                            pattern,
+                            summary.join(", ")
+                        );
                     }
-                    SiftEvent::Negated { pattern, clause_label, .. } => {
+                    SiftEvent::Negated {
+                        pattern,
+                        clause_label,
+                        ..
+                    } => {
                         println!("  xx {}: {} negated by {}", id, pattern, clause_label);
                     }
                     SiftEvent::Expired { pattern, .. } => {
@@ -151,5 +216,8 @@ fn incremental_matching() {
     println!("engine stats: {:?}", engine.stats());
     // #endregion
 
-    assert!(!completed.is_empty(), "should have at least one completed match");
+    assert!(
+        !completed.is_empty(),
+        "should have at least one completed match"
+    );
 }

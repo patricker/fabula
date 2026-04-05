@@ -64,7 +64,10 @@ fn step2_stu_scorer() {
 
     stu.observe_one("betrayal", &["actor_trait=ambitious", "target_role=king"]);
     stu.observe_one("betrayal", &["actor_trait=loyal", "target_role=merchant"]);
-    stu.observe_one("betrayal", &["actor_trait=ambitious", "target_role=merchant"]);
+    stu.observe_one(
+        "betrayal",
+        &["actor_trait=ambitious", "target_role=merchant"],
+    );
     stu.observe_one("betrayal", &["actor_trait=loyal", "target_role=merchant"]);
     stu.observe_one("betrayal", &["actor_trait=loyal", "target_role=merchant"]);
 

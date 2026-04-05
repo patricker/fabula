@@ -97,13 +97,13 @@ fn incremental_evaluation() {
 
     // Helper: add one event (a bundle of edges) and report what happened.
     let add_event = |graph: &mut MemGraph,
-                          engine: &mut SiftEngineFor<MemGraph>,
-                          id: &str,
-                          typ: &str,
-                          user: &str,
-                          extra_label: &str,
-                          extra_val: &str,
-                          t: i64| {
+                     engine: &mut SiftEngineFor<MemGraph>,
+                     id: &str,
+                     typ: &str,
+                     user: &str,
+                     extra_label: &str,
+                     extra_val: &str,
+                     t: i64| {
         graph.add_str(id, "type", typ, t);
         graph.add_ref(id, "user", user, t);
         let interval = Interval::open(t);
