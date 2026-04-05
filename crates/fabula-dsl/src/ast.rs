@@ -55,8 +55,8 @@ pub enum ComposeBody {
         right: String,
         shared: Vec<String>,
     },
-    /// `A | B | C` (exclusive choice)
-    Choice { alternatives: Vec<String> },
+    /// `A | B | C` (exclusive choice by default, `nonexclusive` keyword opts out)
+    Choice { alternatives: Vec<String>, exclusive: bool },
     /// `A * 3 sharing(x, y)` (exact) or `A * 3..5 sharing(x, y)` (range)
     Repeat {
         pattern: String,

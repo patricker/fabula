@@ -561,12 +561,12 @@ pub fn compile_compose_with<M: TypeMapper>(
             let shared_refs: Vec<&str> = shared.iter().map(|s| s.as_str()).collect();
             Ok(vec![compose::sequence(&ast.name, a, b, &shared_refs)])
         }
-        ComposeBody::Choice { alternatives } => {
+        ComposeBody::Choice { alternatives, exclusive } => {
             let pats = alternatives
                 .iter()
                 .map(|name| resolve(name))
                 .collect::<Result<Vec<_>, _>>()?;
-            Ok(compose::choice(&ast.name, &pats, true))
+            Ok(compose::choice(&ast.name, &pats, *exclusive))
         }
         ComposeBody::Repeat {
             pattern,

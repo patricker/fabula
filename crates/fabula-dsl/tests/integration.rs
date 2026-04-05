@@ -1034,3 +1034,33 @@ fn roundtrip_repeat_range() {
         "shared target should be alice"
     );
 }
+
+#[test]
+fn parse_compose_choice_nonexclusive() {
+    let src = r#"
+        pattern war { stage e1 { e1.type = "war" } }
+        pattern famine { stage e1 { e1.type = "famine" } }
+        compose crisis = war | famine nonexclusive
+    "#;
+    let doc = fabula_dsl::parse_document(src).unwrap();
+    for p in &doc.patterns {
+        if p.name.starts_with("crisis_") {
+            assert_eq!(p.group, None, "non-exclusive choice should have no group: {}", p.name);
+        }
+    }
+}
+
+#[test]
+fn parse_compose_choice_exclusive_default() {
+    let src = r#"
+        pattern war { stage e1 { e1.type = "war" } }
+        pattern famine { stage e1 { e1.type = "famine" } }
+        compose crisis = war | famine
+    "#;
+    let doc = fabula_dsl::parse_document(src).unwrap();
+    for p in &doc.patterns {
+        if p.name.starts_with("crisis_") {
+            assert_eq!(p.group, Some("crisis".to_string()), "default choice should be exclusive: {}", p.name);
+        }
+    }
+}

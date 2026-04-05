@@ -332,7 +332,14 @@ impl Parser {
                 self.advance();
                 alternatives.push(self.expect_ident()?);
             }
-            ComposeBody::Choice { alternatives }
+            let exclusive = match &self.peek().kind {
+                TokenKind::Ident(s) if s == "nonexclusive" => {
+                    self.advance();
+                    false
+                }
+                _ => true,
+            };
+            ComposeBody::Choice { alternatives, exclusive }
         } else if self.check(TokenKind::Star) {
             // Repeat: first * N sharing(...) or first * N..M sharing(...) or first * N.. sharing(...)
             self.advance();
