@@ -51,6 +51,13 @@ impl PatternEvaluator for MatchQualityEvaluator {
 }
 
 /// Convert a TraceCorpus to a MemGraph for pattern evaluation.
+///
+/// Uses open-ended intervals so all edges remain visible at `now()`.
+/// `evaluate_pattern` is a snapshot query at `ds.now()` — bounded edges
+/// ending before `now()` would be invisible, yielding zero matches.
+/// Temporal constraint checking falls back to start-time ordering for
+/// open-ended intervals (Before/Meets relations), so discovered patterns
+/// with those relations still match correctly.
 fn corpus_to_memgraph(corpus: &TraceCorpus) -> MemGraph {
     let mut graph = MemGraph::new();
     let (_, max_t) = corpus.time_range();
@@ -58,11 +65,7 @@ fn corpus_to_memgraph(corpus: &TraceCorpus) -> MemGraph {
 
     for edge in corpus.edges() {
         let value = MemValue::Node(edge.target.clone());
-        if let Some(end) = edge.interval.end {
-            graph.add_edge_bounded(&edge.source, &edge.label, value, edge.interval.start, end);
-        } else {
-            graph.add_edge(&edge.source, &edge.label, value, edge.interval.start);
-        }
+        graph.add_edge(&edge.source, &edge.label, value, edge.interval.start);
     }
 
     graph
