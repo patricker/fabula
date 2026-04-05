@@ -551,7 +551,7 @@ where
         &self,
         ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
         pattern_name: &str,
-    ) -> Option<GapAnalysis> {
+    ) -> Option<GapAnalysis<L, V>> {
         let pattern = self.patterns.iter().find(|p| p.name == pattern_name)?;
         Some(free::gap_analysis_at(ds, pattern, &ds.now()))
     }

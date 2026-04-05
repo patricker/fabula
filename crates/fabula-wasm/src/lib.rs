@@ -469,6 +469,10 @@ struct ClauseAnalysisJson {
     matched: bool,
     #[serde(skip_serializing_if = "Option::is_none")]
     reason: Option<String>,
+    source_var: String,
+    label: String,
+    target: String,
+    negated: bool,
 }
 
 /// Run gap analysis (why_not) on a pattern against a graph.
@@ -509,6 +513,10 @@ pub fn why_not(pattern_dsl: &str, graph_dsl: &str) -> JsValue {
                             description: c.description.clone(),
                             matched: c.matched,
                             reason: c.reason.clone(),
+                            source_var: c.source_var.clone(),
+                            label: c.label.clone(),
+                            target: format!("{:?}", c.target),
+                            negated: c.negated,
                         })
                         .collect(),
                 })

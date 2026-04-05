@@ -195,7 +195,7 @@ where
 pub fn gap_analysis<N, L, V, T>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
     pattern: &Pattern<L, V>,
-) -> GapAnalysis
+) -> GapAnalysis<L, V>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
@@ -294,7 +294,7 @@ pub fn gap_analysis_at<N, L, V, T>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
     pattern: &Pattern<L, V>,
     now: &T,
-) -> GapAnalysis
+) -> GapAnalysis<L, V>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
@@ -323,6 +323,10 @@ where
                 ),
                 matched,
                 reason,
+                source_var: clause.source.0.clone(),
+                label: clause.label.clone(),
+                target: clause.target.clone(),
+                negated: clause.negated,
             });
         }
 

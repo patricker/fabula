@@ -4,6 +4,7 @@
 //! plant/payoff tracking types.
 
 use crate::interval::Interval;
+use crate::pattern::Target;
 use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
@@ -198,12 +199,12 @@ pub enum SiftEvent<N: Debug, V: Debug> {
 /// Result of `why_not` — clause-by-clause analysis of why a pattern didn't match.
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct GapAnalysis {
+pub struct GapAnalysis<L, V> {
     pub pattern: String,
-    pub stages: Vec<StageAnalysis>,
+    pub stages: Vec<StageAnalysis<L, V>>,
 }
 
-impl GapAnalysis {
+impl<L, V> GapAnalysis<L, V> {
     /// Fraction of total clauses that matched (0.0 = nothing, 1.0 = full match).
     pub fn closeness(&self) -> f64 {
         let mut total = 0usize;
@@ -226,10 +227,10 @@ impl GapAnalysis {
 
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct StageAnalysis {
+pub struct StageAnalysis<L, V> {
     pub anchor: String,
     pub status: StageStatus,
-    pub clauses: Vec<ClauseAnalysis>,
+    pub clauses: Vec<ClauseAnalysis<L, V>>,
 }
 
 #[derive(Debug)]
@@ -240,12 +241,29 @@ pub enum StageStatus {
     Unmatched,
 }
 
+/// Per-clause analysis within a gap analysis.
+///
+/// Contains both a human-readable `description` for display and structured
+/// fields (`source_var`, `label`, `target`, `negated`) for programmatic
+/// consumers that need to act on unmatched clauses (e.g., generating
+/// interventions or edge injections).
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
-pub struct ClauseAnalysis {
+pub struct ClauseAnalysis<L, V> {
+    /// Human-readable description of the clause (e.g., `?hero --["quest"]--> Literal("active")`).
     pub description: String,
+    /// Whether this clause found a match in the data source.
     pub matched: bool,
+    /// Why the clause didn't match (when `matched` is false).
     pub reason: Option<String>,
+    /// The source variable name (e.g., `"hero"`).
+    pub source_var: String,
+    /// The edge label this clause looks for.
+    pub label: L,
+    /// What the clause expects the target to be.
+    pub target: Target<V>,
+    /// Whether this is a negated clause (NOT match).
+    pub negated: bool,
 }
 
 // ---------------------------------------------------------------------------
@@ -338,10 +356,23 @@ pub struct PlantStatus {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::pattern::Var;
+
+    fn clause(desc: &str, matched: bool, reason: Option<&str>) -> ClauseAnalysis<String, String> {
+        ClauseAnalysis {
+            description: desc.into(),
+            matched,
+            reason: reason.map(|s| s.into()),
+            source_var: "x".into(),
+            label: "test".into(),
+            target: Target::Bind(Var::new("y")),
+            negated: false,
+        }
+    }
 
     #[test]
     fn closeness_empty_analysis() {
-        let gap = GapAnalysis {
+        let gap: GapAnalysis<String, String> = GapAnalysis {
             pattern: "test".to_string(),
             stages: vec![],
         };
@@ -355,18 +386,7 @@ mod tests {
             stages: vec![StageAnalysis {
                 anchor: "e1".to_string(),
                 status: StageStatus::Matched,
-                clauses: vec![
-                    ClauseAnalysis {
-                        description: "a".into(),
-                        matched: true,
-                        reason: None,
-                    },
-                    ClauseAnalysis {
-                        description: "b".into(),
-                        matched: true,
-                        reason: None,
-                    },
-                ],
+                clauses: vec![clause("a", true, None), clause("b", true, None)],
             }],
         };
         assert_eq!(gap.closeness(), 1.0);
@@ -380,18 +400,7 @@ mod tests {
                 StageAnalysis {
                     anchor: "e1".to_string(),
                     status: StageStatus::Matched,
-                    clauses: vec![
-                        ClauseAnalysis {
-                            description: "a".into(),
-                            matched: true,
-                            reason: None,
-                        },
-                        ClauseAnalysis {
-                            description: "b".into(),
-                            matched: true,
-                            reason: None,
-                        },
-                    ],
+                    clauses: vec![clause("a", true, None), clause("b", true, None)],
                 },
                 StageAnalysis {
                     anchor: "e2".to_string(),
@@ -400,16 +409,8 @@ mod tests {
                         total: 2,
                     },
                     clauses: vec![
-                        ClauseAnalysis {
-                            description: "c".into(),
-                            matched: true,
-                            reason: None,
-                        },
-                        ClauseAnalysis {
-                            description: "d".into(),
-                            matched: false,
-                            reason: Some("no match".into()),
-                        },
+                        clause("c", true, None),
+                        clause("d", false, Some("no match")),
                     ],
                 },
             ],
@@ -424,11 +425,7 @@ mod tests {
             stages: vec![StageAnalysis {
                 anchor: "e1".to_string(),
                 status: StageStatus::Unmatched,
-                clauses: vec![ClauseAnalysis {
-                    description: "a".into(),
-                    matched: false,
-                    reason: None,
-                }],
+                clauses: vec![clause("a", false, None)],
             }],
         };
         assert_eq!(gap.closeness(), 0.0);
