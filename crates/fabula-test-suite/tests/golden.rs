@@ -149,6 +149,7 @@ golden_tests! {
     batch_sequence_with_negation,
     incremental_choice_exclusive,
     incremental_choice_exclusive_multistage,
+    incremental_choice_nonexclusive,
     batch_repeat_shared_binding,
     batch_repeat_different_actors_no_match,
 

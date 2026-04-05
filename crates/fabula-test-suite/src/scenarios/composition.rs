@@ -265,6 +265,71 @@ pub fn incremental_choice_exclusive_multistage<G: TestGraph>() {
 }
 
 // ---------------------------------------------------------------------------
+// Choice: non-exclusive — both alternatives can complete independently
+// ---------------------------------------------------------------------------
+
+/// Two crisis types, non-exclusive. Both can complete without killing each other.
+pub fn incremental_choice_nonexclusive<G: TestGraph>() {
+    let war = PatternBuilder::<String, G::V>::new("war")
+        .stage("e1", |s| {
+            s.edge("e1", "eventType".into(), G::str_val("war"))
+        })
+        .build();
+
+    let famine = PatternBuilder::<String, G::V>::new("famine")
+        .stage("e1", |s| {
+            s.edge("e1", "eventType".into(), G::str_val("famine"))
+        })
+        .build();
+
+    let crises = compose::choice("crisis", &[&war, &famine], false);
+
+    let mut g = G::new_graph();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    for c in crises {
+        engine.register(c);
+    }
+
+    // War hits first
+    g.add_str_edge("ev1", "eventType", "war", 1);
+    g.set_current_time(1);
+    let events = engine.on_edge_added(
+        &g,
+        &"ev1".to_string(),
+        &"eventType".to_string(),
+        &G::str_val("war"),
+        &Interval::open(1),
+    );
+
+    let completed: Vec<_> = events
+        .iter()
+        .filter(|e| matches!(e, SiftEvent::Completed { .. }))
+        .collect();
+    assert_eq!(completed.len(), 1, "war should complete");
+
+    // Famine hits second — non-exclusive, so it should also complete
+    g.add_str_edge("ev2", "eventType", "famine", 2);
+    g.set_current_time(2);
+    let events = engine.on_edge_added(
+        &g,
+        &"ev2".to_string(),
+        &"eventType".to_string(),
+        &G::str_val("famine"),
+        &Interval::open(2),
+    );
+
+    let completed: Vec<_> = events
+        .iter()
+        .filter(|e| matches!(e, SiftEvent::Completed { .. }))
+        .collect();
+    assert_eq!(
+        completed.len(),
+        1,
+        "famine should also complete (non-exclusive)"
+    );
+}
+
+// ---------------------------------------------------------------------------
 // Repeat: same offender three times
 // ---------------------------------------------------------------------------
 
