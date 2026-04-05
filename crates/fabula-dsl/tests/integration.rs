@@ -1051,6 +1051,26 @@ fn parse_compose_choice_nonexclusive() {
 }
 
 #[test]
+fn parse_private_pattern() {
+    let src = r#"
+        private pattern helper {
+            stage e1 { e1.type = "setup" }
+        }
+        pattern visible {
+            stage e1 { e1.type = "setup" }
+        }
+    "#;
+    let doc = fabula_dsl::parse_document(src).unwrap();
+    assert_eq!(doc.patterns.len(), 2);
+
+    let helper = doc.patterns.iter().find(|p| p.name == "helper").unwrap();
+    assert!(helper.private, "helper should be private");
+
+    let visible = doc.patterns.iter().find(|p| p.name == "visible").unwrap();
+    assert!(!visible.private, "visible should be public");
+}
+
+#[test]
 fn parse_compose_choice_exclusive_default() {
     let src = r#"
         pattern war { stage e1 { e1.type = "war" } }
@@ -1062,5 +1082,30 @@ fn parse_compose_choice_exclusive_default() {
         if p.name.starts_with("crisis_") {
             assert_eq!(p.group, Some("crisis".to_string()), "default choice should be exclusive: {}", p.name);
         }
+    }
+}
+
+#[test]
+fn private_pattern_with_nonexclusive_choice() {
+    let src = r#"
+        private pattern setup { stage e1 { e1.type = "setup" } }
+        pattern action_a { stage e1 { e1.type = "action_a" } }
+        pattern action_b { stage e1 { e1.type = "action_b" } }
+        compose options = action_a | action_b nonexclusive
+    "#;
+    let doc = fabula_dsl::parse_document(src).unwrap();
+
+    // setup is private
+    let setup = doc.patterns.iter().find(|p| p.name == "setup").unwrap();
+    assert!(setup.private);
+
+    // choice alternatives are non-exclusive (no group)
+    let choices: Vec<_> = doc.patterns.iter()
+        .filter(|p| p.name.starts_with("options_"))
+        .collect();
+    assert_eq!(choices.len(), 2);
+    for c in &choices {
+        assert_eq!(c.group, None, "non-exclusive should have no group");
+        assert!(!c.private, "choice alternatives should not inherit private");
     }
 }
