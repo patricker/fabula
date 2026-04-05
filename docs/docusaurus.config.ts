@@ -1,6 +1,7 @@
 import {themes as prismThemes} from 'prism-react-renderer';
 import type {Config} from '@docusaurus/types';
 import type * as Preset from '@docusaurus/preset-classic';
+import remarkCodeRegion from './plugins/remark-code-region';
 
 const config: Config = {
   title: 'Fabula',
@@ -32,6 +33,7 @@ const config: Config = {
         docs: {
           sidebarPath: './sidebars.ts',
           editUrl: 'https://github.com/patricker/fabula/tree/main/docs/',
+          remarkPlugins: [remarkCodeRegion],
         },
         blog: false, // No blog for a library
         theme: {

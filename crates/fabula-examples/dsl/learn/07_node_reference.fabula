@@ -1,0 +1,7 @@
+// Node reference — match a specific named node
+pattern alice_enters {
+  stage e1 {
+    e1.type = "enter"
+    e1.actor -> alice
+  }
+}

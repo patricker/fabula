@@ -80,6 +80,23 @@ Variables listed in `sharing(...)` are exempt from renaming. They keep their ori
 
 You never manage prefixes yourself. The compose operators handle renaming automatically. In the match output, you see the prefixed names (`a_e1`, `b_e2`) alongside the shared names (`char`), which tells you exactly which sub-pattern each binding came from.
 
+### Worked example: sequence binding output
+
+Given two patterns composed with `sequence(a, b)` and `sharing("char")`:
+
+- Pattern `a` has stage anchor `e1` and binds `char`
+- Pattern `b` has stage anchor `e1` and binds `char`
+
+After composition and evaluation, the match bindings look like:
+
+```
+a_e1  = Node("event1")     // anchor from pattern a, prefixed
+b_e1  = Node("event3")     // anchor from pattern b, prefixed
+char  = Node("macbeth")    // shared variable, unprefixed
+```
+
+The `a_` and `b_` prefixes scope each sub-pattern's variables so they cannot collide -- both patterns had an `e1` anchor, but the composed result distinguishes them as `a_e1` and `b_e1`. The shared variable `char` keeps its original name and must bind to the same node in both sub-patterns. This is what creates the cross-pattern join: Macbeth must be the actor in both halves.
+
 ## Repeat-range internals
 
 Exact repeat (`* N`) is straightforward: unroll N copies, prefix each copy's variables, done. The result has `N * stages_per_pattern` stages.

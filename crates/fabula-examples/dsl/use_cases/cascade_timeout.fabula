@@ -1,0 +1,20 @@
+pattern cascade_timeout {
+  stage e1 {
+    e1.type = "call"
+    e1.caller -> ?svc_a
+    e1.callee -> ?svc_b
+  }
+  stage e2 {
+    e2.type = "call"
+    e2.caller -> ?svc_b
+    e2.callee -> ?svc_c
+  }
+  stage e3 {
+    e3.type = "timeout"
+    e3.service -> ?svc_c
+  }
+  unless after e3 {
+    mid.type = "recovery"
+    mid.service -> ?svc_c
+  }
+}

@@ -1,0 +1,9 @@
+// Metadata — key-value annotations
+pattern betrayal {
+  stage e1 {
+    e1.type = "betray"
+    e1.actor -> ?char
+  }
+  meta("thread_type", "conflict")
+  meta("priority", "high")
+}

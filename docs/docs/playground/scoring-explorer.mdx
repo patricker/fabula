@@ -222,6 +222,39 @@ surprise = -log2(0.071) = 3.81 bits
 
 The never-before-seen transition is the most surprising of all.
 
+### PMI correction
+
+When two properties frequently co-occur, counting both independently inflates the surprise score. Pointwise Mutual Information (PMI) detects this correlation and corrects for it.
+
+**Worked example.** 20 matches observed. Three properties tracked:
+
+| Property | Matches containing it |
+|----------|:---:|
+| `actor_trait=warrior` | 8 of 20 |
+| `actor_trait=aggressive` | 6 of 20 |
+| `target_role=king` | 4 of 20 |
+
+"warrior" and "aggressive" co-occur in 5 of those 20 matches. Are they correlated?
+
+```
+P(warrior) = 8/20 = 0.40
+P(aggressive) = 6/20 = 0.30
+P(warrior, aggressive) = 5/20 = 0.25
+
+Expected P(warrior AND aggressive) if independent = 0.40 * 0.30 = 0.12
+PMI = log2(0.25 / 0.12) = log2(2.08) = 1.06 bits
+```
+
+PMI exceeds the 1-bit threshold, so the scorer flags this pair as correlated.
+
+**Before correction:** Both warrior (freq = 0.40) and aggressive (freq = 0.30) contribute their individual rarity to the match score. A match with both properties gets "double surprise" from two seemingly rare traits.
+
+**After correction:** The scorer replaces the marginal frequency of "aggressive" with the conditional frequency P(aggressive | warrior) = 5/8 = 0.625. The "aggressive" property is now much less rare in context -- if you are already a warrior, being aggressive is not surprising.
+
+**Effect:** The match score decreases because the correlated surprise is removed. The remaining property ("target_role=king", freq = 0.20) still contributes its full rarity. The correction ensures that genuinely independent rare properties drive the score, not redundant co-occurrences.
+
+---
+
 ### Combining with pattern-level surprise
 
 Sequential surprise and pattern-level surprise are independent measurements. A pattern can be common overall but surprising *in context* (or vice versa). Composing them is up to the caller -- for example, summing bits from `SurpriseScorer` and `SequentialScorer` gives joint information content.

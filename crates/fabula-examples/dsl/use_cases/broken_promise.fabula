@@ -1,0 +1,17 @@
+pattern broken_promise {
+  stage e1 {
+    e1.type = "promise"
+    e1.actor -> ?char
+    e1.target -> ?recipient
+  }
+  stage e2 {
+    e2.type = "betray"
+    e2.actor -> ?char
+    e2.target -> ?recipient
+  }
+  unless between e1 e2 {
+    mid.type = "fulfill"
+    mid.actor -> ?char
+    mid.target -> ?recipient
+  }
+}

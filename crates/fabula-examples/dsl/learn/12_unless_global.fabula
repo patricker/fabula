@@ -1,0 +1,15 @@
+// Global negation — unless across entire pattern span
+pattern two_betrayals {
+  stage e1 {
+    e1.type = "betray"
+    e1.actor -> ?char
+  }
+  stage e2 {
+    e2.type = "betray"
+    e2.actor -> ?char
+  }
+  unless {
+    mid.type = "reconcile"
+    mid.actor -> ?char
+  }
+}

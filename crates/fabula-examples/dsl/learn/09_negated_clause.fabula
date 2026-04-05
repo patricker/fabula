@@ -1,0 +1,8 @@
+// Negated clause — match must NOT hold
+pattern unwelcome_entry {
+  stage e1 {
+    e1.type = "enter"
+    e1.actor -> ?who
+    ! e1.status = "invited"
+  }
+}

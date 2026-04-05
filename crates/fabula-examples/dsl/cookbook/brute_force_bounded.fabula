@@ -1,0 +1,4 @@
+pattern login_fail {
+  stage e { e.type = "login_fail"  e.account -> ?account }
+}
+compose moderate_brute = login_fail * 3..5 sharing(account)

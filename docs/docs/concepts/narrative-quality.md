@@ -86,6 +86,15 @@ Every signal has a weight. The defaults reflect a general-purpose narrative sens
 
 Tuning weights changes what "good narrative" means. A horror game might increase the tension fit weight and lower the resolution reward to keep the audience in sustained dread. A comedy might increase the surprise and pivot weights to reward unexpected turns. A detective story might heavily weight resolution (every clue must pay off) and thread balance (every question must be answered before the denouement).
 
+### Tuning weights for genre
+
+Different genres emphasize different dimensions of narrative quality. Here are starting-point adjustments (from the defaults above):
+
+- **Combat-heavy game:** Increase tension fit weight (2.0 to 4.0), decrease FILO violation penalty (-3.0 to -1.0). Action-heavy games tolerate structural disorder if the pacing is right.
+- **Mystery / detective:** Increase pivot reward (1.5 to 3.0), increase resolution reward (5.0 to 8.0). Every clue must pay off; dramatic reveals (high JSD pivots) are the core mechanic.
+- **Sandbox / emergent:** Increase surprise weight (1.0 to 3.5), decrease tension fit (2.0 to 1.0). Emergent narratives thrive on the unexpected; imposed pacing feels artificial.
+- **General principle:** Weights should sum to a consistent total but this is not enforced -- the scorer does not normalize. If you double all weights, the absolute scores double but the ranking is unchanged. What matters is the *ratio* between weights.
+
 Weights can also change over the course of a single playthrough. Early in a story, the GM might prioritize progress and thread-opening (high progress weight, low resolution penalty). In the climax, shift toward resolution and tension peak. In the denouement, maximize thread-closing and minimize new plants. The scorer does not manage this scheduling -- the caller swaps in different `NarrativeWeights` at the appropriate time.
 
 ## How MCTS uses the score

@@ -134,149 +134,78 @@ When a fork goes out of scope, Rust drops it. No cleanup, no deregistration. The
 } // fork and fork_graph dropped here
 ```
 
-## Complete example
+## Minimal example
 
-A single `fn main()` that sets up two patterns, runs a short simulation, then evaluates three candidate actions and selects the best.
+Before the full setup, here is the smallest possible fork-speculate-compare loop. One pattern, two candidate actions, no narrative scorer -- just raw match counts.
 
 ```rust
 use fabula::prelude::*;
 use fabula_memory::{MemGraph, MemValue};
-use fabula_narratives::scorer::{assemble_signals, score, NarrativeWeights};
-use fabula_narratives::tension::Trajectory;
 
 fn main() {
-    // -- Setup patterns --------------------------------------------------
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 
-    // Pattern: betrayal after hospitality (3 stages)
-    let hospitality_idx = engine.register(
-        PatternBuilder::new("hospitality_violation")
+    // A simple 2-stage "betrayal" pattern: promise then betray, same actor.
+    engine.register(
+        PatternBuilder::new("betrayal")
             .stage("e1", |s| s
-                .edge("e1", "eventType".into(), MemValue::Str("enterTown".into()))
-                .edge_bind("e1", "actor".into(), "guest"))
+                .edge("e1", "eventType".into(), MemValue::Str("promise".into()))
+                .edge_bind("e1", "actor".into(), "char"))
             .stage("e2", |s| s
-                .edge("e2", "eventType".into(), MemValue::Str("showHospitality".into()))
-                .edge_bind("e2", "actor".into(), "host")
-                .edge_bind("e2", "target".into(), "guest"))
-            .stage("e3", |s| s
-                .edge("e3", "eventType".into(), MemValue::Str("harm".into()))
-                .edge_bind("e3", "actor".into(), "host")
-                .edge_bind("e3", "target".into(), "guest"))
+                .edge("e2", "eventType".into(), MemValue::Str("betray".into()))
+                .edge_bind("e2", "actor".into(), "char"))
             .build(),
     );
 
-    // Pattern: forgiveness arc (2 stages)
-    let forgiveness_idx = engine.register(
-        PatternBuilder::new("forgiveness_arc")
-            .stage("e1", |s| s
-                .edge("e1", "eventType".into(), MemValue::Str("harm".into()))
-                .edge_bind("e1", "actor".into(), "offender")
-                .edge_bind("e1", "target".into(), "victim"))
-            .stage("e2", |s| s
-                .edge("e2", "eventType".into(), MemValue::Str("forgive".into()))
-                .edge_bind("e2", "actor".into(), "victim")
-                .edge_bind("e2", "target".into(), "offender"))
-            .build(),
-    );
-
-    // Plant/payoff: hospitality setup, forgiveness resolution
-    engine.register_plant_payoff(hospitality_idx, forgiveness_idx, None);
-
-    // -- Simulate a few ticks -------------------------------------------
+    // Simulate: Alice promises at tick 1.
     let mut graph = MemGraph::new();
-
-    // Tick 1: Alice enters town
-    graph.add_str("ev1", "eventType", "enterTown", 1);
+    graph.add_str("ev1", "eventType", "promise", 1);
     graph.add_ref("ev1", "actor", "alice", 1);
     graph.set_time(1);
     engine.on_edge_added(
         &graph, &"ev1".into(), &"eventType".into(),
-        &MemValue::Str("enterTown".into()), &Interval::open(1),
+        &MemValue::Str("promise".into()), &Interval::open(1),
     );
     engine.end_tick(50);
+    // Engine now has an active partial match waiting for Alice to betray.
 
-    // Tick 2: Bob shows hospitality to Alice
-    graph.add_str("ev2", "eventType", "showHospitality", 2);
-    graph.add_ref("ev2", "actor", "bob", 2);
-    graph.add_ref("ev2", "target", "alice", 2);
-    graph.set_time(2);
-    engine.on_edge_added(
-        &graph, &"ev2".into(), &"eventType".into(),
-        &MemValue::Str("showHospitality".into()), &Interval::open(2),
+    // Candidate A: Alice betrays (should complete the pattern).
+    let mut fork_a = engine.clone();
+    let mut graph_a = graph.clone();
+    graph_a.add_str("hyp", "eventType", "betray", 2);
+    graph_a.add_ref("hyp", "actor", "alice", 2);
+    graph_a.set_time(2);
+    fork_a.on_edge_added(
+        &graph_a, &"hyp".into(), &"eventType".into(),
+        &MemValue::Str("betray".into()), &Interval::open(2),
     );
-    engine.end_tick(50);
+    let (delta_a, _) = fork_a.end_tick(50);
 
-    // At this point, hospitality_violation has an active PM at stage 2,
-    // waiting for a "harm" event from bob targeting alice.
+    // Candidate B: Alice trades (no pattern effect).
+    let mut fork_b = engine.clone();
+    let mut graph_b = graph.clone();
+    graph_b.add_str("hyp", "eventType", "trade", 2);
+    graph_b.add_ref("hyp", "actor", "alice", 2);
+    graph_b.set_time(2);
+    fork_b.on_edge_added(
+        &graph_b, &"hyp".into(), &"eventType".into(),
+        &MemValue::Str("trade".into()), &Interval::open(2),
+    );
+    let (delta_b, _) = fork_b.end_tick(50);
 
-    // -- Fork-speculate-score loop --------------------------------------
-    let candidates: Vec<(&str, &str, &str)> = vec![
-        ("harm",     "bob", "alice"),   // completes hospitality_violation
-        ("forgive",  "alice", "bob"),   // no pattern effect (no prior harm)
-        ("trade",    "bob", "alice"),   // neutral — advances nothing
-    ];
-
-    let weights = NarrativeWeights::default();
-    let mut best_score = f64::NEG_INFINITY;
-    let mut best_action = "";
-
-    for (action, actor, target) in &candidates {
-        // Fork
-        let mut fork = engine.clone();
-        let mut fork_graph = graph.clone();
-
-        // Speculate
-        fork_graph.add_str("hyp", "eventType", action, 3);
-        fork_graph.add_ref("hyp", "actor", actor, 3);
-        fork_graph.add_ref("hyp", "target", target, 3);
-        fork_graph.set_time(3);
-
-        fork.on_edge_added(
-            &fork_graph,
-            &"hyp".into(),
-            &"eventType".into(),
-            &MemValue::Str(action.to_string()),
-            &Interval::open(3),
-        );
-
-        // Score
-        let (delta, _) = fork.end_tick(50);
-        let signals = assemble_signals(
-            &delta,
-            &fork.plant_status(50),
-            0,
-            Trajectory::Unknown,
-            Trajectory::Rising,
-            0.0,
-            0.0,
-            0.0,
-        );
-        let result = score(&signals, &weights);
-
-        println!(
-            "Action: {:<10} score: {:.2}  (adv={}, comp={}, stall={})",
-            action,
-            result.total,
-            delta.advanced.len(),
-            delta.completed.len(),
-            delta.stalled.len(),
-        );
-
-        if result.total > best_score {
-            best_score = result.total;
-            best_action = action;
-        }
-        // fork and fork_graph are dropped here
-    }
-
-    println!("\nBest action: {} (score: {:.2})", best_action, best_score);
-    // The original engine is unchanged — no speculative state leaked.
-    assert_eq!(engine.partial_matches().len(),
-               engine.partial_matches().iter()
-                   .filter(|pm| pm.state == MatchState::Active)
-                   .count(),
-               "original engine has only its original active PMs");
+    println!("Betray: {} completions", delta_a.completed.len());  // 1
+    println!("Trade:  {} completions", delta_b.completed.len());  // 0
+    // The original engine is untouched -- both forks are discarded.
 }
+```
+
+The key insight: `engine.clone()` gives you independent speculative branches. Compare their `TickDelta` output to decide which action is more narratively productive.
+
+## Complete example
+
+A single test that sets up two patterns, runs a short simulation, then evaluates three candidate actions and selects the best.
+
+```rust reference file=tests/guides_forking_for_mcts.rs#complete_mcts
 ```
 
 ## Notes

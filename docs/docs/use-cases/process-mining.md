@@ -166,37 +166,7 @@ An order was placed but not shipped within the SLA window. Use a gap constraint 
 
 Process mining typically works on complete logs. Use batch evaluation to scan an entire event log for all deviations:
 
-```rust
-use fabula::prelude::*;
-use fabula_memory::{MemGraph, MemValue};
-
-let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
-engine.register(skipped_approval_pattern);
-engine.register(payment_before_confirmation_pattern);
-engine.register(shipping_sla_breach_pattern);
-
-// Load your event log into the graph
-let graph = load_event_log("process_log.csv");
-
-// Find all deviations
-let matches = engine.evaluate(&graph);
-for m in &matches {
-    println!("Deviation: {} — order: {:?}",
-        m.pattern,
-        m.bindings.get("order"));
-}
-
-// Check near-misses for each pattern
-for pattern in engine.patterns() {
-    let gap = gap_analysis(&graph, pattern);
-    let matched = gap.stages.iter()
-        .filter(|s| matches!(s.status, StageStatus::Matched))
-        .count();
-    if matched > 0 && matched < gap.stages.len() {
-        println!("Near-miss: {} — {}/{} stages matched",
-            pattern.name, matched, gap.stages.len());
-    }
-}
+```rust reference file=tests/use_cases_process_mining.rs#batch_auditing
 ```
 
 Register multiple patterns and evaluate once. Every deviation in the log is surfaced, and `gap_analysis` highlights processes that were one step away from a deviation.
@@ -208,6 +178,28 @@ Register multiple patterns and evaluate once. Every deviation in the log is surf
 | Skipped approval | Missing step in process | 2 + negation | `unless between` checks for the missing step |
 | Out-of-order | Reversed process steps | 2, no negation | Stage ordering = expected sequence; match = reversed |
 | SLA timeout | Excessive processing time | 2 + gap + negation | `gap 5..` enforces time bound; negation excludes cancellations |
+
+## Mapping your data
+
+XES event log entries map to fabula edges as follows:
+
+| Real-world field | Fabula edge |
+|---|---|
+| case:concept:name (case ID) | source node |
+| concept:name (activity) | label value |
+| org:resource (performer) | target node |
+| time:timestamp | interval start |
+
+In XES, all events in the same case share a case ID -- this becomes the source node, enabling joins across activities in the same process instance.
+
+---
+
+## How fabula compares
+
+- **vs ProM / Disco / Celonis:** Petri net conformance checking and process discovery. These tools model the full process as a net and check event logs for conformance. No Allen algebra for temporal relations, no incremental streaming (batch-only replay), no variable-bound negation. Fabula is pattern-first: you describe the deviation, not the entire process.
+- **vs Declare / LTLf:** Constraint-based process modeling with boolean satisfaction (a trace either satisfies a constraint or does not). No graduated matching -- no gap analysis showing *how close* a trace came to violating a rule. Fabula's `why_not` provides clause-by-clause breakdown of near-misses.
+
+---
 
 ## Where to go next
 

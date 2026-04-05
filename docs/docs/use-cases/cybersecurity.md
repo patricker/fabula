@@ -200,6 +200,40 @@ Three mechanisms do all the work: **stages** define the temporal sequence, **var
 
 ---
 
+## Mapping your data
+
+Windows Event Log and syslog entries map to fabula edges as follows:
+
+| Real-world field | Fabula edge |
+|---|---|
+| EventRecordID | source node |
+| EventID or message type | label |
+| Computer, TargetUserName, SourceAddress | target values/nodes |
+| TimeCreated | interval start (point event: `[t, t+1)`) |
+
+Most security events are instantaneous, so they become point intervals. The Computer and TargetUserName fields become target nodes, enabling variable joins that correlate events across hosts and accounts.
+
+---
+
+## Limitations and false positives
+
+These patterns are starting points, not production-ready rules. Each has known blind spots:
+
+- **Lateral movement:** Credential rotation evades the join on `?credential`. The pattern only catches reuse of the *same* credential -- an attacker who steals a new credential per host is invisible.
+- **Impossible travel:** VPN and proxy use create false positives. A user routing through a VPN exit node in another country looks identical to impossible travel. You need additional context (e.g., known VPN IP ranges) to filter these.
+- **Credential stuffing:** Distributed attacks from many source IPs may not trigger the pattern if each IP attempts only once. The pattern requires two failures from *different* sources hitting the same account -- a single-attempt-per-IP botnet spreads below this threshold.
+- **Mitigation:** Combine sifting patterns with statistical baselines. Surprise scoring ranks matches by anomaly, so a lateral movement match involving a service account that *always* authenticates across hosts scores low. Tighten metric gap constraints (`gap ..300` for "within 5 minutes") to reduce the window. Add negation for known-safe patterns (`unless between` for scheduled credential rotation events).
+
+---
+
+## How fabula compares
+
+- **vs Splunk correlation searches:** Threshold-based ("5 failed logins in 10 minutes"). No graph structure, no variable joins across events, no negation windows. Fabula patterns express multi-stage attack chains with entity correlation.
+- **vs Elastic EQL:** Supports `sequence by [field] with maxspan` -- the closest analogue to fabula's staged joins with gap constraints. However, EQL has no interval algebra, limited negation (no `unless_after`, no `unless_global`), and no composition operators for reusable pattern fragments.
+- **vs Sigma rules:** Single-event signatures. Sigma describes what one log line looks like, not temporal sequences across multiple events. Fabula operates at the sequence level with cross-event joins.
+
+---
+
 ## Where to go next
 
 - [Getting Started](/docs/getting-started) -- Build these patterns in Rust, from `cargo new` to working alerts.

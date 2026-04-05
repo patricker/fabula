@@ -13,9 +13,7 @@ title: Debugging Patterns
 
 Start with batch evaluation. It is simpler to reason about because it does not depend on edge arrival order.
 
-```rust
-let matches = engine.evaluate(&graph);
-println!("Batch matches: {}", matches.len());
+```rust reference file=tests/guides_debugging_patterns.rs#step1_batch
 ```
 
 If batch evaluation returns matches, your pattern and data are correct. If incremental evaluation disagrees, the issue is temporal ordering or edge notification order (skip to Step 4).
@@ -24,17 +22,7 @@ If batch evaluation returns matches, your pattern and data are correct. If incre
 
 `why_not` analyzes each stage of a pattern clause-by-clause and reports what matched and what failed.
 
-```rust
-if let Some(analysis) = engine.why_not(&graph, "my_pattern") {
-    println!("Pattern: {}", analysis.pattern);
-    for stage in &analysis.stages {
-        println!("  Stage '{}': {:?}", stage.anchor, stage.status);
-        for clause in &stage.clauses {
-            println!("    {} => matched: {}, reason: {:?}",
-                     clause.description, clause.matched, clause.reason);
-        }
-    }
-}
+```rust reference file=tests/guides_debugging_patterns.rs#step2_why_not
 ```
 
 `why_not` stops at the first unmatched stage. If stage 1 fails, you will not see analysis for stage 2.
@@ -51,10 +39,7 @@ Each clause analysis includes:
 
 If batch matches but incremental does not (or vice versa), run both and compare:
 
-```rust
-let batch_matches = engine.evaluate(&graph);
-let completed = engine.drain_completed();
-println!("Batch: {}, Incremental: {}", batch_matches.len(), completed.len());
+```rust reference file=tests/guides_debugging_patterns.rs#step4_compare
 ```
 
 Discrepancies usually fall into the categories in the failure modes table below.
@@ -63,17 +48,7 @@ Discrepancies usually fall into the categories in the failure modes table below.
 
 For incremental debugging, inspect the engine's partial match state:
 
-```rust
-for pm in engine.partial_matches() {
-    println!("Match #{}: pattern_idx={}, next_stage={}, state={:?}",
-             pm.id, pm.pattern_idx, pm.next_stage, pm.state);
-    for (var, val) in &pm.bindings {
-        println!("  {} = {:?}", var, val);
-    }
-    for (anchor, iv) in &pm.intervals {
-        println!("  {} at {}", anchor, iv);
-    }
-}
+```rust reference file=tests/guides_debugging_patterns.rs#step5_inspect
 ```
 
 This shows you exactly where each partial match is stuck.

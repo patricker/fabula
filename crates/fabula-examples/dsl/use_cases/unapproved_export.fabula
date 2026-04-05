@@ -1,0 +1,11 @@
+pattern unapproved_export {
+  stage e1 {
+    e1.type = "export"
+    e1.actor -> ?actor
+    e1.dataset -> ?data
+  }
+  unless after e1 {
+    mid.type = "approve_export"
+    mid.dataset -> ?data
+  }
+}

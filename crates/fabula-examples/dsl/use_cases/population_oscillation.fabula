@@ -1,0 +1,10 @@
+pattern population_oscillation {
+  stage e1 {
+    e1.type = "population_increase"
+    e1.region -> ?region
+  }
+  stage e2 {
+    e2.type = "population_decrease"
+    e2.region -> ?region
+  }
+}

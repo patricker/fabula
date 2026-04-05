@@ -1,0 +1,6 @@
+// Pattern declaration
+pattern betrayal {
+  stage e1 {
+    e1.type = "betray"
+  }
+}

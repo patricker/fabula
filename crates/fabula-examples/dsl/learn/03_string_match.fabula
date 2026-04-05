@@ -1,0 +1,7 @@
+// Edge match — string value
+pattern enter_room {
+  stage e1 {
+    e1.type = "enter"
+    e1.location = "throne_room"
+  }
+}

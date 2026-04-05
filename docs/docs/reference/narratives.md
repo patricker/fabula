@@ -24,15 +24,7 @@ Four modules, each backed by specific research:
 
 Tracks narrative thread lifecycles (MICE-style open/close pairs). Register threads, then query status after each tick.
 
-```rust
-use fabula_narratives::thread::ThreadTracker;
-
-let mut tracker = ThreadTracker::new();
-tracker.register("investigation", open_idx, close_idx);
-
-// After each tick:
-let status = tracker.status(|idx| engine.pattern_metrics(idx));
-let violations = tracker.check_filo();
+```rust reference file=tests/reference_narratives.rs#thread_tracker
 ```
 
 #### `ThreadTracker::new`
@@ -155,15 +147,7 @@ pub fn reset(&mut self)
 
 Tracks a numeric value over a sliding window and classifies the trajectory. The caller provides samples (e.g., character stress, faction hostility) -- the tracker is DataSource-agnostic.
 
-```rust
-use fabula_narratives::tension::{TensionTracker, Trajectory};
-
-let mut tracker = TensionTracker::new(10); // window of 10 samples
-for i in 0..15 {
-    tracker.push(i as u64, i as f64 * 0.1);
-}
-assert_eq!(tracker.trajectory(), Trajectory::Rising);
-assert!(tracker.slope() > 0.0);
+```rust reference file=tests/reference_narratives.rs#tension_tracker
 ```
 
 #### `TensionTracker::new`
@@ -280,19 +264,7 @@ Detects narrative pivots via Jensen-Shannon Divergence between consecutive tick 
 
 JSD is symmetric and bounded in [0, 1] (log base 2).
 
-```rust
-use fabula_narratives::pivot::PivotDetector;
-
-let mut pivot = PivotDetector::new();
-
-// Tick 1: peaceful events
-pivot.push("trade"); pivot.push("trade"); pivot.push("talk");
-let _ = pivot.end_tick(); // first tick: 0 (no previous)
-
-// Tick 2: sudden violence
-pivot.push("attack"); pivot.push("attack"); pivot.push("harm");
-let jsd = pivot.end_tick();
-assert!(jsd > 0.5); // dramatic shift
+```rust reference file=tests/reference_narratives.rs#pivot_detector
 ```
 
 #### `PivotDetector::new`
@@ -369,19 +341,7 @@ pub fn reset(&mut self)
 
 Pure function: signals in, score out. Combines multiple scoring signals into a single `NarrativeScore` using configurable weights.
 
-```rust
-use fabula_narratives::scorer::{score, NarrativeSignals, NarrativeWeights};
-
-let signals = NarrativeSignals {
-    advancements: 3,
-    completions: 1,
-    resolutions: 1,
-    pivot_magnitude: 0.4,
-    ..Default::default()
-};
-let result = score(&signals, &NarrativeWeights::default());
-assert!(result.total > 0.0);
-println!("Breakdown: {:?}", result.breakdown);
+```rust reference file=tests/reference_narratives.rs#composite_scorer
 ```
 
 ```rust

@@ -1,0 +1,16 @@
+pattern suspicious_login {
+  stage e1 {
+    e1.type = "login"
+    e1.user -> ?user
+    e1.location -> ?loc_a
+  }
+  stage e2 {
+    e2.type = "login"
+    e2.user -> ?user
+    e2.location -> ?loc_b
+  }
+  unless between e1 e2 {
+    mid.type = "logout"
+    mid.user -> ?user
+  }
+}

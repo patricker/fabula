@@ -1,0 +1,15 @@
+// Negation window — unless between two stages
+pattern broken_promise {
+  stage e1 {
+    e1.type = "promise"
+    e1.actor -> ?char
+  }
+  stage e2 {
+    e2.type = "betray"
+    e2.actor -> ?char
+  }
+  unless between e1 e2 {
+    mid.type = "fulfill"
+    mid.actor -> ?char
+  }
+}

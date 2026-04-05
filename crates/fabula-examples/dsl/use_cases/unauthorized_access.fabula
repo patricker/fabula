@@ -1,0 +1,17 @@
+pattern unauthorized_access {
+  stage e1 {
+    e1.type = "revoke"
+    e1.user -> ?user
+    e1.resource -> ?resource
+  }
+  stage e2 {
+    e2.type = "access"
+    e2.user -> ?user
+    e2.resource -> ?resource
+  }
+  unless between e1 e2 {
+    mid.type = "reauthorize"
+    mid.user -> ?user
+    mid.resource -> ?resource
+  }
+}

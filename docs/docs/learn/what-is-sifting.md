@@ -61,7 +61,7 @@ You just ran a sifting pattern. Try editing the graph — remove the `reauthoriz
 
 You defined a template: a sequence of events with variables, ordering constraints, and an exception clause. The engine found every instance of that template in the data, respecting time and binding the same entity (`?user`, `?resource`) across stages.
 
-That's sifting. A regular expression engine, but instead of matching character sequences in strings, it matches event sequences in temporal graphs.
+That's sifting. A regular expression engine, but instead of matching character sequences in strings, it matches event sequences in temporal graphs. (A temporal graph is a set of edges where each edge has a time interval saying when the relationship held.)
 
 ## The idea
 

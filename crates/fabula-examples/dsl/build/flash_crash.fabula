@@ -1,0 +1,16 @@
+pattern flash_crash {
+    concurrent {
+        stage drop {
+            drop.action = "price_change"
+            drop.stock -> ?ticker
+        }
+        stage alarm {
+            alarm.action = "alert"
+            alarm.stock -> ?ticker
+        }
+    }
+    stage sell {
+        sell.action = "trade"
+        sell.stock -> ?ticker
+    }
+}

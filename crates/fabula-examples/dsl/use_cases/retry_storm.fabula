@@ -1,0 +1,22 @@
+pattern retry_storm {
+  stage e1 {
+    e1.type = "call_failed"
+    e1.caller -> ?svc
+    e1.callee -> ?target
+  }
+  stage e2 {
+    e2.type = "retry"
+    e2.caller -> ?svc
+    e2.callee -> ?target
+  }
+  stage e3 {
+    e3.type = "retry"
+    e3.caller -> ?svc
+    e3.callee -> ?target
+  }
+  unless between e1 e3 {
+    mid.type = "success"
+    mid.caller -> ?svc
+    mid.callee -> ?target
+  }
+}

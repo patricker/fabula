@@ -1,0 +1,21 @@
+// Graph definition (for testing / playground)
+pattern enter_and_greet {
+  stage e1 {
+    e1.type = "enter"
+    e1.actor -> ?who
+  }
+  stage e2 {
+    e2.type = "greet"
+    e2.actor -> ?who
+  }
+}
+
+graph {
+  @1 e1.type = "enter"
+  @1 e1.actor -> alice
+  @2 e2.type = "greet"
+  @2 e2.actor -> alice
+  @5..10 e3.type = "siege"
+  @5..10 e3.location = "castle"
+  now = 15
+}

@@ -1,0 +1,17 @@
+// Compose — exclusive choice
+pattern war {
+  stage e1 {
+    e1.type = "war"
+  }
+}
+pattern famine {
+  stage e1 {
+    e1.type = "famine"
+  }
+}
+pattern plague {
+  stage e1 {
+    e1.type = "plague"
+  }
+}
+compose crisis = war | famine | plague

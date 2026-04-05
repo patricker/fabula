@@ -1,0 +1,4 @@
+pattern login_fail {
+  stage e { e.type = "login_fail"  e.account -> ?account }
+}
+compose brute_force = login_fail * 3.. sharing(account)

@@ -1,0 +1,7 @@
+// Edge match — boolean value
+pattern active_alert {
+  stage e1 {
+    e1.type = "alert"
+    e1.active = true
+  }
+}

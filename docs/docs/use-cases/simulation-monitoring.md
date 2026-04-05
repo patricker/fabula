@@ -185,57 +185,32 @@ No negation needed. The pattern is purely structural: rise then fall in the same
 
 The playgrounds above use batch evaluation. In a running simulation, use incremental mode instead: feed edges as they happen and react immediately.
 
-```rust
-use fabula::prelude::*;
-use fabula_memory::{MemGraph, MemValue};
-
-let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
-let mut graph = MemGraph::new();
-
-engine.register(
-    PatternBuilder::new("resource_hoarding")
-        .stage("e1", |s| s
-            .edge("e1", "type".into(), MemValue::Str("acquire".into()))
-            .edge_bind("e1", "agent".into(), "agent")
-            .edge_bind("e1", "resource".into(), "r1"))
-        .stage("e2", |s| s
-            .edge("e2", "type".into(), MemValue::Str("acquire".into()))
-            .edge_bind("e2", "agent".into(), "agent")
-            .edge_bind("e2", "resource".into(), "r2"))
-        .unless_between("e1", "e2", |neg| neg
-            .edge("mid", "type".into(), MemValue::Str("share".into()))
-            .edge_bind("mid", "agent".into(), "agent"))
-        .build(),
-);
-
-for tick in 1..=1000 {
-    let sim_events = simulation.step(tick);
-
-    for event in sim_events {
-        graph.add_str(&event.id, "type", &event.kind, tick);
-        graph.add_ref(&event.id, "agent", &event.agent, tick);
-        graph.set_time(tick);
-
-        let sift_events = engine.on_edge_added(
-            &graph,
-            &event.id,
-            &"type".to_string(),
-            &MemValue::Str(event.kind.clone()),
-            &Interval::open(tick),
-        );
-
-        for se in &sift_events {
-            if let SiftEvent::Completed { pattern, bindings, .. } = se {
-                println!("[tick {}] detected: {} {:?}", tick, pattern, bindings);
-            }
-        }
-    }
-
-    let (delta, _expired) = engine.end_tick(50);
-}
+```rust reference file=tests/use_cases_simulation.rs#incremental_monitoring
 ```
 
 Call `on_edge_added()` for each edge produced by the simulation. Call `end_tick()` once per round to finalize the tick, expire stale partial matches, and produce a `TickDelta` for narrative scoring. React to `SiftEvent::Completed` to trigger simulation-level responses -- spawn rescue agents, adjust resource allocation, log anomalies.
+
+## Mapping your data
+
+Agent-based model events map to fabula edges as follows:
+
+| Real-world field | Fabula edge |
+|---|---|
+| eventID or step+agentID | source node |
+| action type | label value |
+| agent, target entity, resource | target nodes |
+| simulation step | interval start |
+
+Each simulation step produces edges for agent actions. The agent and resource fields become target nodes, so patterns can join across events by the same agent or involving the same resource.
+
+---
+
+## How fabula compares
+
+- **vs custom observer code:** Hard-coded callbacks that check specific conditions each tick. No gap analysis (you cannot ask "how close did we get to a cascade?"), no composition for building complex detection from reusable fragments, no variable-scoped negation.
+- **vs Flink CEP:** Complex event processing over flat event streams. No graph topology -- Flink patterns match sequences of events, not events connected by shared entities in a graph. No Allen algebra for temporal relations, no incremental partial match tracking with negation windows.
+
+---
 
 ## Where to go next
 

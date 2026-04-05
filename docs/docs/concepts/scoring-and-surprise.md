@@ -96,6 +96,8 @@ The ramp-up is fast but cautious:
 
 For modes where lower = more surprising (ArithmeticMean, GeometricMean, Min), the attenuation lerps the score toward 1.0 (unsurprising). For TfIdf (where higher = more surprising), it lerps toward 0.0. Same idea, reversed polarity.
 
+Confidence asymptotically approaches 1.0 — after 100 observations it reaches ~0.99, effectively disabling attenuation.
+
 The practical effect: in the first few ticks of a simulation, the scorer withholds judgment. A property that appeared in 1 out of 1 matches looks common, but the scorer knows it has no basis for confidence. By tick 10, frequencies are stabilizing, and the scorer lets the data speak.
 
 ## Correlated properties

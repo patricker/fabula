@@ -1,0 +1,12 @@
+pattern four_eyes_violation {
+  stage e1 {
+    e1.type = "initiate"
+    e1.actor -> ?person
+    e1.transaction -> ?txn
+  }
+  stage e2 {
+    e2.type = "approve"
+    e2.actor -> ?person
+    e2.transaction -> ?txn
+  }
+}

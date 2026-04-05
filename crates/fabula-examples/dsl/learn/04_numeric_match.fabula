@@ -1,0 +1,7 @@
+// Edge match — numeric value
+pattern high_score {
+  stage e1 {
+    e1.type = "score"
+    e1.points = 100
+  }
+}

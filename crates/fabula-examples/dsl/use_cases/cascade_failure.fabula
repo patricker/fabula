@@ -1,0 +1,19 @@
+pattern cascade_failure {
+  stage e1 {
+    e1.type = "fail"
+    e1.agent -> ?agent_a
+  }
+  stage e2 {
+    e2.type = "depends_on"
+    e2.agent -> ?agent_b
+    e2.dependency -> ?agent_a
+  }
+  stage e3 {
+    e3.type = "fail"
+    e3.agent -> ?agent_b
+  }
+  unless between e1 e3 {
+    mid.type = "recover"
+    mid.agent -> ?agent_a
+  }
+}

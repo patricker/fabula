@@ -1,0 +1,4 @@
+pattern escalating_price {
+  stage e1 { e1.type = "order"  e1.price -> ?base_price }
+  stage e2 { e2.type = "order"  e2.price > ?base_price }
+}

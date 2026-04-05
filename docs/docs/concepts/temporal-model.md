@@ -53,14 +53,7 @@ Open-ended intervals interact with the engine in two ways:
 
 Most patterns need only implicit stage ordering. Explicit Allen constraints are for the uncommon case where you need a specific geometric relationship between intervals.
 
-```rust
-PatternBuilder::new("during_pattern")
-    .stage("outer", |s| s
-        .edge("outer", "eventType".into(), "siege".into()))
-    .stage("inner", |s| s
-        .edge("inner", "eventType".into(), "sortie".into()))
-    .temporal("inner", AllenRelation::During, "outer")
-    .build();
+```rust reference file=tests/concepts_temporal.rs#during_pattern
 ```
 
 This pattern finds a sortie that happened during a siege. The `During` relation means the sortie's interval is entirely contained within the siege's interval.

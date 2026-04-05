@@ -28,12 +28,12 @@ A command-line program that:
 
 | # | Chapter | What you learn |
 |---|---------|----------------|
-| 1 | [Simulation Loop](01-simulation-loop) | Build an event-producing simulation with MemGraph |
-| 2 | [Define Patterns](02-define-patterns) | Write 3 patterns using both builder API and DSL |
-| 3 | [Incremental Matching](03-incremental-matching) | Wire the engine into the simulation loop |
-| 4 | [React to Events](04-react-to-events) | Handle SiftEvents, drain matches, use deadlines |
-| 5 | [Score and Rank](05-score-and-rank) | Add surprise scoring to rank matches |
-| 6 | [Speculate with MCTS](06-speculate-with-mcts) | Fork the engine for what-if analysis |
+| 1 | [Simulation Loop](simulation-loop) | Build an event-producing simulation with MemGraph |
+| 2 | [Define Patterns](define-patterns) | Write 3 patterns using both builder API and DSL |
+| 3 | [Incremental Matching](incremental-matching) | Wire the engine into the simulation loop |
+| 4 | [React to Events](react-to-events) | Handle SiftEvents, drain matches, use deadlines |
+| 5 | [Score and Rank](score-and-rank) | Add surprise scoring to rank matches |
+| 6 | [Speculate with MCTS](speculate-with-mcts) | Fork the engine for what-if analysis |
 
 Each chapter builds on the previous one. Complete code at the end of each chapter.
 
@@ -64,4 +64,4 @@ fabula-dsl = "0.1"
 fabula-narratives = "0.1"
 ```
 
-[Start Chapter 1 →](01-simulation-loop)
+[Start Chapter 1 →](simulation-loop)

@@ -1,0 +1,19 @@
+pattern escalating_conflict {
+  stage e1 {
+    e1.type = "aggression"
+    e1.actor -> ?aggressor
+    e1.target -> ?victim
+    e1.severity -> ?sev
+  }
+  stage e2 {
+    e2.type = "aggression"
+    e2.actor -> ?aggressor
+    e2.target -> ?victim
+    e2.severity > ?sev
+  }
+  unless between e1 e2 {
+    mid.type = "reconcile"
+    mid.actor -> ?aggressor
+    mid.target -> ?victim
+  }
+}

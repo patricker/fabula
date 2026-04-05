@@ -1,0 +1,8 @@
+// Compose — exact repeat
+pattern offense {
+  stage e1 {
+    e1.type = "offense"
+    e1.actor -> ?offender
+  }
+}
+compose three_strikes = offense * 3 sharing(offender)

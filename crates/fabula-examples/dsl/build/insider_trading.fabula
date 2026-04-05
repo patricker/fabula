@@ -1,0 +1,16 @@
+pattern insider_trading {
+    stage tip {
+        tip.action = "insider_tip"
+        tip.actor -> ?suspect
+        tip.stock -> ?ticker
+    }
+    stage trade {
+        trade.action = "trade"
+        trade.actor -> ?suspect
+        trade.stock -> ?ticker
+    }
+    unless between tip trade {
+        disclosure.action = "alert"
+        disclosure.stock -> ?ticker
+    }
+}

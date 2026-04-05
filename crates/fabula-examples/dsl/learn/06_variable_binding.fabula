@@ -1,0 +1,11 @@
+// Variable binding — bind a target to ?var for later joins
+pattern promise_and_fulfill {
+  stage e1 {
+    e1.type = "promise"
+    e1.actor -> ?char
+  }
+  stage e2 {
+    e2.type = "fulfill"
+    e2.actor -> ?char
+  }
+}

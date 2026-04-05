@@ -1,0 +1,15 @@
+pattern skipped_approval {
+  stage e1 {
+    e1.type = "purchase_request"
+    e1.order -> ?order
+    e1.requester -> ?requester
+  }
+  stage e2 {
+    e2.type = "fulfillment"
+    e2.order -> ?order
+  }
+  unless between e1 e2 {
+    mid.type = "approval"
+    mid.order -> ?order
+  }
+}

@@ -1,0 +1,12 @@
+// Deadline — tick-based expiration for partial matches
+pattern time_sensitive {
+  stage e1 {
+    e1.type = "offer"
+    e1.actor -> ?who
+  }
+  stage e2 {
+    e2.type = "accept"
+    e2.actor -> ?who
+  }
+  deadline 30
+}

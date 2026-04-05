@@ -1,0 +1,7 @@
+// Stage — an event slot inside a pattern
+pattern greeting {
+  stage e1 {
+    e1.type = "greet"
+    e1.actor -> ?who
+  }
+}

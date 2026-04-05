@@ -1,0 +1,14 @@
+// Compose — sequence
+pattern setup {
+  stage e1 {
+    e1.type = "promise"
+    e1.actor -> ?char
+  }
+}
+pattern payoff {
+  stage e2 {
+    e2.type = "fulfill"
+    e2.actor -> ?char
+  }
+}
+compose promise_kept = setup >> payoff sharing(char)

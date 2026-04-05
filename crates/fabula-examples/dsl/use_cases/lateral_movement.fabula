@@ -1,0 +1,17 @@
+pattern lateral_movement {
+  stage e1 {
+    e1.type = "login"
+    e1.credential -> ?credential
+    e1.host -> ?host_a
+  }
+  stage e2 {
+    e2.type = "login"
+    e2.credential -> ?credential
+    e2.host -> ?host_b
+  }
+  stage e3 {
+    e3.type = "login"
+    e3.credential -> ?credential
+    e3.host -> ?host_c
+  }
+}

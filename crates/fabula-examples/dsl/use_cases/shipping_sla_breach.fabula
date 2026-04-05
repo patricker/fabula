@@ -1,0 +1,16 @@
+pattern shipping_sla_breach {
+  stage e1 {
+    e1.type = "order_placed"
+    e1.order -> ?order
+    e1.customer -> ?customer
+  }
+  stage e2 {
+    e2.type = "shipped"
+    e2.order -> ?order
+  }
+  temporal e1 before e2 gap 5..
+  unless between e1 e2 {
+    mid.type = "cancelled"
+    mid.order -> ?order
+  }
+}

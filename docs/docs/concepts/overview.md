@@ -44,15 +44,7 @@ Edges come from your graph store via the [`DataSource` trait](../reference/datas
 
 A pattern is a named template describing a sequence of events to find. It contains ordered **stages**, each anchored to an event variable. Each stage has one or more **clauses** that constrain which edges must (or must not) exist at that event.
 
-```rust
-PatternBuilder::new("broken_promise")
-    .stage("e1", |s| s
-        .edge("e1", "eventType".into(), "promise".into())
-        .edge_bind("e1", "actor".into(), "person"))
-    .stage("e2", |s| s
-        .edge("e2", "eventType".into(), "break_promise".into())
-        .edge_bind("e2", "actor".into(), "person"))
-    .build();
+```rust reference file=tests/concepts_overview.rs#broken_promise
 ```
 
 Stages are implicitly ordered by time -- stage 1 must occur before stage 2. Try this in the [Pattern Playground](../playground/pattern-playground).
@@ -73,10 +65,7 @@ Most of the time you do not need explicit temporal constraints. Stage ordering i
 
 A negation window says "these clauses must NOT match between two events." This is how you express exceptions: "hospitality violation, *unless* the guest left between entry and harm."
 
-```rust
-.unless_between("e1", "e3", |neg| neg
-    .edge("eMid", "eventType".into(), "leaveTown".into())
-    .edge_bind("eMid", "actor".into(), "guest"))
+```rust reference file=tests/concepts_overview.rs#negation_window
 ```
 
 Negation windows are scoped to a temporal range (between two bound events, after a single event, or globally across the entire pattern). All clauses in a negation block must match the same entity for the negation to fire.

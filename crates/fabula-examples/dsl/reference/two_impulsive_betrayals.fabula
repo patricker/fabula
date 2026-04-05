@@ -1,0 +1,15 @@
+pattern two_impulsive_betrayals {
+  stage e1 {
+    e1.eventType = "betray"
+    e1.actor -> ?char           // bind ?char
+    ?char.trait = "impulsive"   // follow ?char, check its trait
+  }
+  stage e2 {
+    e2.eventType = "betray"
+    e2.actor -> ?char           // same character betrays again
+  }
+  unless {
+    mid.eventType = "reconcile"
+    mid.actor -> ?char          // mid is a scan root (no ?), ?char is a target binding
+  }
+}

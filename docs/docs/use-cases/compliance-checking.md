@@ -162,33 +162,7 @@ Data is exported from a sensitive system without a preceding approval for the sa
 
 When a pattern does NOT match, that's a good thing — the system is compliant. But near-misses matter. Use `why_not` (gap analysis) to find events that *almost* violated a rule:
 
-```rust
-use fabula::prelude::*;
-use fabula_memory::MemGraph;
-
-let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
-engine.register(violation_pattern);
-
-let matches = engine.evaluate(&graph);
-if matches.is_empty() {
-    // System is compliant. Check near-misses for each pattern:
-    for pattern in engine.patterns() {
-        let gap = gap_analysis(&graph, pattern);
-        for stage in &gap.stages {
-            match stage.status {
-                StageStatus::Matched => {}
-                StageStatus::Unmatched | StageStatus::PartiallyMatched => {
-                    println!("Near-miss for '{}': stage '{}' — {:?}",
-                        pattern.name, stage.anchor, stage.status);
-                    for clause in &stage.clauses {
-                        println!("  clause: matched={}, reason={:?}",
-                            clause.matched, clause.reason);
-                    }
-                }
-            }
-        }
-    }
-}
+```rust reference file=tests/use_cases_compliance.rs#gap_analysis_auditing
 ```
 
 A rule that reaches stage 2 of 3 before failing is a near-miss worth investigating — the system was one event away from a violation.
@@ -200,6 +174,28 @@ A rule that reaches stage 2 of 3 before failing is a near-miss worth investigati
 | Unauthorized access | Access after revocation without re-auth | 2 + negation | Variable join on user AND resource |
 | Four-eyes | Same person in both roles | 2, no negation | Match = violation (conceptual inversion) |
 | Unapproved export | Export without matching approval | 1 + negation | `unless after` checks for missing approval |
+
+## Mapping your data
+
+Transaction and audit log entries map to fabula edges as follows:
+
+| Real-world field | Fabula edge |
+|---|---|
+| TransactionID or AuditEventID | source node |
+| Action (initiate, approve, export) | label value |
+| Actor, resource | target nodes (enables joins) |
+| Timestamp | interval start |
+
+Each audit event becomes a set of edges sharing the source node. The actor and resource fields become target nodes, so patterns can join across events by the same person or touching the same resource.
+
+---
+
+## How fabula compares
+
+- **vs SIEM correlation rules:** Time-windowed threshold alerts ("N events of type X within Y minutes"). No structural graph joins, no variable-scoped negation, no gap analysis for near-misses. Fabula patterns express entity-correlated forbidden sequences.
+- **vs manual audit scripts:** Brittle, hard-coded queries against event logs. No gap analysis to surface near-misses, no incremental mode for real-time monitoring, no composition for building complex rules from reusable fragments.
+
+---
 
 ## Where to go next
 

@@ -1,0 +1,21 @@
+// Concurrent group — unordered stages
+pattern multi_signal {
+  stage e1 {
+    e1.type = "anomaly"
+    e1.sensor -> ?s
+  }
+  concurrent {
+    stage e2 {
+      e2.type = "temp_spike"
+      e2.sensor -> ?s
+    }
+    stage e3 {
+      e3.type = "pressure_drop"
+      e3.sensor -> ?s
+    }
+  }
+  stage e4 {
+    e4.type = "shutdown"
+    e4.sensor -> ?s
+  }
+}

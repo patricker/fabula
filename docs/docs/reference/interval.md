@@ -11,11 +11,7 @@ title: Interval & Allen Relations
 
 A half-open time interval `[start, end)`. If `end` is `None`, the interval is open-ended (ongoing).
 
-```rust
-use fabula::interval::Interval;
-
-let bounded = Interval::new(1, 5);   // [1, 5)
-let open    = Interval::open(3);     // [3, inf)
+```rust reference file=tests/reference_interval.rs#interval_creation
 ```
 
 ### Fields
@@ -173,12 +169,7 @@ pub fn intersects(&self, other: &Interval<T>) -> bool
 
 Allen's 13 mutually exclusive temporal relations between two bounded intervals A and B. Try them interactively in the [Allen Interval Visualizer](../playground/allen-visualizer).
 
-```rust
-use fabula::interval::{Interval, AllenRelation};
-
-let a = Interval::new(1, 3);
-let b = Interval::new(5, 7);
-assert_eq!(a.relation(&b), Some(AllenRelation::Before));
+```rust reference file=tests/reference_interval.rs#allen_relation
 ```
 
 ### Variants

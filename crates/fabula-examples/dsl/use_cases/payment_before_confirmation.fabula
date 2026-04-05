@@ -1,0 +1,11 @@
+pattern payment_before_confirmation {
+  stage e1 {
+    e1.type = "payment_received"
+    e1.order -> ?order
+    e1.amount -> ?amount
+  }
+  stage e2 {
+    e2.type = "order_confirmed"
+    e2.order -> ?order
+  }
+}

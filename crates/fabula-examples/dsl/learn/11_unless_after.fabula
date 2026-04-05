@@ -1,0 +1,15 @@
+// Negation window — unless after a stage (open-ended)
+pattern unresolved_conflict {
+  stage e1 {
+    e1.type = "conflict"
+    e1.actor -> ?char
+  }
+  stage e2 {
+    e2.type = "escalate"
+    e2.actor -> ?char
+  }
+  unless after e2 {
+    end.type = "resolve"
+    end.actor -> ?char
+  }
+}

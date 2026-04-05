@@ -12,6 +12,7 @@ const sidebars: SidebarsConfig = {
         'learn/patterns-from-first-principles',
         'learn/thinking-in-time',
         'learn/interactive-tutorial',
+        'learn/dsl-quick-reference',
       ],
     },
     {
@@ -75,6 +76,7 @@ const sidebars: SidebarsConfig = {
         'guides/debugging-patterns',
         'guides/custom-adapter',
         'guides/golden-tests',
+        'guides/performance',
       ],
     },
     {

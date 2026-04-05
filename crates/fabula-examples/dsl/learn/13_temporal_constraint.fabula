@@ -1,0 +1,10 @@
+// Allen temporal constraint — qualitative
+pattern cause_then_effect {
+  stage e1 {
+    e1.type = "cause"
+  }
+  stage e2 {
+    e2.type = "effect"
+  }
+  temporal e1 before e2
+}

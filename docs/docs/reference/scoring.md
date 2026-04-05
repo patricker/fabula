@@ -21,17 +21,7 @@ Pattern-level surprise scorer. Tracks per-pattern match counts and computes Shan
 
 Shannon surprise: `-log2(observed / baseline)` with Laplace smoothing.
 
-```rust
-use fabula::scoring::SurpriseScorer;
-
-let mut scorer = SurpriseScorer::new();
-scorer.set_baseline(0, 0.1); // expect pattern 0 to match 10% of rounds
-
-// After evaluation:
-let matches = engine.evaluate(&graph);
-scorer.observe(&matches, engine.patterns());
-let scored = scorer.score(&matches, engine.patterns());
-// scored[i].surprise — higher = more unexpected
+```rust reference file=tests/reference_scoring.rs#surprise_scorer
 ```
 
 ### Methods
@@ -194,20 +184,7 @@ The scorer applies **cold-start confidence weighting**: with few observations, s
 
 The scorer only does frequency math. Property extraction is the caller's responsibility.
 
-```rust
-use fabula::scoring::{StuScorer, StuAggregation};
-
-let mut stu = StuScorer::new()
-    .with_aggregation(StuAggregation::TfIdf)
-    .with_pmi_correction();
-
-// Observe properties for completed matches
-stu.observe_one("betrayal", &["actor_trait=ambitious", "target_role=king"]);
-stu.observe_one("betrayal", &["actor_trait=loyal", "target_role=merchant"]);
-
-// Score a new match
-let freq = stu.property_frequency("betrayal", "actor_trait=ambitious");
-// freq ≈ 0.6 (2 of 3 observations, with Laplace smoothing)
+```rust reference file=tests/reference_scoring.rs#stu_scorer
 ```
 
 ### Property extraction guidance
@@ -365,19 +342,7 @@ Sequential surprise scorer using bigram pattern transitions. Tracks which patter
 
 A common betrayal after a rare alliance is surprising; a common betrayal after another common betrayal is not.
 
-```rust
-use fabula::scoring::SequentialScorer;
-
-let mut seq = SequentialScorer::new();
-seq.observe_transition("alliance", "betrayal");
-seq.observe_transition("alliance", "betrayal");
-seq.observe_transition("alliance", "trade");
-
-// betrayal after alliance: common (2/3)
-let common = seq.score_transition("alliance", "betrayal");
-// trade after alliance: rarer (1/3)
-let rare = seq.score_transition("alliance", "trade");
-assert!(rare > common, "rarer transition should be more surprising");
+```rust reference file=tests/reference_scoring.rs#sequential_scorer
 ```
 
 ### Methods

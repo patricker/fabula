@@ -1,0 +1,16 @@
+pattern resource_hoarding {
+  stage e1 {
+    e1.type = "acquire"
+    e1.agent -> ?agent
+    e1.resource -> ?r1
+  }
+  stage e2 {
+    e2.type = "acquire"
+    e2.agent -> ?agent
+    e2.resource -> ?r2
+  }
+  unless between e1 e2 {
+    mid.type = "share"
+    mid.agent -> ?agent
+  }
+}

@@ -1,0 +1,8 @@
+// Compose — range repeat with sharing
+pattern login_fail {
+  stage e1 {
+    e1.type = "login_failed"
+    e1.account -> ?acct
+  }
+}
+compose brute_force = login_fail * 5..10 sharing(acct)

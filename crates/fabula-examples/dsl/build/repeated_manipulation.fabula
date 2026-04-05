@@ -1,0 +1,9 @@
+pattern single_trade {
+    stage ev {
+        ev.action = "trade"
+        ev.actor -> ?manipulator
+        ev.stock -> ?ticker
+    }
+}
+
+compose repeated_manipulation = single_trade * 3 sharing(manipulator, ticker)

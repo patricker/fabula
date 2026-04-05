@@ -204,25 +204,45 @@ A request takes longer than the allowed threshold to complete. Use a gap constra
 
 In production, you feed events from your tracing pipeline into fabula's incremental engine:
 
-```rust
-// Each span/event from your tracing system:
-let events = engine.on_edge_added(&graph, &source, &label, &value, &interval);
-for event in &events {
-    match event {
-        SiftEvent::Completed { pattern, bindings, .. } => {
-            // Alert: cascade_timeout detected!
-            // bindings["svc_a"], bindings["svc_b"], bindings["svc_c"]
-            // contain the affected services.
-        }
-        SiftEvent::Negated { pattern, .. } => {
-            // Recovery detected — a previously active alert is resolved.
-        }
-        _ => {}
-    }
-}
+```rust reference file=tests/use_cases_observability.rs#incremental_integration
 ```
 
 The engine tracks partial matches across thousands of concurrent requests. When a cascade completes, you get the full call chain in the bindings. When a recovery event arrives, partial matches are automatically killed.
+
+## Mapping your data
+
+OpenTelemetry spans map to fabula edges as follows:
+
+| Real-world field | Fabula edge |
+|---|---|
+| spanID | source node |
+| operationName | label (e.g., "type") |
+| serviceName, statusCode | target values via label edges |
+| startTime, endTime | interval `[start, end)` |
+| parentSpanID | `span.parent -> parent_span` edge for call-chain joins |
+
+Each span becomes a set of edges sharing the same source node. The parentSpanID edge lets patterns join child spans to their parents, enabling call-chain traversal through variable bindings.
+
+---
+
+## Limitations and false positives
+
+These patterns detect structural anomalies but are not immune to noise:
+
+- **Cascade timeout:** Retries that eventually succeed but slowly can still match the pattern. A call chain that recovers after 30 seconds of retries never emits a "recovery" event if the retry logic is internal to the service.
+- **Retry storm:** Legitimate retry bursts during deployments can trigger false positives. A rolling restart that causes brief connection failures looks identical to a real retry storm.
+- **SLA breach:** Clock skew between services can create phantom violations. If service A's clock runs 2 seconds ahead of service B, a 4.5-second request can appear to take 6.5 seconds.
+- **Mitigation:** Use metric gap constraints to tighten time windows (e.g., `gap 10..` instead of `gap 5..` to tolerate clock skew). Add negation windows for expected maintenance events (`unless between` for deployment markers). Consider confidence thresholds -- only alert when surprise scoring ranks the match above a baseline.
+
+---
+
+## How fabula compares
+
+- **vs Datadog monitors:** Metric thresholds and anomaly detection over time series. No structural pattern matching across distributed traces, no variable joins correlating caller/callee chains, no negation windows.
+- **vs Jaeger TraceQL:** Queries within a single trace (span attributes, duration filters). Limited negation, no cross-trace pattern matching, no incremental streaming. Fabula matches patterns across the full event stream, not scoped to individual traces.
+- **vs Grafana alerting:** Condition-based alerts on metric thresholds. No multi-step pattern detection, no temporal sequencing across services, no gap constraints for SLA enforcement.
+
+---
 
 ## Where to go next
 

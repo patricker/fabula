@@ -290,19 +290,7 @@ Trait implementations: `Debug`, `Clone`, `PartialEq`.
 
 Ergonomic builder for constructing a `Pattern`. Requires `L: Clone, V: Clone`.
 
-```rust
-use fabula::builder::PatternBuilder;
-
-let pattern = PatternBuilder::<String, String>::new("my_pattern")
-    .stage("event1", |s| s
-        .edge("event1", "type".into(), "failure".into())
-        .edge_bind("event1", "actor".into(), "character"))
-    .stage("event2", |s| s
-        .edge("event2", "type".into(), "betrayal".into())
-        .edge_bind("event2", "target".into(), "character"))
-    .unless_between("event1", "event2", |neg| neg
-        .edge("recovery", "type".into(), "trust_restored".into()))
-    .build();
+```rust reference file=tests/reference_patterns.rs#pattern_builder_usage
 ```
 
 #### `PatternBuilder::new`
@@ -472,14 +460,7 @@ pub fn unordered_group(
 ) -> Self
 ```
 
-```rust
-let pattern = PatternBuilder::<String, String>::new("multi_signal")
-    .stage("e1", |s| s.edge("e1", "type".into(), "trigger".into()))
-    .unordered_group(|g| g
-        .stage("e2", |s| s.edge("e2", "type".into(), "signal_a".into()))
-        .stage("e3", |s| s.edge("e3", "type".into(), "signal_b".into())))
-    .stage("e4", |s| s.edge("e4", "type".into(), "confirm".into()))
-    .build();
+```rust reference file=tests/reference_patterns.rs#unordered_group
 ```
 
 **Returns:** `PatternBuilder<L, V>` (chainable)

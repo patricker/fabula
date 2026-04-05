@@ -11,21 +11,7 @@ title: SiftEngine
 
 The sift engine, generic over four independent type parameters. Maintains registered patterns and partial match state. Decoupled from `DataSource` -- the engine stores patterns and partial matches using the type parameters directly. Methods that need graph access take `&impl DataSource` as a parameter.
 
-```rust
-use fabula::prelude::*;
-use fabula_memory::{MemGraph, MemValue};
-
-// Explicit type parameters:
-let mut engine: SiftEngine<String, String, MemValue, i64> = SiftEngine::new();
-
-// Or use the SiftEngineFor alias (extracts types from a DataSource):
-let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
-
-engine.register(
-    PatternBuilder::new("example")
-        .stage("e", |s| s.edge("e", "type".into(), MemValue::Str("harm".into())))
-        .build(),
-);
+```rust reference file=tests/reference_engine.rs#engine_creation
 ```
 
 ### Type parameters
@@ -182,18 +168,7 @@ pub fn end_tick(&mut self, stale_threshold: u64) -> (TickDelta, Vec<SiftEvent<N,
 
 The expiry scan runs before the delta is built: for each active PM whose pattern has a `deadline_ticks`, if `current_tick - pm.created_at_tick > deadline_ticks`, the PM is killed and an `Expired` event is emitted. The expired PM's pattern name is included in `TickDelta.expired`.
 
-```rust
-// Example: simulation loop
-for edge in new_edges {
-    engine.on_edge_added(&ds, &src, &label, &val, &interval);
-}
-let (delta, expired_events) = engine.end_tick(50);
-if !delta.stalled.is_empty() { /* alert GM about stale plants */ }
-for ev in &expired_events {
-    if let SiftEvent::Expired { pattern, stage_reached, ticks_elapsed, .. } = ev {
-        println!("{} expired at stage {} after {} ticks", pattern, stage_reached, ticks_elapsed);
-    }
-}
+```rust reference file=tests/reference_engine.rs#end_tick_usage
 ```
 
 ---

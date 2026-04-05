@@ -1,0 +1,20 @@
+pattern multi_signal_shutdown {
+  stage e1 {
+    e1.type = "alarm"
+    e1.sensor -> ?sensor
+  }
+  concurrent {
+    stage e2 {
+      e2.type = "temperature_spike"
+      e2.sensor -> ?sensor
+    }
+    stage e3 {
+      e3.type = "pressure_drop"
+      e3.sensor -> ?sensor
+    }
+  }
+  stage e4 {
+    e4.type = "shutdown"
+    e4.sensor -> ?sensor
+  }
+}

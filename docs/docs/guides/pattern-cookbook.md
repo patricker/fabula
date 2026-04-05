@@ -15,54 +15,19 @@ Eight worked recipes, each showing a problem, the pattern code, and usage guidan
 
 ### Pattern
 
-```rust
-use fabula::prelude::*;
-use fabula_memory::{MemGraph, MemValue};
-
-let pattern = PatternBuilder::<String, MemValue>::new("two_impulsive_betrayals")
-    .stage("e1", |s| s
-        .edge("e1", "eventType".into(), MemValue::Str("betray".into()))
-        .edge_bind("e1", "actor".into(), "char")
-        .edge("char", "trait".into(), MemValue::Str("impulsive".into())))
-    .stage("e2", |s| s
-        .edge("e2", "eventType".into(), MemValue::Str("betray".into()))
-        .edge_bind("e2", "actor".into(), "char"))
-    .unless_global(|neg| neg
-        .edge("mid", "eventType".into(), MemValue::Str("reconcile".into()))
-        .edge_bind("mid", "actor".into(), "char"))
-    .build();
+```rust reference file=tests/guides_pattern_cookbook.rs#r1_pattern
 ```
 
 The variable `"char"` appears in both stages. This forces both betrayals to involve the same actor. The first stage also checks a persistent property (`trait = impulsive`) on that character. The `unless_global` negation blocks the match if the character reconciled at any point between the two betrayals.
 
 ### Matching graph
 
-```rust
-let mut g = MemGraph::new();
-g.add_str("alice", "trait", "impulsive", 0);
-g.add_str("ev1", "eventType", "betray", 1);
-g.add_ref("ev1", "actor", "alice", 1);
-g.add_str("ev2", "eventType", "betray", 3);
-g.add_ref("ev2", "actor", "alice", 3);
-g.set_time(10);
-
-let mut engine: SiftEngine<MemGraph> = SiftEngine::new();
-engine.register(pattern);
-let matches = engine.evaluate(&g);
-assert_eq!(matches.len(), 1);
-assert_eq!(matches[0].bindings["char"], BoundValue::Node("alice".into()));
+```rust reference file=tests/guides_pattern_cookbook.rs#r1_matching
 ```
 
 ### Non-matching graph
 
-```rust
-let mut g = MemGraph::new();
-g.add_str("alice", "trait", "cautious", 0);  // not impulsive
-g.add_str("ev1", "eventType", "betray", 1);
-g.add_ref("ev1", "actor", "alice", 1);
-g.add_str("ev2", "eventType", "betray", 3);
-g.add_ref("ev2", "actor", "alice", 3);
-g.set_time(10);
+```rust reference file=tests/guides_pattern_cookbook.rs#r1_non_matching
 ```
 
 ### why_not output
@@ -82,44 +47,17 @@ The first stage fails because no event has both `eventType = betray` AND an acto
 
 ### Pattern
 
-```rust
-let pattern = PatternBuilder::<String, MemValue>::new("broken_promise")
-    .stage("e1", |s| s
-        .edge("e1", "eventType".into(), MemValue::Str("promise".into()))
-        .edge_bind("e1", "actor".into(), "person"))
-    .stage("e2", |s| s
-        .edge("e2", "eventType".into(), MemValue::Str("break_promise".into()))
-        .edge_bind("e2", "actor".into(), "person"))
-    .unless_between("e1", "e2", |neg| neg
-        .edge("apology", "eventType".into(), MemValue::Str("apologize".into()))
-        .edge_bind("apology", "actor".into(), "person"))
-    .build();
+```rust reference file=tests/guides_pattern_cookbook.rs#r2_pattern
 ```
 
 ### Matching graph
 
-```rust
-let mut g = MemGraph::new();
-g.add_str("ev1", "eventType", "promise", 1);
-g.add_ref("ev1", "actor", "alice", 1);
-g.add_str("ev2", "eventType", "break_promise", 3);
-g.add_ref("ev2", "actor", "alice", 3);
-g.set_time(10);
-// No apology between t=1 and t=3 -> match
+```rust reference file=tests/guides_pattern_cookbook.rs#r2_matching
 ```
 
 ### Non-matching graph
 
-```rust
-let mut g = MemGraph::new();
-g.add_str("ev1", "eventType", "promise", 1);
-g.add_ref("ev1", "actor", "alice", 1);
-g.add_str("ev_apology", "eventType", "apologize", 2);
-g.add_ref("ev_apology", "actor", "alice", 2);  // apology at t=2
-g.add_str("ev2", "eventType", "break_promise", 3);
-g.add_ref("ev2", "actor", "alice", 3);
-g.set_time(10);
-// Apology at t=2 is between e1 (t=1) and e2 (t=3) -> negated
+```rust reference file=tests/guides_pattern_cookbook.rs#r2_non_matching
 ```
 
 ### why_not output
@@ -132,34 +70,17 @@ For negation-blocked patterns, `why_not` shows all stages as matched (the positi
 
 ### Pattern
 
-```rust
-let pattern = PatternBuilder::<String, MemValue>::new("low_loyalty")
-    .stage("e", |s| s
-        .edge("e", "eventType".into(), MemValue::Str("loyalty_check".into()))
-        .edge_constrained(
-            "e",
-            "loyalty".into(),
-            ValueConstraint::Lt(MemValue::Num(0.5)),
-        ))
-    .build();
+```rust reference file=tests/guides_pattern_cookbook.rs#r3_pattern
 ```
 
 ### Matching graph
 
-```rust
-let mut g = MemGraph::new();
-g.add_str("ev1", "eventType", "loyalty_check", 1);
-g.add_num("ev1", "loyalty", 0.3, 1);  // 0.3 < 0.5
-g.set_time(10);
+```rust reference file=tests/guides_pattern_cookbook.rs#r3_matching
 ```
 
 ### Non-matching graph
 
-```rust
-let mut g = MemGraph::new();
-g.add_str("ev1", "eventType", "loyalty_check", 1);
-g.add_num("ev1", "loyalty", 0.8, 1);  // 0.8 is NOT < 0.5
-g.set_time(10);
+```rust reference file=tests/guides_pattern_cookbook.rs#r3_non_matching
 ```
 
 ### why_not output
@@ -179,39 +100,21 @@ The stage reports unmatched because gap analysis evaluates from an empty binding
 
 ### Pattern
 
-```rust
-let pattern = PatternBuilder::<String, MemValue>::new("sortie_during_siege")
-    .stage("siege", |s| s
-        .edge("siege", "eventType".into(), MemValue::Str("siege".into())))
-    .stage("sortie", |s| s
-        .edge("sortie", "eventType".into(), MemValue::Str("sortie".into())))
-    .temporal("sortie", AllenRelation::During, "siege")
-    .build();
+```rust reference file=tests/guides_pattern_cookbook.rs#r4_pattern
 ```
 
 The `During` relation means the sortie's interval is entirely contained within the siege's interval.
 
 ### Matching graph
 
-```rust
-let mut g = MemGraph::new();
-g.add_edge_bounded("ev_siege", "eventType", MemValue::Str("siege".into()), 1, 100);
-g.add_edge_bounded("ev_sortie", "eventType", MemValue::Str("sortie".into()), 3, 5);
-g.set_time(4);  // Both intervals active at t=4
-// sortie [3, 5) is During siege [1, 100) -> match
+```rust reference file=tests/guides_pattern_cookbook.rs#r4_matching
 ```
 
 Both intervals must be bounded for Allen relation checking to work. The query time (`set_time`) must be within both intervals so the edges are visible.
 
 ### Non-matching graph
 
-```rust
-let mut g = MemGraph::new();
-g.add_edge_bounded("ev_siege", "eventType", MemValue::Str("siege".into()), 1, 4);
-g.add_edge_bounded("ev_sortie", "eventType", MemValue::Str("sortie".into()), 3, 7);
-g.set_time(3);
-// sortie [3, 7) is NOT During siege [1, 4) -- sortie extends past siege
-// The Allen relation here is OverlappedBy, not During
+```rust reference file=tests/guides_pattern_cookbook.rs#r4_non_matching
 ```
 
 ### why_not output
@@ -224,39 +127,19 @@ g.set_time(3);
 
 ### Pattern
 
-```rust
-let pattern = PatternBuilder::<String, MemValue>::new("unfulfilled_promise")
-    .stage("e1", |s| s
-        .edge("e1", "eventType".into(), MemValue::Str("promise".into()))
-        .edge_bind("e1", "actor".into(), "person"))
-    .unless_after("e1", |neg| neg
-        .edge("fulfillment", "eventType".into(), MemValue::Str("fulfill".into()))
-        .edge_bind("fulfillment", "actor".into(), "person"))
-    .build();
+```rust reference file=tests/guides_pattern_cookbook.rs#r5_pattern
 ```
 
 `unless_after` creates a negation window from `e1` to "now" (the graph's current time). If a fulfillment event by the same person exists anywhere after the promise, the match is blocked.
 
 ### Matching graph
 
-```rust
-let mut g = MemGraph::new();
-g.add_str("ev1", "eventType", "promise", 1);
-g.add_ref("ev1", "actor", "alice", 1);
-g.set_time(10);
-// No fulfill event by alice after t=1 -> match
+```rust reference file=tests/guides_pattern_cookbook.rs#r5_matching
 ```
 
 ### Non-matching graph
 
-```rust
-let mut g = MemGraph::new();
-g.add_str("ev1", "eventType", "promise", 1);
-g.add_ref("ev1", "actor", "alice", 1);
-g.add_str("ev2", "eventType", "fulfill", 5);
-g.add_ref("ev2", "actor", "alice", 5);
-g.set_time(10);
-// fulfill by alice at t=5, which is after promise at t=1 -> negated
+```rust reference file=tests/guides_pattern_cookbook.rs#r5_non_matching
 ```
 
 Note: `unless_after` is a single-stage pattern with negation. The positive part is just one stage. The result changes over time -- a promise is "unfulfilled" until a fulfillment event arrives.
@@ -267,48 +150,19 @@ Note: `unless_after` is a single-stage pattern with negation. The positive part 
 
 ### Pattern
 
-```rust
-let pattern = PatternBuilder::<String, MemValue>::new("kept_promise")
-    .stage("e1", |s| s
-        .edge("e1", "eventType".into(), MemValue::Str("promise".into()))
-        .edge_bind("e1", "actor".into(), "person"))
-    .stage("e2", |s| s
-        .edge("e2", "eventType".into(), MemValue::Str("fulfill".into()))
-        .edge_bind("e2", "actor".into(), "person"))
-    .unless_between("e1", "e2", |neg| neg
-        .edge("mid", "eventType".into(), MemValue::Str("leave".into()))
-        .edge_bind("mid", "actor".into(), "person"))
-    .build();
+```rust reference file=tests/guides_pattern_cookbook.rs#r6_pattern
 ```
 
 The negation has two clauses: `eventType = leave` AND `actor = ?person`. Both must match the same entity within the window. A leave event by a different person satisfies the first clause but fails the second (the actor binding does not match), so the negation does not fire.
 
 ### Matching graph (different person leaves)
 
-```rust
-let mut g = MemGraph::new();
-g.add_str("ev1", "eventType", "promise", 1);
-g.add_ref("ev1", "actor", "alice", 1);
-g.add_str("ev_leave", "eventType", "leave", 2);
-g.add_ref("ev_leave", "actor", "bob", 2);  // bob leaves, not alice
-g.add_str("ev2", "eventType", "fulfill", 3);
-g.add_ref("ev2", "actor", "alice", 3);
-g.set_time(10);
-// bob's leave does not block alice's pattern -> match
+```rust reference file=tests/guides_pattern_cookbook.rs#r6_matching
 ```
 
 ### Non-matching graph (same person leaves)
 
-```rust
-let mut g = MemGraph::new();
-g.add_str("ev1", "eventType", "promise", 1);
-g.add_ref("ev1", "actor", "alice", 1);
-g.add_str("ev_leave", "eventType", "leave", 2);
-g.add_ref("ev_leave", "actor", "alice", 2);  // alice leaves
-g.add_str("ev2", "eventType", "fulfill", 3);
-g.add_ref("ev2", "actor", "alice", 3);
-g.set_time(10);
-// alice's leave at t=2 is between t=1 and t=3, all clauses match -> negated
+```rust reference file=tests/guides_pattern_cookbook.rs#r6_non_matching
 ```
 
 The key insight: negation blocks fire only when ALL clauses in the block are satisfied by the same entity. Partial matches on a negation block (only some clauses match) do not trigger negation. This lets you write precise negation conditions that reference the pattern's bound variables.
@@ -319,26 +173,14 @@ The key insight: negation blocks fire only when ALL clauses in the block are sat
 
 ### Pattern
 
-```rust
-let pattern = PatternBuilder::new("escalating_price")
-    .stage("e1", |s| s
-        .edge("e1", "type".into(), MemValue::Str("order".into()))
-        .edge_bind("e1", "price".into(), "base_price"))
-    .stage("e2", |s| s
-        .edge("e2", "type".into(), MemValue::Str("order".into()))
-        .edge_gt_var("e2", "price".into(), "base_price"))
-    .build();
+```rust reference file=tests/guides_pattern_cookbook.rs#r7_pattern
 ```
 
 Stage 1 binds the price to `?base_price`. Stage 2 uses `edge_gt_var` to require the second price is strictly greater. The engine resolves `GtVar("base_price")` to `Gt(value)` using the PM's bindings at match time.
 
 ### DSL equivalent
 
-```
-pattern escalating_price {
-  stage e1 { e1.type = "order"  e1.price -> ?base_price }
-  stage e2 { e2.type = "order"  e2.price > ?base_price }
-}
+```fabula reference file=dsl/cookbook/escalating_price.fabula
 ```
 
 All five comparison operators work: `> ?var`, `< ?var`, `>= ?var`, `<= ?var`, `= ?var`. The `= ?var` form compares the edge value against the bound variable's value — it is not a binding (use `-> ?var` for that).
@@ -347,11 +189,7 @@ All five comparison operators work: `> ?var`, `< ?var`, `>= ?var`, `<= ?var`, `=
 
 Combine two cross-stage constraints for range checks:
 
-```rust
-.stage("e2", |s| s
-    .edge("e2", "type".into(), MemValue::Str("reading".into()))
-    .edge_gt_var("e2", "value".into(), "low")
-    .edge_lt_var("e2", "value".into(), "high"))
+```rust reference file=tests/guides_pattern_cookbook.rs#r7_range_check
 ```
 
 This matches when `low < value < high`, where `low` and `high` were bound in a prior stage.
@@ -362,27 +200,14 @@ This matches when `low < value < high`, where `low` and `high` were bound in a p
 
 ### Pattern
 
-```rust
-let attempt = PatternBuilder::new("login_fail")
-    .stage("e", |s| s
-        .edge("e", "type".into(), MemValue::Str("login_fail".into()))
-        .edge_bind("e", "account".into(), "account"))
-    .build();
-
-let pattern = fabula::compose::repeat_range(
-    "brute_force", &attempt, 3, None, &["account"],
-);
+```rust reference file=tests/guides_pattern_cookbook.rs#r8_pattern
 ```
 
 `repeat_range` with `min=3, max=None` means "3 or more total occurrences." The `account` variable is shared across all iterations, so only failures for the same account are counted.
 
 ### DSL equivalent
 
-```
-pattern login_fail {
-  stage e { e.type = "login_fail"  e.account -> ?account }
-}
-compose brute_force = login_fail * 3.. sharing(account)
+```fabula reference file=dsl/cookbook/brute_force.fabula
 ```
 
 ### What you get in the match
@@ -396,16 +221,14 @@ compose brute_force = login_fail * 3.. sharing(account)
 
 For "between 3 and 5 attempts" (stop tracking after 5):
 
-```
-compose moderate_brute = login_fail * 3..5 sharing(account)
+```fabula reference file=dsl/cookbook/brute_force_bounded.fabula
 ```
 
 ### Exact count (unchanged)
 
 For exactly 3 attempts (fully unrolled, distinct per-repetition bindings):
 
-```
-compose three_strikes = login_fail * 3 sharing(account)
+```fabula reference file=dsl/cookbook/brute_force_exact.fabula
 ```
 
 ## Recipe 9: Concurrent signals (unordered stages)
@@ -414,49 +237,14 @@ compose three_strikes = login_fail * 3 sharing(account)
 
 ### DSL
 
-```
-pattern multi_signal_shutdown {
-  stage e1 {
-    e1.type = "alarm"
-    e1.sensor -> ?sensor
-  }
-  concurrent {
-    stage e2 {
-      e2.type = "temperature_spike"
-      e2.sensor -> ?sensor
-    }
-    stage e3 {
-      e3.type = "pressure_drop"
-      e3.sensor -> ?sensor
-    }
-  }
-  stage e4 {
-    e4.type = "shutdown"
-    e4.sensor -> ?sensor
-  }
-}
+```fabula reference file=dsl/cookbook/multi_signal_shutdown.fabula
 ```
 
 Stages `e2` and `e3` are in a `concurrent { }` block — they can match in any order. The shared variable `?sensor` ensures all stages refer to the same sensor. Stage `e1` must come before both concurrent stages, and `e4` must come after both.
 
 ### Builder API equivalent
 
-```rust
-let pattern = PatternBuilder::<String, MemValue>::new("multi_signal_shutdown")
-    .stage("e1", |s| s
-        .edge("e1", "type".into(), MemValue::Str("alarm".into()))
-        .edge_bind("e1", "sensor".into(), "sensor"))
-    .unordered_group(|g| g
-        .stage("e2", |s| s
-            .edge("e2", "type".into(), MemValue::Str("temperature_spike".into()))
-            .edge_bind("e2", "sensor".into(), "sensor"))
-        .stage("e3", |s| s
-            .edge("e3", "type".into(), MemValue::Str("pressure_drop".into()))
-            .edge_bind("e3", "sensor".into(), "sensor")))
-    .stage("e4", |s| s
-        .edge("e4", "type".into(), MemValue::Str("shutdown".into()))
-        .edge_bind("e4", "sensor".into(), "sensor"))
-    .build();
+```rust reference file=tests/guides_pattern_cookbook.rs#r9_pattern
 ```
 
 Note: `unless_between` cannot use two anchors that are both inside the same concurrent group (undefined temporal ordering). The compiler rejects this at compile time.

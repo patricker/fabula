@@ -1,0 +1,11 @@
+// Cross-stage comparison operators
+pattern escalation {
+  stage e1 {
+    e1.type = "incident"
+    e1.severity -> ?level
+  }
+  stage e2 {
+    e2.type = "incident"
+    e2.severity > ?level
+  }
+}

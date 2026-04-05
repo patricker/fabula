@@ -1,0 +1,13 @@
+pattern sla_breach {
+  stage e1 {
+    e1.type = "request_start"
+    e1.request -> ?req
+    e1.service -> ?svc
+  }
+  stage e2 {
+    e2.type = "request_end"
+    e2.request -> ?req
+    e2.service -> ?svc
+  }
+  temporal e1 before e2 gap 5..
+}

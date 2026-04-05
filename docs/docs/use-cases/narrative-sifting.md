@@ -195,26 +195,7 @@ The broken promise pattern from [Sifting by Example](/docs/learn/sifting-by-exam
 
 Finding matches is step one. A narrative manager also needs to rank them. `SurpriseScorer` computes Shannon surprise: patterns that fire often score low; rare patterns score high.
 
-```rust
-use fabula::scoring::SurpriseScorer;
-
-let mut scorer = SurpriseScorer::new();
-
-// Baseline: broken promises happen ~30% of rounds in this simulation
-scorer.set_baseline(broken_promise_idx, 0.3);
-
-// Run 20 rounds of simulation, observing matches each round
-for round in 0..20 {
-    let matches = engine.evaluate(&graph);
-    scorer.observe(&matches, engine.patterns());
-    simulation.advance_one_tick(&mut graph);
-}
-
-// Score the latest round's matches
-let scored = scorer.score(&matches, engine.patterns());
-for m in &scored {
-    println!("{}: surprise = {:.2} bits", m.pattern, m.surprise);
-}
+```rust reference file=tests/use_cases_narrative_sifting.rs#surprise_scoring
 ```
 
 If broken promises fire in 18 of 20 rounds, surprise is low (~0.2 bits). If they fire in 2 of 20 rounds, surprise is high (~3.9 bits). A betrayal by a consistently loyal character in a peaceful simulation is genuinely surprising; the same betrayal in a war simulation is background noise.
@@ -233,6 +214,28 @@ A narrative manager registers all three patterns, runs them each tick, and surfa
 4. **Surface** -- highest-scoring matches become dialogue hints, camera focus, or journal entries
 
 For MCTS-driven narrative management, the `fabula-narratives` crate adds thread tracking (MICE quotient open/close pairs), tension arc classification (rising/falling/plateau/peak/valley), and pivot detection (Jensen-Shannon divergence between tick distributions). These feed into a composite scorer that evaluates candidate actions by their narrative quality. See the [Narrative Scoring Reference](/docs/reference/narratives).
+
+## Mapping your data
+
+Simulation events map to fabula edges as follows:
+
+| Real-world field | Fabula edge |
+|---|---|
+| eventID (unique per event) | source node |
+| eventType (meet, betray, travel) | label value |
+| actor, target, location | target nodes |
+| tick or simulation step | interval start |
+
+For events with duration (e.g., a siege), use `[start_tick, end_tick)`. For instantaneous events, use `[tick, tick+1)`.
+
+---
+
+## How fabula compares
+
+- **vs Felt (Kreminski 2019):** Fabula is a Rust port/extension of Felt. Felt introduced sifting patterns with variable joins and negation. Fabula extends with Allen interval algebra (13 temporal relations + metric gaps), composition operators (sequence, choice, repeat), and surprise scoring for ranking matches.
+- **vs Winnow (2021):** Winnow added incremental evaluation and exclusive choice groups. Fabula builds on Winnow and adds metric gap constraints, cross-stage value comparison (`e2.severity > ?sev`), concurrent stage groups, and the `fabula-narratives` composite scorer for MCTS integration.
+
+---
 
 ## Where to go next
 

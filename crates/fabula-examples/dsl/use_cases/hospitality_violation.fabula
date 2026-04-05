@@ -1,0 +1,20 @@
+pattern hospitality_violation {
+  stage e1 {
+    e1.type = "enter_town"
+    e1.actor -> ?guest
+  }
+  stage e2 {
+    e2.type = "show_hospitality"
+    e2.actor -> ?host
+    e2.target -> ?guest
+  }
+  stage e3 {
+    e3.type = "harm"
+    e3.actor -> ?host
+    e3.target -> ?guest
+  }
+  unless between e1 e3 {
+    mid.type = "leave_town"
+    mid.actor -> ?guest
+  }
+}

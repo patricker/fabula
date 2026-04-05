@@ -1,0 +1,10 @@
+// Temporal constraint with metric gap
+pattern quick_response {
+  stage e1 {
+    e1.type = "request"
+  }
+  stage e2 {
+    e2.type = "response"
+  }
+  temporal e1 before e2 gap 0..100
+}
