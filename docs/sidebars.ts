@@ -55,9 +55,9 @@ const sidebars: SidebarsConfig = {
       label: 'Concepts',
       items: [
         'concepts/overview',
+        'concepts/design-decisions',
         'concepts/how-the-engine-works',
         'concepts/temporal-model',
-        'concepts/design-decisions',
         'concepts/composition',
         'concepts/scoring-and-surprise',
         'concepts/narrative-quality',

@@ -168,7 +168,7 @@ pattern suspicious_login {
 }
 ```
 
-The Rust `PatternBuilder` API and the text DSL produce identical `Pattern` objects. Use whichever fits your workflow — the DSL is often easier for designers and configuration files, while the builder API integrates naturally into Rust code. See the [DSL Reference](/docs/reference/dsl) for full syntax.
+The Rust `PatternBuilder` API and the text DSL produce equivalent patterns that match the same events. Use whichever fits your workflow — the DSL is often easier for designers and configuration files, while the builder API integrates naturally into Rust code. See the [DSL Reference](/docs/reference/dsl) for full syntax.
 :::
 
 :::tip
