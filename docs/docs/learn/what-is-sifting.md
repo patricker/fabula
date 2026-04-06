@@ -51,6 +51,8 @@ import PatternPlayground from '@site/src/components/wasm/PatternPlayground';
   compact
 />
 
+**Story sifting** is the process of searching through a collection of simulated events to find sequences that match a pattern of interest -- a "narratively compelling" event chain in games, a policy violation in compliance, or an attack signature in security. Think of it as a regular expression engine, but for events on a temporal graph instead of characters in a string.
+
 The playground shows a **pattern** (left) matched against a **graph** (right). The pattern describes a sequence of events to find; the graph contains the actual events. One match: Alice accessed `db_prod` after her access was revoked, with no re-authorization between. Bob accessed `db_staging` too, but he was re-authorized first — so no violation.
 
 You just ran a sifting pattern. Try editing the graph — remove the `reauthorize` event for Bob and watch a second match appear.
@@ -96,7 +98,7 @@ Most tools solve part of this problem:
 - **CEP systems** (Flink, Esper) match event sequences but don't traverse graph structure or bind variables across joins.
 - **Datalog engines** (DataScript) query graph structure but don't do incremental matching as events stream in.
 - **Regular expressions** match sequences but have no notion of temporal intervals or entity identity.
-- **SIEM tools** correlate events but don't provide clause-level gap analysis explaining *why* a pattern didn't match.
+- **SIEM tools** correlate events but don't provide clause-level gap analysis (a clause-by-clause breakdown of why a pattern *didn't* match -- which stages succeeded, which failed, and why) explaining *why* a pattern didn't match.
 
 Fabula combines three capabilities in one library:
 
