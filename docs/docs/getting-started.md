@@ -13,6 +13,12 @@ title: Getting Started
 | **Difficulty** | Beginner |
 | **Prerequisites** | Rust 1.74+, cargo |
 
+:::note Not using Rust?
+Fabula has [WebAssembly bindings](/docs/guides/language-integration) for JavaScript/TypeScript,
+and the interactive [Playground](/docs/playground/pattern-playground) requires no installation at all.
+See the [Language Integration](/docs/guides/language-integration) guide for Python, C, and game engine options.
+:::
+
 You will build a pattern that detects a suspicious login: a user logs in from one location, then logs in from a *different* location within a short time, with no logout between. By the end, you will run the pattern in both batch and incremental mode and see the results.
 
 ---

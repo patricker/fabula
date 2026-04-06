@@ -76,6 +76,7 @@ const sidebars: SidebarsConfig = {
         'guides/debugging-patterns',
         'guides/custom-adapter',
         'guides/golden-tests',
+        'guides/language-integration',
         'guides/performance',
       ],
     },
