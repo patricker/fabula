@@ -226,6 +226,20 @@ These patterns are starting points, not production-ready rules. Each has known b
 
 ---
 
+:::caution Timestamp resolution
+Fabula requires **strict temporal ordering** between pattern stages (`stage_1.start < stage_2.start`). Events with identical timestamps cannot be placed in consecutive stages.
+
+**Impact on SIEM data:** Log sources that batch events with the same millisecond timestamp (common in syslog, Windows Event Log, and batch-import scenarios) need pre-processing. Options:
+
+1. **Add sub-millisecond resolution** -- if your source provides sequence numbers or microsecond precision, use those as the time type
+2. **Buffer and sort** -- collect events in a short window (e.g., 1 second), assign monotonic sequence IDs, then feed to fabula
+3. **Use batch evaluation** -- `evaluate_pattern()` sees all events simultaneously and is not affected by timestamp collisions
+
+See [Thinking in Time -- The cost of intervals](/docs/learn/thinking-in-time#the-cost-of-intervals) for full details.
+:::
+
+---
+
 ## How fabula compares
 
 - **vs Splunk correlation searches:** Threshold-based ("5 failed logins in 10 minutes"). No graph structure, no variable joins across events, no negation windows. Fabula patterns express multi-stage attack chains with entity correlation.

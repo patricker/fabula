@@ -236,6 +236,14 @@ These patterns detect structural anomalies but are not immune to noise:
 
 ---
 
+:::caution Timestamp resolution
+Fabula requires **strict temporal ordering** between stages. Telemetry events with identical timestamps (common in batch-exported spans) cannot be placed in consecutive stages.
+
+If your tracing backend exports spans with coarse timestamps, buffer and assign monotonic sequence IDs before feeding to fabula. Alternatively, use batch evaluation. See [Thinking in Time](/docs/learn/thinking-in-time#the-cost-of-intervals) for details.
+:::
+
+---
+
 ## How fabula compares
 
 - **vs Datadog monitors:** Metric thresholds and anomaly detection over time series. No structural pattern matching across distributed traces, no variable joins correlating caller/callee chains, no negation windows.

@@ -190,6 +190,14 @@ Each audit event becomes a set of edges sharing the source node. The actor and r
 
 ---
 
+:::caution Timestamp resolution
+Fabula requires **strict temporal ordering** between stages. Audit log entries with identical timestamps cannot be placed in consecutive stages.
+
+If your audit system batches events at the same second or millisecond, add sequence numbers or use batch evaluation (`evaluate_pattern()`), which sees all events simultaneously. See [Thinking in Time](/docs/learn/thinking-in-time#the-cost-of-intervals) for details.
+:::
+
+---
+
 ## How fabula compares
 
 - **vs SIEM correlation rules:** Time-windowed threshold alerts ("N events of type X within Y minutes"). No structural graph joins, no variable-scoped negation, no gap analysis for near-misses. Fabula patterns express entity-correlated forbidden sequences.
