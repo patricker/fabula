@@ -13,6 +13,12 @@ title: Getting Started
 | **Difficulty** | Beginner |
 | **Prerequisites** | Rust 1.74+, cargo |
 
+:::note Not using Rust?
+Fabula has [WebAssembly bindings](/docs/guides/language-integration) for JavaScript/TypeScript,
+and the interactive [Playground](/docs/playground/pattern-playground) requires no installation at all.
+See the [Language Integration](/docs/guides/language-integration) guide for Python, C, and game engine options.
+:::
+
 You will build a pattern that detects a suspicious login: a user logs in from one location, then logs in from a *different* location within a short time, with no logout between. By the end, you will run the pattern in both batch and incremental mode and see the results.
 
 ---
@@ -58,6 +64,30 @@ Expected output:
    Compiling fabula-demo v0.1.0 (/path/to/fabula-demo)
     Finished `dev` profile [unoptimized + debuginfo] target(s) in 1.23s
 ```
+
+---
+
+## How events become edges
+
+Before writing code, understand how fabula models data. Every event in your system maps to one or more **edges** in a temporal graph:
+
+| Your data | Fabula concept | Example |
+|-----------|---------------|---------|
+| Event ID | Source node | `"ev1"` |
+| Event type | Edge label | `"login"` |
+| Related entity | Edge target (node ref) | `"alice"` |
+| Property value | Edge target (string/number) | `"Seattle"` |
+| Timestamp | Interval start | `1` |
+
+A single event like `{id: "ev1", type: "login", user: "alice", location: "Seattle", time: 1}` becomes three edges:
+
+```text
+ev1 --[type]--> "login"      @ time 1
+ev1 --[user]--> alice         @ time 1
+ev1 --[location]--> "Seattle" @ time 1
+```
+
+This edge-based model works for any domain: game events, audit logs, network telemetry, process steps.
 
 ---
 
@@ -114,6 +144,32 @@ Here is what each piece does:
 - **Stage `login_a`**: Finds an event with `type = "login"`, binds its `user` edge to the variable `user`, and binds its `location` edge to `loc_a`.
 - **Stage `login_b`**: Finds a *later* event (stages are implicitly time-ordered) that is also a login. The `user` variable is already bound from stage 1, so this clause acts as a **join** — it only matches if the same user appears.  The `location` binds to `loc_b`.
 - **`unless_between`**: Between `login_a` and `login_b`, there must be no event with `type = "logout"` whose `user` matches the bound `user` variable. If such an event exists, the match is killed.
+
+:::tip DSL alternative
+The same pattern in fabula's text DSL:
+
+```fabula
+pattern suspicious_login {
+  stage e1 {
+    e1.type = "login"
+    e1.user -> ?user
+    e1.location -> ?loc_a
+  }
+  stage e2 {
+    e2.type = "login"
+    e2.user -> ?user
+    e2.location -> ?loc_b
+  }
+  unless between e1 e2 {
+    logout.type = "logout"
+    logout.user -> ?user
+  }
+  temporal e1 before e2
+}
+```
+
+The Rust `PatternBuilder` API and the text DSL produce equivalent patterns that match the same events. Use whichever fits your workflow — the DSL is often easier for designers and configuration files, while the builder API integrates naturally into Rust code. See the [DSL Reference](/docs/reference/dsl) for full syntax.
+:::
 
 :::tip
 Want to experiment without a Rust project? Try this pattern in the [Pattern Playground](/docs/playground/pattern-playground).

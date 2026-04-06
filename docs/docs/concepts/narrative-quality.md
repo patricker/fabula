@@ -39,7 +39,7 @@ The scorer penalizes unresolved plants -- promises made to the audience but not 
 
 ### Thread balance
 
-Kowal's MICE quotient classifies narrative threads into four types: Milieu (entering/leaving a space), Inquiry (question posed/answered), Character (internal conflict resolved), Event (disruption restored). The structural rule: threads should close in FILO order. The last thread opened should be the first one closed, like nested parentheses.
+Kowal's MICE quotient (a writing craft framework by Mary Robinette Kowal: stories are built from Milieu, Inquiry, Character, and Event threads that should close in FILO order) classifies narrative threads into four types: Milieu (entering/leaving a space), Inquiry (question posed/answered), Character (internal conflict resolved), Event (disruption restored). The structural rule: threads should close in FILO order. The last thread opened should be the first one closed, like nested parentheses.
 
 The `ThreadTracker` monitors open/close events for registered thread pairs. A thread "opens" when its open pattern begins matching (detected from `TickDelta.advanced`). A thread "closes" when its close pattern fully resolves (detected from `TickDelta.completed`). When a thread closes out of order -- a milieu thread closing while a later-opened inquiry thread is still open -- the tracker records a FILO violation. The scorer penalizes each violation. This pushes the GM toward structurally well-formed narratives, not just eventful ones.
 
@@ -47,13 +47,13 @@ The `ThreadTracker` monitors open/close events for registered thread pairs. A th
 
 Is tension moving in the right direction? The `TensionTracker` accepts a caller-supplied numeric sample each tick (stress level, faction hostility, danger rating -- whatever the simulation exposes) and classifies the trajectory over a sliding window: Rising, Falling, Plateau, Peak, or Valley. Classification uses linear regression for monotonic trends and half-window analysis for peaks and valleys.
 
-The GM declares a *desired* trajectory -- "I want tension to be rising right now." The scorer compares actual to desired via a three-valued fit function: +1.0 if the trajectories match (both Rising, or both Falling), -1.0 if they are opposites (Rising vs. Falling, Peak vs. Valley), and 0.0 for any other combination (including Unknown). This is the AI Director principle from Left 4 Dead (Booth 2009): pacing is not about maximizing intensity but about controlling its trajectory.
+The GM declares a *desired* trajectory -- "I want tension to be rising right now." The scorer compares actual to desired via a three-valued fit function: +1.0 if the trajectories match (both Rising, or both Falling), -1.0 if they are opposites (Rising vs. Falling, Peak vs. Valley), and 0.0 for any other combination (including Unknown). This is the AI Director (a runtime system that adjusts game pacing -- coined by Valve for Left 4 Dead's dynamic difficulty) principle from Left 4 Dead (Booth 2009): pacing is not about maximizing intensity but about controlling its trajectory.
 
 The insight from Ely, Frankel, and Kamenica (2015) is that trajectory matters more than absolute value for suspense. A slow climb from low tension is more suspenseful than a constant high. The scorer captures this by rewarding trajectory alignment, not tension magnitude.
 
 ### Pivot magnitude
 
-How much did the narrative state shift? The `PivotDetector` maintains a categorical distribution over event types each tick. At tick end, it computes the Jensen-Shannon Divergence between the current tick's distribution and the previous tick's. JSD is symmetric and bounded in [0, 1] when using log base 2.
+How much did the narrative state shift? The `PivotDetector` maintains a categorical distribution over event types each tick. At tick end, it computes the Jensen-Shannon Divergence (JSD -- a symmetric measure of how different two probability distributions are, bounded between 0 (identical) and 1 (completely different)) between the current tick's distribution and the previous tick's. JSD is symmetric and bounded in [0, 1] when using log base 2.
 
 Low JSD means this tick looks like the last one -- continuation. High JSD means the event landscape changed dramatically -- a pivot. A tick full of trade and diplomacy followed by a tick full of combat and flight produces high JSD. The scorer rewards pivots, giving the GM an incentive to create dramatic turns rather than monotonous event streams.
 

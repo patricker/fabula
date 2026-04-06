@@ -55,9 +55,9 @@ const sidebars: SidebarsConfig = {
       label: 'Concepts',
       items: [
         'concepts/overview',
+        'concepts/design-decisions',
         'concepts/how-the-engine-works',
         'concepts/temporal-model',
-        'concepts/design-decisions',
         'concepts/composition',
         'concepts/scoring-and-surprise',
         'concepts/narrative-quality',
@@ -76,6 +76,7 @@ const sidebars: SidebarsConfig = {
         'guides/debugging-patterns',
         'guides/custom-adapter',
         'guides/golden-tests',
+        'guides/language-integration',
         'guides/performance',
       ],
     },

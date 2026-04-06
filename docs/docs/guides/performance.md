@@ -211,3 +211,50 @@ The summary printed to stderr includes the average microseconds per `on_edge_add
 MemGraph stores edges in a `Vec` and answers `edges_from` queries by scanning the entire vec. This is O(E) per query. Since each `on_edge_added` call can trigger multiple `edges_from` queries (one per secondary clause), and batch evaluation scans all edges as potential triggers, MemGraph batch becomes O(E^2) in practice. PetGraph uses `petgraph`'s adjacency list, giving O(degree) lookups instead of O(E).
 
 The MemGraph label indexing optimization was deferred (see ROADMAP Phase 2.4) because the fingerprint optimization (Phase 2.3) closed the incremental performance gap to 28us/edge, and MemGraph is positioned as a testing-only adapter.
+
+## Domain-specific interpretation
+
+The benchmarks above use a narrative simulation workload. Here is how the numbers translate to other domains.
+
+### SIEM / Security
+
+A typical SIEM ingestion pipeline handles 1,000-10,000 events per second per source. Each event maps to 2-5 edges (type, source IP, destination, user, etc.):
+
+| Events/sec | Edges/sec | Single-thread headroom | Verdict |
+|------------|-----------|----------------------|---------|
+| 1,000 | 3,000 | 35,000 / 3,000 = 11.7x | Comfortable |
+| 5,000 | 15,000 | 35,000 / 15,000 = 2.3x | Tight -- consider sharding by source |
+| 10,000 | 30,000 | 35,000 / 30,000 = 1.2x | At limit -- shard or batch |
+
+**Key consideration:** SIEM events often arrive out of order from distributed sources. Fabula's incremental engine assumes temporal ordering. Buffer events in a short window (1-5 seconds), sort by timestamp, then feed in order. This adds latency equal to the buffer window.
+
+### Compliance / Audit
+
+Compliance workloads are typically lower volume (hundreds of events/second) but with more patterns (50-200 rules). Pattern count scaling:
+
+| Patterns | Overhead per edge | Notes |
+|----------|------------------|-------|
+| 30 | 28 us (baseline) | Default benchmark |
+| 100 | ~90 us | Near-linear scaling |
+| 300 | ~270 us | Still under 1ms per edge |
+
+At 100 patterns and 500 events/second (1,500 edges/second), fabula processes the backlog in ~135ms per second -- well within real-time.
+
+### Observability / Tracing
+
+Distributed tracing generates high-cardinality data (thousands of spans per second). Consider:
+
+- Use **batch evaluation** for post-hoc trace analysis (scan completed traces)
+- Use **incremental evaluation** only for real-time alerting on live spans
+- Shard by trace ID -- each trace is independent, so engines can run in parallel
+
+### Adapter choice matters
+
+| Adapter | Use case | Scaling |
+|---------|----------|---------|
+| MemGraph | Testing, small datasets (<10K edges) | O(E) per scan -- linear |
+| PetGraph | Production, medium datasets | O(degree) per edges_from -- fast |
+| GrafeoGraph | Large persistent graphs | Depends on Grafeo backend |
+| Custom | Your production store | You control the indexing |
+
+If you're seeing slow performance, the adapter is almost always the bottleneck, not the engine.

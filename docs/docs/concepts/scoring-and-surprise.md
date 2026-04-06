@@ -43,7 +43,7 @@ The scorer tracks how often each pattern fires across observation rounds (one ro
 
 If you told it "expect reconciliation to match in 50% of rounds" and it has matched in 1% of rounds, that is high surprise. Something is preventing reconciliations. Every reconciliation that does happen is noteworthy.
 
-The score is `-log2(observed / baseline)`. Positive means rarer than expected. Negative means more common. Near zero means the pattern is behaving as predicted. Laplace smoothing (`p = (count + 1) / (rounds + 1)`) handles the zero-observation case -- a pattern that has never fired gets a finite surprise score, not infinity.
+The score is `-log2(observed / baseline)`. Positive means rarer than expected. Negative means more common. Near zero means the pattern is behaving as predicted. Laplace smoothing (adding a small count to all observations so nothing has zero probability -- prevents division by zero and stabilizes early estimates) (`p = (count + 1) / (rounds + 1)`) handles the zero-observation case -- a pattern that has never fired gets a finite surprise score, not infinity.
 
 This is coarse-grained. It treats all matches of a pattern identically. A betrayal between rebels and crown gets the same score as a betrayal between a loyal character and the king. For finer discrimination, you need property-level scoring.
 
@@ -69,7 +69,7 @@ Different applications have different theories of what makes a match surprising.
 
 **ArithmeticMean** (default). Average frequency across all properties. A match with one rare property (freq 0.05) and one common property (freq 0.80) scores 0.425. Balanced and stable -- no single property dominates. This is the original StU heuristic from the Kreminski et al. paper. Lower score means more surprising.
 
-**TfIdf**. Total information content: `sum(-log2(freq))` across all properties. This is the only mode where higher means more surprising -- polarity is reversed. A property with frequency 0.05 contributes ~4.3 bits; one with frequency 0.80 contributes ~0.3 bits. A match with many moderately-rare properties can outscore a match with one very-rare property, because TfIdf accumulates rather than averages. Choose this when the *total amount* of unusual information matters more than the *average* rarity.
+**TF-IDF** (term frequency-inverse document frequency -- an information retrieval metric that rewards terms that are frequent locally but rare globally). Total information content: `sum(-log2(freq))` across all properties. This is the only mode where higher means more surprising -- polarity is reversed. A property with frequency 0.05 contributes ~4.3 bits; one with frequency 0.80 contributes ~0.3 bits. A match with many moderately-rare properties can outscore a match with one very-rare property, because TfIdf accumulates rather than averages. Choose this when the *total amount* of unusual information matters more than the *average* rarity.
 
 **GeometricMean**. The nth root of the product of frequencies. A single rare property pulls the entire score down multiplicatively. If three properties have frequencies 0.8, 0.7, 0.02, the geometric mean is about 0.1 -- dominated by the outlier. Compare to the arithmetic mean of 0.5, which hides the rare property. Use GeometricMean when outlier rarity matters but you do not want to ignore the common properties entirely.
 
@@ -106,7 +106,7 @@ The aggregation modes assume properties are independent. In practice, they often
 
 "Ambitious" and "king" might both be rare individually, but they always co-occur. If a character with the ambitious trait always targets the king, counting their rarities independently double-counts the same underlying signal. The match looks twice as surprising as it should be.
 
-Pointwise Mutual Information (PMI) measures this. `PMI(a, b) = log2(P(a,b) / (P(a) * P(b)))`. If two properties co-occur exactly as often as chance predicts, PMI is 0. If they co-occur more than expected, PMI is positive. A PMI above 1 bit indicates meaningful correlation.
+PMI (pointwise mutual information -- measures whether two events co-occur more than expected by chance; positive PMI means they attract, negative means they repel) measures this. `PMI(a, b) = log2(P(a,b) / (P(a) * P(b)))`. If two properties co-occur exactly as often as chance predicts, PMI is 0. If they co-occur more than expected, PMI is positive. A PMI above 1 bit indicates meaningful correlation.
 
 When PMI correction is enabled and a property pair exceeds the 1-bit threshold, the scorer replaces the less-rare member's frequency with its conditional frequency given the partner. Instead of treating "ambitious" as rare-in-general, it treats "ambitious given that king is also present" -- which is much higher if they always co-occur. This removes the redundant contribution without discarding the rarer property's signal.
 
