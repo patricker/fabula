@@ -1,7 +1,7 @@
 # Fabula Roadmap
 
 **Status**: Living document
-**Date**: 2026-04-04 (updated)
+**Date**: 2026-04-06 (updated)
 
 ---
 
@@ -58,7 +58,7 @@ lifecycle), `TensionTracker` (sliding window trajectory), `PivotDetector`
 
 **Performance baseline** (post-Phase 2.3): ~28us per `on_edge_added` call
 (petgraph, GM-scale workload). Petgraph well within 16ms frame budget.
-~420+ tests across all crates, 61 golden scenarios x 3 adapters.
+~700+ tests across 11 crates, 81 golden scenarios x 3 adapters.
 
 ### Salience Integration (DONE — 2026-04-03)
 
@@ -134,6 +134,40 @@ all changes from Phases 1–5 and Salience integration.
 | concepts/how-the-engine-works.md | New "Deadline expiry" subsection explaining `end_tick()` scan, `created_at_tick` inheritance, tuple return. |
 | concepts/overview.md | Mentioned metadata and deadline features in "Beyond matching" section. |
 | playground/step-through.mdx | Added "expired" to event type lists. |
+
+### Structured Gap Analysis (DONE — 2026-04-06)
+
+`ClauseAnalysis` now carries typed structured fields alongside the
+human-readable description, enabling programmatic consumers to act on
+gap data without parsing Debug-formatted strings.
+
+| Item | Summary |
+|------|---------|
+| `ClauseAnalysis<L, V>` | Generic over label/value types. New fields: `source_var: String`, `label: L`, `target: Target<V>`, `negated: bool`. |
+| `StageAnalysis<L, V>`, `GapAnalysis<L, V>` | Cascaded generics. All call sites already generic — mechanical change. |
+| WASM bindings | `ClauseAnalysisJson` exposes new fields as strings. |
+
+### Automated Pattern Discovery (DONE — 2026-04-05)
+
+`fabula-discovery` crate: generate-evaluate framework for discovering
+sifting patterns from simulation trace data without hand-authoring.
+
+| Item | Summary |
+|------|---------|
+| `TraceCorpus` | Indexed edge log with `pairwise_relations()` for Allen relation analysis across shared-node edge pairs. |
+| `CandidateGenerator` / `PatternEvaluator` / `PatternFilter` traits | Pluggable strategy pattern for the discovery loop. |
+| `MinerfulGenerator` | Single-pass constraint miner adapted from Di Ciccio & Mecella (2015). Discovers 2-stage patterns with Allen relation constraints. |
+| `SurpriseEvaluator` | Statistical interest factor: observed/expected co-occurrence frequency × rarity. |
+| `MatchQualityEvaluator` | Runs `evaluate_pattern` against a MemGraph built from the corpus. Sweet-spot scoring penalizes both over-general and over-specific patterns. |
+| `DiscoverySession` | Orchestrator with early termination, budget control, session history. |
+| `pattern_to_dsl()` | Reverse compiler: `Pattern<String, String>` → parseable fabula DSL text. Documented lossy cases (Between constraint, composition metadata). |
+| 50 tests | 43 unit/integration + 7 validation experiments (planted pattern recovery, holdout generalization, noise tolerance, evaluator calibration, round-trip fidelity, threshold sweep, narrative arc discovery). |
+
+**Validated findings**: 3/3 planted pattern recovery, 100% round-trip fidelity, surprise evaluator correctly ranks rare > medium > common, 6/10 narrative arcs recovered from Romeo & Juliet corpus.
+
+**Known limitations**: 2-stage patterns only (MINERful is pairwise), noise tolerance degrades at ~30:1 noise ratio (global support denominator), MatchQuality returns 0 for non-Before/Meets temporal relations (open-ended interval fallback limitation).
+
+**Future work**: Normalized per-label support, multi-stage pattern assembly (TIRP mining), LLM-assisted candidate generator, narrative quality evaluator using fabula-narratives.
 
 ---
 
@@ -373,21 +407,29 @@ in the parser.
 **Files**: `fabula-dsl/src/{parser,ast,compiler}.rs`
 **Effort**: Medium
 
-#### 7.6 DSL non-exclusive choice
+### DSL Non-Exclusive Choice (DONE — 2026-04-04)
 
-Currently all `|` creates mutual exclusion groups. Add syntax for
-non-exclusive choice where multiple alternatives can match independently.
+`compose x = a | b nonexclusive` syntax. All branches can match
+independently instead of creating a mutual exclusion group.
 
-**Files**: `fabula-dsl/src/{parser,compiler}.rs`, `fabula/src/compose.rs`
-**Effort**: Small
+| Item | Summary |
+|------|---------|
+| `choice(patterns, exclusive)` | `exclusive: bool` parameter on `compose::choice()`. Non-exclusive skips group assignment. |
+| DSL `nonexclusive` keyword | Parser recognizes trailing `nonexclusive` on `\|` compose expressions. |
+| Golden test | `non_exclusive_choice` scenario verifying both branches match. |
 
-#### 7.7 DSL `private` pattern modifier
+### DSL Private Pattern Modifier (DONE — 2026-04-04)
 
-Mark patterns that should not appear in output — they exist only as
-building blocks for composition.
+`private pattern name { }` syntax. Private patterns participate in
+matching (including exclusive choice groups) but are filtered from all
+engine output.
 
-**Files**: `fabula-dsl/src/{ast,parser,compiler}.rs`, `fabula/src/pattern.rs`
-**Effort**: Small
+| Item | Summary |
+|------|---------|
+| `Pattern.private: bool` | Field on `Pattern<L, V>`, preserved through `map_types()`, composition. |
+| Engine output filtering | `on_edge_added`, `evaluate`, `drain_completed`, `end_tick`, `tick_delta` all filter private patterns from results. |
+| DSL `private` keyword | Parser recognizes `private` before `pattern`. Compiler sets the flag. |
+| 5 new tests | Private pattern suppression, private in choice groups, DSL round-trip, end-to-end. |
 
 #### 7.8 Kernel/satellite metadata — SUBSUMED
 
@@ -502,12 +544,14 @@ one-line fixes).
 | 2 | Benchmarking | **DONE** | Stats counters, profiling + divan harness, fingerprint optimization (5.8x) |
 | 3 | Composition | **DONE** | Pattern algebra, DSL compose syntax, surprise scoring (Shannon + StU) |
 | 4 | Narrative Scoring | **DONE** | Thread tracker, tension tracker, pivot detector, MCTS scorer |
-| — | Salience Integration | **DONE** | Free functions, Match intervals, early termination, serde, Eq+Hash, composable parser, MemGraph utilities |
+| — | Salience Integration | **DONE** | Free functions, Match intervals, early termination, serde, Eq+Hash, composable parser, MemGraph utilities, structured ClauseAnalysis |
 | 5 | Platform Generalization | **DONE** | Metadata, timeout events, cross-stage comparison, repeat range, unordered stages |
 | 7.1–7.4 | Scoring Refinements | **DONE** | StU aggregation (4 modes), confidence weighting, PMI correction, SequentialScorer |
+| 7.6–7.7 | DSL Refinements | **DONE** | Non-exclusive choice, private patterns |
 | — | Documentation | **DONE** | 52-page doc site, fabula-examples crate (83 tests), remark-code-region plugin |
+| — | Pattern Discovery | **DONE** | fabula-discovery crate: MINERful generator, evaluators, DSL emission, 50 tests |
 | **6** | **Narrative Stack** | PLANNED | Causality tracing, character appraisal, knowledge propagation |
-| **7.5–7.7** | **DSL Refinements** | PLANNED | Nested compose, non-exclusive choice, private patterns |
+| **7.5** | **DSL Nested Compose** | PLANNED | Recursive expression parsing for `(a >> b) \| c` |
 | **8** | **Research** | FUTURE | Formal semantics (30%), scalability paper (60%), expressiveness hierarchy (20%) |
 
 ---
