@@ -7,14 +7,17 @@ description = "Benchmark harness and profiling binary for fabula"
 publish = false
 
 [dependencies]
-fabula          = { path = "../fabula" }
-fabula-memory   = { path = "../fabula-memory" }
-fabula-petgraph = { path = "../fabula-petgraph" }
+fabula            = { path = "../fabula" }
+fabula-memory     = { path = "../fabula-memory" }
+fabula-narratives = { path = "../fabula-narratives" }
+fabula-petgraph   = { path = "../fabula-petgraph" }
 fabula-test-suite = { path = "../fabula-test-suite" }
-dhat            = { version = "0.3", optional = true }
+dhat              = { version = "0.3", optional = true }
 
 [dev-dependencies]
-divan = "0.1"
+divan       = "0.1"
+mcts        = { path = "../../../mcts" }
+mcts-gumbel = { path = "../../../mcts/mcts-gumbel" }
 
 [features]
 dhat-heap = ["dep:dhat"]
@@ -23,6 +26,18 @@ dhat-heap = ["dep:dhat"]
 name = "fabula-profile"
 path = "src/bin/profile.rs"
 
+[[bin]]
+name = "narrative-profile"
+path = "src/bin/narrative_profile.rs"
+
 [[bench]]
 name = "engine"
+harness = false
+
+[[bench]]
+name = "narratives"
+harness = false
+
+[[bench]]
+name = "mcts_comparison"
 harness = false
