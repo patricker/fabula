@@ -85,13 +85,76 @@ Stage depth affects the advancement phase (Phase 3). More stages mean more parti
 
 Negation checking (Phase 1) iterates over active partial matches with negation windows. The cost depends on how many active partial matches have negation and how many clauses are in each negation body.
 
+## Narrative scoring pipeline
+
+The `fabula-narratives` scoring pipeline sits on top of the engine: `ThreadTracker` → `TensionTracker` → `PivotDetector` → `assemble_signals` → `score`. For MCTS evaluation, this runs once per rollout per tick. The benchmark suite exercises the full pipeline on synthetic traces without a real `SiftEngine`.
+
+### Per-tick latency
+
+| Characters | Mean per tick | Notes |
+|---|---|---|
+| 2 | ~11 us | Minimal event volume |
+| 10 | ~15 us | Default GM-scale |
+| 50 | ~18 us | Moderate scaling |
+| 200 | ~19 us | Sub-linear -- scoring arithmetic is constant-time |
+
+Per-tick cost grows sub-linearly with character count because the expensive work (FILO check, JSD computation) scales with thread count and event diversity, not character count directly.
+
+### Scaling dimensions
+
+**Thread count is the hot dimension.** `ThreadTracker::check_filo` replays the open/close history to validate nesting, which is quadratic in the number of thread close events:
+
+| Threads | 500-tick trace | Per-tick mean |
+|---|---|---|
+| 2 | 3.1 ms | 6.2 us |
+| 8 | 6.6 ms | 13.2 us |
+| 16 | 38.6 ms | 77.2 us |
+| 32 | 346 ms | 692 us |
+
+At 16+ concurrent MICE threads, `check_filo` dominates. If your narrative has many concurrent threads, consider calling `check_filo` less frequently (every N ticks rather than every tick) or capping the close history.
+
+**Event diversity** scales linearly via `PivotDetector`'s JSD computation over HashMap keys:
+
+| Event types | 500-tick trace |
+|---|---|
+| 5 | 3.0 ms |
+| 15 | 3.7 ms |
+| 50 | 5.5 ms |
+| 100 | 6.5 ms |
+
+**Stall rate and plant count** have negligible impact on scoring cost.
+
+### MCTS: PUCT vs Gumbel
+
+The benchmark suite wraps the scoring pipeline as an MCTS evaluation function and compares standard PUCT (AlphaGo-style) against Gumbel search (Danihelka et al. 2022) at equivalent simulation budgets. The game has branching factor 5 and search depth 4, matching the `wk-mcts` configuration.
+
+**Simulation budget sweep** (50 characters):
+
+| Simulations | PUCT | Gumbel | Ratio |
+|---|---|---|---|
+| 32 | 387 us | 222 us | 1.7x |
+| 64 | 785 us | 550 us | 1.4x |
+| 128 | 1.59 ms | 1.18 ms | 1.3x |
+| 256 | 3.22 ms | 2.68 ms | 1.2x |
+
+**Character count scaling** (PUCT-200 vs Gumbel-64):
+
+| Characters | PUCT-200 | Gumbel-64 |
+|---|---|---|
+| 2 | 2.3 ms | 0.56 ms |
+| 10 | 1.5 ms | 0.66 ms |
+| 50 | 2.5 ms | 1.1 ms |
+| 200 | 4.2 ms | 2.0 ms |
+
+**The Gumbel verdict:** At equivalent quality (Gumbel-64 ≈ PUCT-200 per the paper's claims), Gumbel saves ~2.3x wall-clock time. However, even at 200 characters, both variants stay well under the 16ms/60fps budget. The scoring pipeline is **not** the MCTS bottleneck -- tree search overhead and state cloning dominate. Gumbel's advantage comes from reducing tree management cost, not evaluation cost. Gumbel becomes compelling when you need the time savings for other frame work (rendering, physics, AI), not because scoring is too slow.
+
 ## Frame budget
 
 At 60 fps, one frame is **16.67 ms**. At 28us per `on_edge_added` call, the engine can process roughly **570 edges per frame** before consuming the entire frame budget. In practice you want sifting to take a small fraction of the frame:
 
 | Scenario | Events/sec | Per-frame edges | Budget used |
 |---|---|---|---|
-| Narrative sim (10 chars, 10 ticks/s) | ~100-200 | ~10-20 | < 1% |
+| Narrative sim (10 chars, 10 ticks/s) | ~100-200 | ~10-20 | &lt; 1% |
 | 64-player server at 64 ticks/s | ~4,000 | ~63 | ~11% |
 | Battle royale, 100 players at 128 ticks/s | ~13,000 | ~200 | ~34% |
 | IoT sensor network (1K-15K events/s) | ~15,000 | N/A (not frame-based) | 43% of 1-second budget |
@@ -120,19 +183,42 @@ Partial matches are the primary memory consumer. Each `PartialMatch` holds a `Ha
 cargo bench -p fabula-bench
 ```
 
-This runs the full [divan](https://github.com/nvzqz/divan) benchmark suite, which includes:
+This runs all [divan](https://github.com/nvzqz/divan) benchmarks. You can also run individual bench targets:
 
-**GM-profile benchmarks** (Tier 1):
+```bash
+cargo bench -p fabula-bench --bench engine          # SiftEngine only
+cargo bench -p fabula-bench --bench narratives       # Scoring pipeline only
+cargo bench -p fabula-bench --bench mcts_comparison  # PUCT vs Gumbel
+```
+
+**Engine benchmarks** (`--bench engine`):
+
 - `gm_profile::edges_per_tick_petgraph` -- 1, 10, 50 edges per tick
 - `gm_profile::edges_per_tick_memgraph` -- same, MemGraph adapter
 - `gm_profile::negation_fraction_petgraph` -- 0%, 50%, 100% negation
 - `gm_profile::warm_edges_per_tick_petgraph` -- warm-start with ~100-200 active PMs
-
-**Scaling benchmarks** (Tier 2):
 - `scaling::pattern_count_petgraph` -- 1, 10, 30, 100 patterns
 - `scaling::edge_count_petgraph` -- 100, 1K, 5K pre-existing edges
 - `scaling::stage_count_petgraph` -- 1, 3, 5 stages per pattern
 - `scaling::batch_petgraph` -- batch evaluation at 100 and 1K edges
+
+**Narrative scoring benchmarks** (`--bench narratives`):
+
+- `throughput::character_scaling` -- full pipeline at 2, 10, 50, 200 characters (reports ticks/sec)
+- `throughput::tick_count_scaling` -- 50, 200, 500, 1000 ticks
+- `per_tick::character_scaling` -- single-tick latency with pre-warmed trackers
+- `per_tick::thread_scaling` -- per-tick cost at 2, 8, 16, 32 threads
+- `per_tick::event_diversity_scaling` -- per-tick cost at 5, 15, 50, 100 event types
+- `scaling::thread_count` -- full trace at 2, 8, 16, 32 threads
+- `scaling::event_diversity` -- full trace at 5, 15, 50, 100 event types
+- `scaling::stall_rate` -- full trace at 0%, 10%, 30%, 50% stall rate
+
+**MCTS comparison** (`--bench mcts_comparison`):
+
+- `puct_vs_gumbel::puct_simulations` -- PUCT at 32, 64, 128, 256, 512 simulations
+- `puct_vs_gumbel::gumbel_simulations` -- Gumbel at 16, 32, 64, 128, 256 simulations
+- `character_scaling::puct` -- PUCT-200 at 2, 10, 50, 200 characters
+- `character_scaling::gumbel` -- Gumbel-64 at 2, 10, 50, 200 characters
 
 ### Configuring a custom workload
 
@@ -160,22 +246,15 @@ let workload = build_isolated_workload::<PetGraph>(&config);
 
 For divan benchmarks, put workload construction inside `with_inputs` (unmeasured setup) and only time the `on_edge_added` / `evaluate` calls.
 
-### Profiling binary
+### Profiling binaries
 
-The `fabula-profile` binary runs a full 200-tick GM simulation and emits per-tick CSV to stdout:
+**`fabula-profile`** runs a full 200-tick GM simulation (SiftEngine) and emits per-tick CSV:
 
 ```bash
-# Per-tick CSV (pipe to file for analysis)
 cargo run --release --bin fabula-profile > profile.csv
-
-# Choose adapter
 cargo run --release --bin fabula-profile -- --adapter memgraph > profile.csv
-
-# Heap profiling with dhat
-cargo run --release --bin fabula-profile --features dhat-heap
-
-# CPU flamegraph with samply
-samply record target/release/fabula-profile
+cargo run --release --bin fabula-profile --features dhat-heap  # heap allocation profile
+samply record target/release/fabula-profile                    # CPU flamegraph
 ```
 
 The CSV columns are:
@@ -194,7 +273,18 @@ The CSV columns are:
 | `completed` | Patterns that completed this tick |
 | `negated` | PMs killed by negation this tick |
 
-The summary printed to stderr includes the average microseconds per `on_edge_added` call across the full run.
+**`narrative-profile`** runs the scoring pipeline on a synthetic 1000-tick trace and emits per-tick CSV:
+
+```bash
+cargo run --release --bin narrative-profile > narrative.csv
+cargo run --release --bin narrative-profile -- --characters 200       # scale up
+cargo run --release --bin narrative-profile -- --shape chaotic        # flat | chaotic | rising
+cargo run --release --bin narrative-profile --features dhat-heap      # peak allocation
+```
+
+The CSV columns are `tick, elapsed_us, advancements, completions, stalled, filo_violations, pivot, tension_fit, score`. The summary on stderr reports average per-tick cost, throughput (ticks/sec), and estimated MCTS-1000 wall-clock time.
+
+Both summaries print average per-call microseconds to stderr.
 
 ## Adapter comparison
 
@@ -252,7 +342,7 @@ Distributed tracing generates high-cardinality data (thousands of spans per seco
 
 | Adapter | Use case | Scaling |
 |---------|----------|---------|
-| MemGraph | Testing, small datasets (<10K edges) | O(E) per scan -- linear |
+| MemGraph | Testing, small datasets (&lt;10K edges) | O(E) per scan -- linear |
 | PetGraph | Production, medium datasets | O(degree) per edges_from -- fast |
 | GrafeoGraph | Large persistent graphs | Depends on Grafeo backend |
 | Custom | Your production store | You control the indexing |
