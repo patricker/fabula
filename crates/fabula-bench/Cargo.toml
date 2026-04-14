@@ -16,8 +16,8 @@ dhat              = { version = "0.3", optional = true }
 
 [dev-dependencies]
 divan       = "0.1"
-mcts        = { path = "../../../mcts" }
-mcts-gumbel = { path = "../../../mcts/mcts-gumbel" }
+treant        = "0.4"
+treant-gumbel = "0.1"
 
 [features]
 dhat-heap = ["dep:dhat"]

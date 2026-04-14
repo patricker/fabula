@@ -21,9 +21,9 @@ use fabula_narratives::pivot::PivotDetector;
 use fabula_narratives::scorer::{assemble_signals, score, NarrativeWeights};
 use fabula_narratives::tension::TensionTracker;
 use fabula_narratives::thread::ThreadTracker;
-use mcts::tree_policy::AlphaGoPolicy;
-use mcts::{CycleBehaviour, GameState, MCTSManager, MCTS};
-use mcts_gumbel::{GumbelConfig, GumbelEvaluator, GumbelSearch};
+use treant::tree_policy::AlphaGoPolicy;
+use treant::{CycleBehaviour, GameState, MCTSManager, MCTS};
+use treant_gumbel::{GumbelConfig, GumbelEvaluator, GumbelSearch};
 
 fn main() {
     divan::main();
@@ -112,14 +112,14 @@ struct NarrativePUCTEval {
     weights: NarrativeWeights,
 }
 
-impl mcts::Evaluator<NarrativePUCTSpec> for NarrativePUCTEval {
+impl treant::Evaluator<NarrativePUCTSpec> for NarrativePUCTEval {
     type StateEvaluation = i64;
 
     fn evaluate_new_state(
         &self,
         state: &NarrativeGame,
         moves: &Vec<usize>,
-        _handle: Option<mcts::SearchHandle<NarrativePUCTSpec>>,
+        _handle: Option<treant::SearchHandle<NarrativePUCTSpec>>,
     ) -> (Vec<f64>, i64) {
         let value = self.evaluate_state(state);
         let n = moves.len();
@@ -135,7 +135,7 @@ impl mcts::Evaluator<NarrativePUCTSpec> for NarrativePUCTEval {
         &self,
         state: &NarrativeGame,
         _existing: &i64,
-        _handle: mcts::SearchHandle<NarrativePUCTSpec>,
+        _handle: treant::SearchHandle<NarrativePUCTSpec>,
     ) -> i64 {
         self.evaluate_state(state)
     }
@@ -248,8 +248,7 @@ fn run_puct(trace: &Arc<NarrativeTrace>, simulations: u64) {
     let eval = NarrativePUCTEval {
         weights: NarrativeWeights::default(),
     };
-    let mut manager =
-        MCTSManager::new(game, NarrativePUCTSpec, eval, AlphaGoPolicy::new(1.5), ());
+    let mut manager = MCTSManager::new(game, NarrativePUCTSpec, eval, AlphaGoPolicy::new(1.5), ());
     manager.playout_n(simulations);
     std::hint::black_box(manager.best_move());
 }

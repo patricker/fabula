@@ -301,8 +301,8 @@ dependencies = [
  "fabula-narratives",
  "fabula-petgraph",
  "fabula-test-suite",
- "mcts",
- "mcts-gumbel",
+ "treant",
+ "treant-gumbel",
 ]
 
 [[package]]
@@ -592,24 +592,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "224399e74b87b5f3557511d98dff8b14089b3dadafcab6bb93eab67d3aace965"
 dependencies = [
  "scopeguard",
-]
-
-[[package]]
-name = "mcts"
-version = "0.3.0"
-dependencies = [
- "rand",
- "rand_xoshiro",
- "vec_storage_reuse",
-]
-
-[[package]]
-name = "mcts-gumbel"
-version = "0.1.0"
-dependencies = [
- "mcts",
- "rand",
- "rand_xoshiro",
 ]
 
 [[package]]
@@ -999,6 +981,28 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn",
+]
+
+[[package]]
+name = "treant"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "bdfb4bd8070524e3cc5a4255e873dcd1a4f2da07c8d436a24d2be506f32bed21"
+dependencies = [
+ "rand",
+ "rand_xoshiro",
+ "vec_storage_reuse",
+]
+
+[[package]]
+name = "treant-gumbel"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "61ff798507e68c8a63d7e64a9786ed7e2440169b88c11fbffaa73087d90036a4"
+dependencies = [
+ "rand",
+ "rand_xoshiro",
+ "treant",
 ]
 
 [[package]]
