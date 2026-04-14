@@ -1,0 +1,61 @@
+name: release-plz
+
+# release-plz drives semi-manual releases:
+#  - `release-plz-pr` job: on every push to main, opens/updates a
+#    "chore: release" PR with version bumps + changelogs. Sit on the PR
+#    for as long as you like; edit or close it freely. Nothing publishes.
+#  - `release-plz-release` job: when the release PR is merged, publishes
+#    the crates with new versions to crates.io in dependency order and
+#    creates matching GitHub releases.
+#
+# Required secrets:
+#   CARGO_REGISTRY_TOKEN — crates.io API token (Settings → Secrets)
+#
+# `publish = false` in a crate's Cargo.toml excludes it from releases.
+
+permissions:
+  pull-requests: write
+  contents: write
+
+on:
+  push:
+    branches:
+      - main
+
+# Avoid stepping on our own toes if two pushes land quickly
+concurrency:
+  group: release-plz-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-plz-release:
+    name: release-plz (publish)
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'patricker' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: MarcoIeni/release-plz-action@v0.5
+        with:
+          command: release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  release-plz-pr:
+    name: release-plz (PR)
+    runs-on: ubuntu-latest
+    if: ${{ github.repository_owner == 'patricker' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: MarcoIeni/release-plz-action@v0.5
+        with:
+          command: release-pr
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}

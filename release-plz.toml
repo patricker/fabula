@@ -1,0 +1,17 @@
+# release-plz configuration
+# Docs: https://release-plz.ieni.dev/docs/config
+
+[workspace]
+# Create GitHub releases alongside crates.io publishes
+git_release_enable = true
+
+# Run cargo-semver-checks before proposing a release PR —
+# flags breaking changes so you can decide whether to bump major.
+semver_check = true
+
+# Update internal workspace deps when a crate bumps.
+# (Default, but explicit since fabula crates depend on each other.)
+dependencies_update = true
+
+# Keep commit messages used in changelogs close to the source
+changelog_update = true
