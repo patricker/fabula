@@ -12,9 +12,9 @@ const config: Config = {
     v4: true,
   },
 
-  // GitHub Pages
-  url: 'https://patricker.github.io',
-  baseUrl: '/fabula/',
+  // GitHub Pages (custom domain)
+  url: 'https://sifting.dev',
+  baseUrl: '/',
   organizationName: 'patricker',
   projectName: 'fabula',
   trailingSlash: false,
