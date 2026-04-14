@@ -93,7 +93,7 @@ const config: Config = {
           ],
         },
       ],
-      copyright: `Copyright © ${new Date().getFullYear()} Fabula contributors. Apache-2.0.`,
+      copyright: `Copyright © ${new Date().getFullYear()} Fabula contributors. MIT.`,
     },
     prism: {
       theme: prismThemes.github,

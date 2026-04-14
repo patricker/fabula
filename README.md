@@ -215,4 +215,4 @@ See [DESIGN.md](DESIGN.md) for the full feature mapping to the reference impleme
 
 ## License
 
-Apache-2.0
+MIT
