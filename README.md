@@ -1,6 +1,14 @@
 # Fabula
 
-Incremental pattern matching over temporal graphs.
+[![Crates.io](https://img.shields.io/crates/v/fabula.svg)](https://crates.io/crates/fabula)
+[![docs.rs](https://img.shields.io/docsrs/fabula)](https://docs.rs/fabula)
+[![CI](https://github.com/patricker/fabula/actions/workflows/ci.yml/badge.svg)](https://github.com/patricker/fabula/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Docs](https://img.shields.io/badge/docs-sifting.dev-blue)](https://sifting.dev)
+
+**Incremental pattern matching over temporal graphs.**
+
+📖 Full documentation, tutorials, and interactive playground at **[sifting.dev](https://sifting.dev)** · [Getting Started](https://sifting.dev/docs/getting-started) · [What Is Sifting?](https://sifting.dev/docs/learn/what-is-sifting) · [Pattern Playground](https://sifting.dev/docs/playground/pattern-playground)
 
 Fabula finds patterns in graphs where edges have validity intervals. Define a pattern ("character whose loyalty dropped after an institutional failure, with no trust recovery in between"), register it with the engine, and it tracks partial matches incrementally as new edges arrive.
 
@@ -67,17 +75,26 @@ assert_eq!(matches.len(), 1);
 
 ## Crates
 
-| Crate | Dependencies | Purpose |
+### Published
+
+| Crate | Purpose | Docs |
 |---|---|---|
-| [`fabula`](crates/fabula) | None | Core library: pattern types, `DataSource` trait, `SiftEngine`, Allen algebra, scoring |
-| [`fabula-memory`](crates/fabula-memory) | `fabula` | `MemGraph` -- simple in-memory `DataSource` for testing and prototyping |
-| [`fabula-petgraph`](crates/fabula-petgraph) | `fabula`, `petgraph` | `DataSource` adapter wrapping `petgraph::StableGraph` with temporal edges |
-| [`fabula-grafeo`](crates/fabula-grafeo) | `fabula`, `grafeo` | `DataSource` adapter for the [Grafeo](https://github.com/GrafeoDB/grafeo) graph database |
-| [`fabula-dsl`](crates/fabula-dsl) | `fabula`, `fabula-memory` | Text DSL parser: pattern syntax, graph syntax, compose operators, TypeMapper |
-| [`fabula-narratives`](crates/fabula-narratives) | `fabula` | Narrative scoring: thread tracking, tension arcs, pivot detection, MCTS quality function |
-| [`fabula-wasm`](crates/fabula-wasm) | `fabula`, `fabula-dsl`, `fabula-memory` | WebAssembly bindings for DSL parsing and evaluation |
-| [`fabula-test-suite`](crates/fabula-test-suite) | all adapters | Golden test suite: 61 scenarios running against all 3 adapters (183 tests) |
-| [`fabula-bench`](crates/fabula-bench) | `fabula`, adapters | Benchmark harness: divan parameterized benchmarks + profiling binary |
+| [`fabula`](https://crates.io/crates/fabula) | Core library: pattern types, `DataSource` trait, `SiftEngine`, Allen algebra, scoring | [API](https://docs.rs/fabula) · [Reference](https://sifting.dev/docs/reference/engine) |
+| [`fabula-memory`](https://crates.io/crates/fabula-memory) | `MemGraph` — simple in-memory `DataSource` for testing and prototyping | [API](https://docs.rs/fabula-memory) · [Reference](https://sifting.dev/docs/reference/adapters/memory) |
+| [`fabula-petgraph`](https://crates.io/crates/fabula-petgraph) | `DataSource` adapter wrapping `petgraph::StableGraph` with temporal edges | [API](https://docs.rs/fabula-petgraph) · [Reference](https://sifting.dev/docs/reference/adapters/petgraph) |
+| [`fabula-dsl`](https://crates.io/crates/fabula-dsl) | Text DSL parser: pattern syntax, graph syntax, compose operators, TypeMapper | [API](https://docs.rs/fabula-dsl) · [Reference](https://sifting.dev/docs/reference/dsl) |
+| [`fabula-narratives`](https://crates.io/crates/fabula-narratives) | Narrative scoring: thread tracking, tension arcs, pivot detection, MCTS quality function | [API](https://docs.rs/fabula-narratives) · [Reference](https://sifting.dev/docs/reference/narratives) |
+| [`fabula-discovery`](https://crates.io/crates/fabula-discovery) | Automated sifting pattern discovery — generate-evaluate framework with MINERful | [API](https://docs.rs/fabula-discovery) |
+
+### Internal (not published)
+
+| Crate | Purpose |
+|---|---|
+| [`fabula-grafeo`](crates/fabula-grafeo) | `DataSource` adapter for the [Grafeo](https://github.com/GrafeoDB/grafeo) graph database |
+| [`fabula-wasm`](crates/fabula-wasm) | WebAssembly bindings — powers the [Pattern Playground](https://sifting.dev/docs/playground/pattern-playground) |
+| [`fabula-test-suite`](crates/fabula-test-suite) | Golden test suite: scenarios running against all 3 adapters |
+| [`fabula-bench`](crates/fabula-bench) | Benchmark harness: divan parameterized benchmarks + profiling binary |
+| [`fabula-examples`](crates/fabula-examples) | Compiled code examples used by the documentation site |
 
 ## The DataSource Trait
 
@@ -108,7 +125,7 @@ pub trait DataSource {
 }
 ```
 
-Implement this for your graph store and fabula handles the rest.
+Implement this for your graph store and fabula handles the rest. See the **[Custom Adapter guide](https://sifting.dev/docs/guides/custom-adapter)** on sifting.dev for a walkthrough.
 
 ## Patterns
 
@@ -137,6 +154,8 @@ Three forms:
 - **`unless_between("e1", "e3", ...)`** -- no matching event between two stages
 - **`unless_after("e1", ...)`** -- no matching event after a stage (open-ended)
 - **`unless_global(...)`** -- no matching event anywhere in the pattern's span
+
+See the **[Pattern Cookbook](https://sifting.dev/docs/guides/pattern-cookbook)** for common negation recipes.
 
 ### Incremental Matching
 
@@ -171,7 +190,7 @@ if let Some(analysis) = engine.why_not(&graph, "my_pattern") {
 
 ## Bringing Your Own Graph
 
-Implement `DataSource` for your graph store. See the adapter crates for examples:
+Implement `DataSource` for your graph store. Start with the **[Custom Adapter guide](https://sifting.dev/docs/guides/custom-adapter)**, then look at the reference adapters:
 
 - [`fabula-memory/src/lib.rs`](crates/fabula-memory/src/lib.rs) -- simplest (~200 LOC, Vec-backed linear scan)
 - [`fabula-petgraph/src/lib.rs`](crates/fabula-petgraph/src/lib.rs) -- wraps petgraph's StableGraph (~220 LOC)
@@ -211,7 +230,7 @@ Extensions beyond Felt/Winnow:
 - **Surprise scoring** -- Shannon surprise + StU (Kreminski et al. 2022 ICIDS)
 - **Narrative scoring** -- thread tracking (Kowal MICE), tension arcs (Booth 2009), pivot detection (Schulz et al. 2024), composite MCTS quality function (Nelson & Mateas 2005)
 
-See [DESIGN.md](DESIGN.md) for the full feature mapping to the reference implementations.
+See [DESIGN.md](DESIGN.md) for the full feature mapping to the reference implementations, or read the **[Design Decisions](https://sifting.dev/docs/concepts/design-decisions)** page on sifting.dev for the narrative version.
 
 ## License
 
