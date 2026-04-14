@@ -3,12 +3,15 @@ name = "fabula-discovery"
 version = "0.1.0"
 edition.workspace = true
 license.workspace = true
+repository.workspace = true
+homepage.workspace = true
 description = "Automated sifting pattern discovery for fabula"
-publish = false
+keywords = ["pattern-discovery", "sifting", "process-mining", "fabula", "narrative"]
+categories = ["algorithms", "science"]
 
 [dependencies]
-fabula = { path = "../fabula" }
-fabula-memory = { path = "../fabula-memory" }
+fabula = { path = "../fabula", version = "0.1" }
+fabula-memory = { path = "../fabula-memory", version = "0.1" }
 
 [dev-dependencies]
-fabula-dsl = { path = "../fabula-dsl" }
+fabula-dsl = { path = "../fabula-dsl", version = "0.1" }

@@ -19,3 +19,5 @@ edition = "2021"
 license = "MIT"
 description = "Incremental pattern matching over temporal graphs"
 keywords = ["graph", "pattern-matching", "temporal", "sifting", "narrative"]
+repository = "https://github.com/patricker/fabula"
+homepage = "https://sifting.dev"
