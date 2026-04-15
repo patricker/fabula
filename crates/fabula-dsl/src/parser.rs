@@ -473,8 +473,18 @@ impl Parser {
         } else if self.check(TokenKind::Gte) {
             self.advance();
             self.parse_constraint_target(ConstraintOp::Gte)?
+        } else if self.check(TokenKind::In) {
+            self.advance();
+            self.expect(TokenKind::LBracket)?;
+            let mut values = vec![self.parse_constraint_value()?];
+            while self.check(TokenKind::Comma) {
+                self.advance();
+                values.push(self.parse_constraint_value()?);
+            }
+            self.expect(TokenKind::RBracket)?;
+            ClauseTarget::OneOf(values)
         } else {
-            return Err(self.error("expected '=', '->', '<', '>', '<=', or '>='"));
+            return Err(self.error("expected '=', '->', '<', '>', '<=', '>=', or 'in'"));
         };
 
         Ok(ClauseAst {
@@ -723,6 +733,10 @@ impl Parser {
             TokenKind::Concurrent => {
                 self.advance();
                 Ok("concurrent".to_string())
+            }
+            TokenKind::In => {
+                self.advance();
+                Ok("in".to_string())
             }
             _ => Err(self.error("expected identifier")),
         }

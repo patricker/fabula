@@ -430,6 +430,24 @@ fn add_clause_to_stage<M: TypeMapper>(
             let constraint = make_var_constraint(*op, var);
             s.edge_constrained(source, label, constraint)
         }
+        ClauseTarget::OneOf(values) => {
+            let mapped: Vec<M::V> = values
+                .iter()
+                .map(|v| match v {
+                    ConstraintValue::Str(s_val) => mapper
+                        .string_value(s_val)
+                        .expect("string_value mapping failed in OneOf"),
+                    ConstraintValue::Num(n) => mapper
+                        .num_value(*n)
+                        .expect("num_value mapping failed in OneOf"),
+                })
+                .collect();
+            if clause.negated {
+                s.not_edge_one_of(source, label, mapped)
+            } else {
+                s.edge_one_of(source, label, mapped)
+            }
+        }
     }
 }
 
@@ -481,6 +499,20 @@ fn add_clause_to_negation<M: TypeMapper>(
         ClauseTarget::ConstraintVar(op, var) => {
             let constraint = make_var_constraint(*op, var);
             n.edge_constrained(source, label, constraint)
+        }
+        ClauseTarget::OneOf(values) => {
+            let mapped: Vec<M::V> = values
+                .iter()
+                .map(|v| match v {
+                    ConstraintValue::Str(s_val) => mapper
+                        .string_value(s_val)
+                        .expect("string_value mapping failed in OneOf"),
+                    ConstraintValue::Num(n_val) => mapper
+                        .num_value(*n_val)
+                        .expect("num_value mapping failed in OneOf"),
+                })
+                .collect();
+            n.edge_constrained(source, label, ValueConstraint::OneOf(mapped))
         }
     }
 }

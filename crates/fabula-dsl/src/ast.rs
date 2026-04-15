@@ -150,6 +150,8 @@ pub enum ClauseTarget {
     Constraint(ConstraintOp, ConstraintValue),
     /// A constraint comparing against a bound variable: `> ?var`, `= ?var`
     ConstraintVar(ConstraintOp, String),
+    /// A value disjunction: `in ["attack", "betray"]`
+    OneOf(Vec<ConstraintValue>),
 }
 
 /// Constraint operator.
