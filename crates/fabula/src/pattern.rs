@@ -126,6 +126,9 @@ pub struct Pattern<L, V> {
     /// complete within this many ticks of its creation, the engine
     /// emits `SiftEvent::Expired` and kills the PM.
     pub deadline_ticks: Option<u64>,
+    /// If set, PMs that don't advance for this many ticks are auto-pruned in `end_tick()`.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub inactivity_threshold: Option<u64>,
     /// Repeat range configuration. When set, the engine loops over a segment
     /// of stages instead of completing after the last stage. Enables "at least
     /// N, up to M" matching with first/last binding bookends.
@@ -143,6 +146,16 @@ pub struct Pattern<L, V> {
     /// `drain_completed()`, and `on_edge_added()` filter out its results.
     #[cfg_attr(feature = "serde", serde(default))]
     pub private: bool,
+    /// Relative importance weight for narrative scoring and prioritization.
+    /// Defaults to 1.0. Higher values cause this pattern's matches to be
+    /// weighted more heavily in composite scores.
+    #[cfg_attr(feature = "serde", serde(default = "default_importance"))]
+    pub importance: f64,
+}
+
+#[cfg(feature = "serde")]
+fn default_importance() -> f64 {
+    1.0
 }
 
 /// Configuration for looping repeat patterns (`* N..M` or `* N..`).
@@ -271,9 +284,11 @@ impl<L, V> Pattern<L, V> {
             group: self.group.clone(),
             metadata: self.metadata.clone(),
             deadline_ticks: self.deadline_ticks,
+            inactivity_threshold: self.inactivity_threshold,
             repeat_range: self.repeat_range.clone(),
             unordered_groups: self.unordered_groups.clone(),
             private: self.private,
+            importance: self.importance,
         }
     }
 

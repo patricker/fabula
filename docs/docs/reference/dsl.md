@@ -10,7 +10,7 @@ Fabula provides a text DSL for defining patterns and graphs. The DSL compiles to
 ## Pattern Syntax
 
 ```
-[private] pattern <name> {
+[private] pattern <name> [importance <weight>] {
   stage <event_var> {
     <clause>+
   }+
@@ -45,6 +45,22 @@ compose full = helper >> main_flow sharing(...)
 ```
 
 Only `full` matches appear in output. `helper` matches are suppressed.
+
+### Importance
+
+Set a pattern's importance weight with `importance <weight>` after the pattern name. Higher values cause the pattern's matches to be weighted more heavily in narrative scoring (via `assemble_signals_weighted()` in fabula-narratives). Default is `1.0`.
+
+```
+pattern climax importance 10.0 {
+  stage e1 { e1.type = "final_battle" }
+}
+```
+
+Maps to `PatternBuilder::importance(weight)`.
+
+:::note
+`inactivity_threshold` (auto-prune PMs after N idle ticks) has no DSL syntax. Set it via the builder API: `PatternBuilder::inactivity_threshold(ticks)`. See [Pattern reference](/reference/patterns#inactivity_threshold).
+:::
 
 ### Sources
 
@@ -87,11 +103,23 @@ stage e1 {
 | `source.label = ?var` | Cross-stage comparison (Eq) — target must equal bound value (not a binding — use `->` to bind) | `.edge_eq_var(source, label, "var")` |
 | `source.label >= ?var` | Cross-stage comparison (Gte) | `.edge_gte_var(source, label, "var")` |
 | `source.label <= ?var` | Cross-stage comparison (Lte) | `.edge_lte_var(source, label, "var")` |
+| `source.label in ["a", "b"]` | Value disjunction (OneOf) | `.edge_one_of(source, label, vec![...])` |
+| `! source.label in ["a", "b"]` | Negated disjunction | `.not_edge_one_of(source, label, vec![...])` |
 | `! source.label = "value"` | Negated clause (literals/refs only) | `.not_edge(source, label, value)` |
 
 **Important**: `= ?var` (equality comparison against a bound variable's value) is distinct from `-> ?var` (bind or join). Use `=` when you want to compare a numeric/string value against a previously bound value. Use `->` when you want to traverse and bind a node reference.
 
-Negation (`!`) works with literal values (`= "value"`, `= 42`, `= true`) and node references (`-> node`). It is **not** supported with value constraints (`<`, `>`, `<=`, `>=`), variable comparisons (`> ?var`), or variable bindings (`-> ?var`) — rewrite as the inverse constraint instead (e.g., `! e.x < 0.5` becomes `e.x >= 0.5`).
+Negation (`!`) works with literal values (`= "value"`, `= 42`, `= true`), node references (`-> node`), and value disjunctions (`in [...]`). It is **not** supported with value constraints (`<`, `>`, `<=`, `>=`), variable comparisons (`> ?var`), or variable bindings (`-> ?var`) — rewrite as the inverse constraint instead (e.g., `! e.x < 0.5` becomes `e.x >= 0.5`).
+
+**Value disjunction** (`in [...]`): Match an edge target against any value in a list. Supports strings, numbers, booleans, and node references. Elements are separated by commas.
+
+```
+// Match any harmful event type
+e1.eventType in ["attack", "betray", "steal"]
+
+// Negated: target must NOT be any of the listed values
+! e1.status in ["resolved", "dismissed"]
+```
 
 ### Concurrent Groups
 
@@ -529,7 +557,7 @@ All parsing primitives (`parse_stage`, `parse_negation`, `parse_temporal`, `pars
 
 The `Lexer` produces a stream of `Token` values. Downstream DSLs that reuse fabula's lexer (via `Lexer::new(source).tokenize()`) have access to all token types. The tokens used by fabula's own parser are marked; unmarked tokens exist for downstream DSL consumers.
 
-**Keywords**: `Pattern`, `Stage`, `Unless`, `Between`, `After`, `Graph`, `Now`, `Temporal`, `True`, `False`, `Compose`, `Sharing`, `Concurrent`
+**Keywords**: `Pattern`, `Stage`, `Unless`, `Between`, `After`, `Graph`, `Now`, `Temporal`, `True`, `False`, `Compose`, `Sharing`, `Concurrent`, `In`, `Importance`
 
 **Symbols** (used by fabula):
 
@@ -537,6 +565,7 @@ The `Lexer` produces a stream of `Token` values. Downstream DSLs that reuse fabu
 |-------|-------------|
 | `LBrace` / `RBrace` | `{` `}` |
 | `LParen` / `RParen` | `(` `)` |
+| `LBracket` / `RBracket` | `[` `]` |
 | `Dot` / `DotDot` | `.` `..` |
 | `Arrow` | `->` |
 | `Eq` | `=` (also `==`) |

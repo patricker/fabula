@@ -1664,3 +1664,165 @@ fn repeat_range_exact_is_backward_compatible() {
 // ===========================================================================
 // 5f. Metric temporal constraints
 // ===========================================================================
+
+// ===========================================================================
+// Inactivity-based pruning
+// ===========================================================================
+
+#[test]
+fn inactivity_pruning_kills_stale_pms() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("two_stage")
+            .stage("e1", |s| {
+                s.edge("e1", "type".into(), MemValue::Str("start".into()))
+            })
+            .stage("e2", |s| {
+                s.edge("e2", "type".into(), MemValue::Str("end".into()))
+            })
+            .inactivity_threshold(3)
+            .build(),
+    );
+
+    // Feed stage 1 before any end_tick (tick_counter = 0, PM gets last_advanced_tick = 0)
+    g.add_str("ev1", "type", "start", 1);
+    g.set_time(1);
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"type".into(),
+        &MemValue::Str("start".into()),
+        &Interval::open(1),
+    );
+
+    // end_tick #1: tick_counter becomes 1, diff = 1 < 3 => survives
+    let (_, _) = engine.end_tick(100);
+    assert_eq!(
+        engine
+            .partial_matches()
+            .iter()
+            .filter(|pm| pm.state == MatchState::Active)
+            .count(),
+        1,
+        "PM should survive after 1 idle tick"
+    );
+
+    // end_tick #2: tick_counter becomes 2, diff = 2 < 3 => survives
+    let (_, _) = engine.end_tick(100);
+    assert_eq!(
+        engine
+            .partial_matches()
+            .iter()
+            .filter(|pm| pm.state == MatchState::Active)
+            .count(),
+        1,
+        "PM should survive after 2 idle ticks"
+    );
+
+    // end_tick #3: tick_counter becomes 3, diff = 3 >= 3 => pruned
+    let (_, _) = engine.end_tick(100);
+    assert_eq!(
+        engine
+            .partial_matches()
+            .iter()
+            .filter(|pm| pm.state == MatchState::Active)
+            .count(),
+        0,
+        "PM should be pruned after 3 idle ticks"
+    );
+}
+
+#[test]
+fn inactivity_pruning_spares_active_pms() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("two_stage")
+            .stage("e1", |s| {
+                s.edge("e1", "type".into(), MemValue::Str("start".into()))
+            })
+            .stage("e2", |s| {
+                s.edge("e2", "type".into(), MemValue::Str("end".into()))
+            })
+            .inactivity_threshold(3)
+            .build(),
+    );
+
+    // Tick 1: initiate a PM
+    g.add_str("ev1", "type", "start", 1);
+    g.set_time(1);
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"type".into(),
+        &MemValue::Str("start".into()),
+        &Interval::open(1),
+    );
+    let (_, _) = engine.end_tick(100); // tick 1
+
+    // Tick 2: idle
+    let (_, _) = engine.end_tick(100);
+
+    // Tick 3: advance (complete) the PM before threshold
+    g.add_str("ev2", "type", "end", 3);
+    g.set_time(3);
+    let events = engine.on_edge_added(
+        &g,
+        &"ev2".into(),
+        &"type".into(),
+        &MemValue::Str("end".into()),
+        &Interval::open(3),
+    );
+    let completed = events
+        .iter()
+        .filter(|e| matches!(e, SiftEvent::Completed { .. }))
+        .count();
+    assert_eq!(completed, 1, "PM should complete before inactivity kills it");
+}
+
+#[test]
+fn inactivity_pruning_none_means_no_pruning() {
+    let mut g = MemGraph::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+
+    engine.register(
+        PatternBuilder::new("two_stage")
+            .stage("e1", |s| {
+                s.edge("e1", "type".into(), MemValue::Str("start".into()))
+            })
+            .stage("e2", |s| {
+                s.edge("e2", "type".into(), MemValue::Str("end".into()))
+            })
+            .build(), // no inactivity_threshold
+    );
+
+    // Tick 1: initiate a PM
+    g.add_str("ev1", "type", "start", 1);
+    g.set_time(1);
+    engine.on_edge_added(
+        &g,
+        &"ev1".into(),
+        &"type".into(),
+        &MemValue::Str("start".into()),
+        &Interval::open(1),
+    );
+    let (_, _) = engine.end_tick(10000); // tick 1
+
+    // Idle for 100 ticks
+    for _ in 0..100 {
+        let (_, _) = engine.end_tick(10000);
+    }
+
+    assert_eq!(
+        engine
+            .partial_matches()
+            .iter()
+            .filter(|pm| pm.state == MatchState::Active)
+            .count(),
+        1,
+        "PM should survive indefinitely without inactivity_threshold"
+    );
+}

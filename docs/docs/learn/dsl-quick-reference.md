@@ -114,9 +114,21 @@ e2.severity > ?level
 
 Note: `= ?var` compares values. `-> ?var` binds/joins node references. They are not interchangeable.
 
+### Value disjunction
+
+Match any of several values with `in [...]`.
+
+```
+source.label in ["a", "b", "c"]
+```
+
+```fabula
+e1.eventType in ["attack", "betray", "steal"]
+```
+
 ### Negated clause
 
-Prefix with `!`. Works with literal values and node references only.
+Prefix with `!`. Works with literal values, node references, and `in [...]`.
 
 ```
 ! source.label = "value"
@@ -303,6 +315,24 @@ deadline <ticks>
 ```fabula
 deadline 30
 ```
+
+## Importance
+
+Set a pattern's relative weight for narrative scoring. Default is `1.0`.
+
+```
+pattern <name> importance <weight> { ... }
+```
+
+```fabula
+pattern climax importance 10.0 {
+  stage e1 { e1.type = "final_battle" }
+}
+```
+
+:::note
+`inactivity_threshold` (auto-prune stale PMs) is builder API only -- no DSL syntax. Use `PatternBuilder::inactivity_threshold(ticks)`.
+:::
 
 ## Graph (testing / playground)
 

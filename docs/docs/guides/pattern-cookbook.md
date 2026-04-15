@@ -249,6 +249,53 @@ Stages `e2` and `e3` are in a `concurrent { }` block — they can match in any o
 
 Note: `unless_between` cannot use two anchors that are both inside the same concurrent group (undefined temporal ordering). The compiler rejects this at compile time.
 
+## Recipe 10: Matching multiple event types (value disjunction)
+
+**Problem:** Match any "harmful" event type — attack, betray, or steal — without writing three separate patterns.
+
+### DSL
+
+```fabula
+pattern any_harm {
+  stage e1 {
+    e1.eventType in ["attack", "betray", "steal"]
+    e1.actor -> ?aggressor
+    e1.target -> ?victim
+  }
+}
+```
+
+The `in [...]` syntax compiles to `ValueConstraint::OneOf`. The edge target is matched against each value in the list; if any matches, the clause succeeds.
+
+### Builder API equivalent
+
+```rust
+let pattern = PatternBuilder::new("any_harm")
+    .stage("e1", |s| {
+        s.edge_one_of("e1", "eventType", vec![
+            MemValue::Str("attack".into()),
+            MemValue::Str("betray".into()),
+            MemValue::Str("steal".into()),
+        ])
+        .edge_bind("e1", "actor", "aggressor")
+        .edge_bind("e1", "target", "victim")
+    })
+    .build();
+```
+
+### Without `in [...]`
+
+Before value disjunctions, you would need three separate patterns and a non-exclusive choice:
+
+```fabula
+pattern harm_attack { stage e1 { e1.eventType = "attack"  e1.actor -> ?a  e1.target -> ?v } }
+pattern harm_betray { stage e1 { e1.eventType = "betray"  e1.actor -> ?a  e1.target -> ?v } }
+pattern harm_steal  { stage e1 { e1.eventType = "steal"   e1.actor -> ?a  e1.target -> ?v } }
+compose any_harm = harm_attack | harm_betray | harm_steal nonexclusive
+```
+
+The `in [...]` approach is more concise and avoids the overhead of three separate pattern registrations.
+
 ## Next steps
 
 - [Pattern Playground](../playground/pattern-playground) -- try these recipes interactively in the browser without a Rust project.

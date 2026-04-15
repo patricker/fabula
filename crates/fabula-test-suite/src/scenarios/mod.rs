@@ -21,6 +21,7 @@ mod temporal;
 mod two_betrayals;
 mod unordered_groups;
 mod value_constraints;
+mod value_disjunction;
 mod winnow_replay;
 
 pub use allen_temporal::*;
@@ -37,4 +38,5 @@ pub use temporal::*;
 pub use two_betrayals::*;
 pub use unordered_groups::*;
 pub use value_constraints::*;
+pub use value_disjunction::*;
 pub use winnow_replay::*;

@@ -194,6 +194,8 @@ pub struct Pattern<L, V> {
 | `repeat_range` | `Option<RepeatRange>` | Looping repeat configuration. Set by `compose::repeat_range()` or DSL `* N..M` / `* N..`. When present, the engine loops over a segment of stages instead of completing after the last stage. See [DSL Reference — Repeat](dsl#repeat-). |
 | `unordered_groups` | `Vec<Vec<usize>>` | Stage groups that can match in any order. Each inner `Vec<usize>` lists stage indices that form a concurrent group. Set by `PatternBuilder::unordered_group()` or DSL `concurrent { }`. See [DSL Reference — Concurrent Groups](dsl#concurrent-groups). |
 | `private` | `bool` | If true, this pattern's matches and events are suppressed from engine output (`evaluate()`, `drain_completed()`, `on_edge_added()`). The engine still evaluates the pattern internally for composition and exclusive group handling. Default `false`. Set by `PatternBuilder::private()` or DSL `private pattern`. |
+| `importance` | `f64` | Relative weight for narrative scoring. Higher values cause this pattern's matches to be weighted more heavily in composite scores. Default `1.0`. Set by `PatternBuilder::importance()` or DSL `pattern name importance 10.0 { ... }`. |
+| `inactivity_threshold` | `Option<u64>` | If set, active PMs that don't advance for this many ticks are auto-pruned in `end_tick()`. Unlike `deadline_ticks` (which measures total PM lifetime), this measures ticks since the PM's last advancement. Default `None`. Set by `PatternBuilder::inactivity_threshold()`. |
 
 #### Methods
 
@@ -463,6 +465,38 @@ pub fn private(self) -> Self
 
 ---
 
+#### `importance`
+
+Sets the importance weight for this pattern. Higher values cause this pattern's matches to be weighted more heavily in narrative scoring (via `assemble_signals_weighted()` in fabula-narratives).
+
+```rust
+pub fn importance(self, weight: f64) -> Self
+```
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `weight` | `f64` | yes | `1.0` | Relative importance weight. |
+
+**Returns:** `PatternBuilder<L, V>` (chainable)
+
+---
+
+#### `inactivity_threshold`
+
+Sets an inactivity threshold (in ticks). Active PMs that don't advance for this many ticks are auto-pruned in `end_tick()`. Unlike `deadline`, which measures total PM lifetime from creation, this measures ticks since the PM's last advancement.
+
+```rust
+pub fn inactivity_threshold(self, ticks: u64) -> Self
+```
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `ticks` | `u64` | yes | -- | Maximum ticks without advancement before pruning. |
+
+**Returns:** `PatternBuilder<L, V>` (chainable)
+
+---
+
 #### `unordered_group`
 
 Adds a group of stages that can match in any order. The closure receives an `UnorderedGroupBuilder` and must add at least 2 stages. The group's stage indices are computed from the current stage count.
@@ -603,6 +637,52 @@ pub fn edge_lte_var(self, source: impl Into<String>, label: L, var_name: impl In
 | `source` | `impl Into<String>` | yes | -- | Source variable name. |
 | `label` | `L` | yes | -- | Edge label. |
 | `var_name` | `impl Into<String>` | yes | -- | Name of a previously-bound variable to compare against. |
+
+**Returns:** `StageBuilder<L, V>` (chainable)
+
+---
+
+#### `edge_one_of`
+
+Adds a clause matching any of the given values: `source --[label]--> (one of values)`.
+
+```rust
+pub fn edge_one_of(
+    self,
+    source: impl Into<String>,
+    label: L,
+    values: Vec<V>,
+) -> Self
+```
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `source` | `impl Into<String>` | yes | -- | Source variable name. |
+| `label` | `L` | yes | -- | Edge label. |
+| `values` | `Vec<V>` | yes | -- | List of acceptable target values. |
+
+**Returns:** `StageBuilder<L, V>` (chainable)
+
+---
+
+#### `not_edge_one_of`
+
+Adds a negated one-of clause: the edge target must NOT be any of the given values.
+
+```rust
+pub fn not_edge_one_of(
+    self,
+    source: impl Into<String>,
+    label: L,
+    values: Vec<V>,
+) -> Self
+```
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `source` | `impl Into<String>` | yes | -- | Source variable name. |
+| `label` | `L` | yes | -- | Edge label. |
+| `values` | `Vec<V>` | yes | -- | List of values the target must NOT match. |
 
 **Returns:** `StageBuilder<L, V>` (chainable)
 

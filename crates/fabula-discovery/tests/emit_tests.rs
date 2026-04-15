@@ -325,9 +325,11 @@ fn emit_unless_global() {
         group: None,
         metadata: HashMap::new(),
         deadline_ticks: None,
+        inactivity_threshold: None,
         repeat_range: None,
         unordered_groups: Vec::new(),
         private: false,
+        importance: 1.0,
     };
 
     let dsl = pattern_to_dsl(&pattern);

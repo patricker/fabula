@@ -19,6 +19,8 @@ pub enum TokenKind {
     Compose,    // compose
     Sharing,    // sharing
     Concurrent, // concurrent
+    In,         // in
+    Importance, // importance
 
     // Symbols
     LBrace,    // {
@@ -39,6 +41,8 @@ pub enum TokenKind {
     Star,      // *
     LParen,    // (
     RParen,    // )
+    LBracket,  // [
+    RBracket,  // ]
     Comma,     // ,
     Plus,      // +
     Minus,     // -
@@ -215,6 +219,26 @@ impl<'a> Lexer<'a> {
                 self.advance();
                 Ok(Token {
                     kind: TokenKind::RParen,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
+            }
+            b'[' => {
+                self.advance();
+                Ok(Token {
+                    kind: TokenKind::LBracket,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
+            }
+            b']' => {
+                self.advance();
+                Ok(Token {
+                    kind: TokenKind::RBracket,
                     line,
                     column: col,
                     offset: start,
@@ -524,6 +548,8 @@ impl<'a> Lexer<'a> {
             "compose" => TokenKind::Compose,
             "sharing" => TokenKind::Sharing,
             "concurrent" => TokenKind::Concurrent,
+            "in" => TokenKind::In,
+            "importance" => TokenKind::Importance,
             _ => TokenKind::Ident(word.to_string()),
         };
         Ok(Token {

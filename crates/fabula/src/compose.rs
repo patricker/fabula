@@ -133,10 +133,12 @@ pub fn rename_vars<L: Clone, V: Clone>(
         group: pattern.group.clone(),
         metadata: pattern.metadata.clone(),
         deadline_ticks: pattern.deadline_ticks,
+        inactivity_threshold: pattern.inactivity_threshold,
         repeat_range: pattern.repeat_range.clone(),
         // Unordered groups are stage indices (positional), not variable names — no renaming needed.
         unordered_groups: pattern.unordered_groups.clone(),
         private: pattern.private,
+        importance: pattern.importance,
     }
 }
 
@@ -192,9 +194,11 @@ pub fn sequence<L: Clone, V: Clone>(
         group: None,
         metadata,
         deadline_ticks: None,
+        inactivity_threshold: None,
         repeat_range: None,
         unordered_groups,
         private: false,
+        importance: 1.0,
     }
 }
 
@@ -286,9 +290,11 @@ pub fn repeat<L: Clone, V: Clone>(
         group: None,
         metadata,
         deadline_ticks: None,
+        inactivity_threshold: None,
         repeat_range: None,
         unordered_groups,
         private: false,
+        importance: 1.0,
     }
 }
 
@@ -354,6 +360,7 @@ pub fn repeat_range<L: Clone, V: Clone>(
         group: None,
         metadata,
         deadline_ticks: None,
+        inactivity_threshold: None,
         repeat_range: Some(crate::pattern::RepeatRange {
             stage_start: first_stage_count,
             stage_end: first_stage_count + last_stage_count,
@@ -363,6 +370,7 @@ pub fn repeat_range<L: Clone, V: Clone>(
         }),
         unordered_groups,
         private: false,
+        importance: 1.0,
     }
 }
 

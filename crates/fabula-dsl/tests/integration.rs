@@ -1120,3 +1120,119 @@ fn private_pattern_with_nonexclusive_choice() {
         assert!(!c.private, "choice alternatives should not inherit private");
     }
 }
+
+// ===========================================================================
+// Value disjunction — in [...] syntax
+// ===========================================================================
+
+#[test]
+fn roundtrip_one_of_matches() {
+    let dsl = r#"
+        pattern hostile_action {
+            stage e1 {
+                e1.eventType in ["attack", "betray"]
+                e1.actor -> ?char
+            }
+        }
+        graph {
+            @1 ev1.eventType = "attack"
+            @1 ev1.actor -> alice
+            now = 10
+        }
+    "#;
+    let doc = parse_document(dsl).unwrap();
+    let mut engine: SiftEngineFor<fabula_memory::MemGraph> = SiftEngine::new();
+    for p in &doc.patterns {
+        engine.register(p.clone());
+    }
+    let matches = engine.evaluate(&doc.graphs[0]);
+    assert_eq!(matches.len(), 1, "attack is in [attack, betray]");
+}
+
+#[test]
+fn roundtrip_one_of_no_match() {
+    let dsl = r#"
+        pattern hostile_action {
+            stage e1 {
+                e1.eventType in ["attack", "betray"]
+                e1.actor -> ?char
+            }
+        }
+        graph {
+            @1 ev1.eventType = "trade"
+            @1 ev1.actor -> alice
+            now = 10
+        }
+    "#;
+    let doc = parse_document(dsl).unwrap();
+    let mut engine: SiftEngineFor<fabula_memory::MemGraph> = SiftEngine::new();
+    for p in &doc.patterns {
+        engine.register(p.clone());
+    }
+    let matches = engine.evaluate(&doc.graphs[0]);
+    assert_eq!(matches.len(), 0, "trade is not in [attack, betray]");
+}
+
+#[test]
+fn roundtrip_one_of_numeric() {
+    let dsl = r#"
+        pattern level_check {
+            stage e1 {
+                e1.level in [1, 2, 3]
+            }
+        }
+    "#;
+    // Just verify it compiles without error
+    let pattern = parse_pattern(dsl).unwrap();
+    assert_eq!(pattern.stages.len(), 1);
+}
+
+#[test]
+fn lex_in_bracket_syntax() {
+    use fabula_dsl::lexer::{Lexer, TokenKind};
+
+    let src = r#"e1.eventType in ["attack", "betray"]"#;
+    let tokens = Lexer::new(src).tokenize().unwrap();
+
+    // e1 . eventType in [ "attack" , "betray" ] EOF
+    assert!(matches!(tokens[0].kind, TokenKind::Ident(ref s) if s == "e1"));
+    assert!(matches!(tokens[1].kind, TokenKind::Dot));
+    assert!(matches!(tokens[2].kind, TokenKind::Ident(ref s) if s == "eventType"));
+    assert!(matches!(tokens[3].kind, TokenKind::In));
+    assert!(matches!(tokens[4].kind, TokenKind::LBracket));
+    assert!(matches!(tokens[5].kind, TokenKind::String(ref s) if s == "attack"));
+    assert!(matches!(tokens[6].kind, TokenKind::Comma));
+    assert!(matches!(tokens[7].kind, TokenKind::String(ref s) if s == "betray"));
+    assert!(matches!(tokens[8].kind, TokenKind::RBracket));
+}
+
+// ===========================================================================
+// Importance directive
+// ===========================================================================
+
+#[test]
+fn roundtrip_importance() {
+    let dsl = r#"
+        pattern climax importance 10.0 {
+            stage e1 {
+                e1.eventType = "confrontation"
+            }
+        }
+    "#;
+    let pattern = parse_pattern(dsl).unwrap();
+    assert_eq!(pattern.name, "climax");
+    assert_eq!(pattern.importance, 10.0);
+}
+
+#[test]
+fn roundtrip_importance_default() {
+    let dsl = r#"
+        pattern normal {
+            stage e1 {
+                e1.eventType = "greeting"
+            }
+        }
+    "#;
+    let pattern = parse_pattern(dsl).unwrap();
+    assert_eq!(pattern.importance, 1.0);
+}

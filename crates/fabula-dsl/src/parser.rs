@@ -100,6 +100,15 @@ impl Parser {
     pub fn parse_pattern(&mut self) -> Result<PatternAst, ParseError> {
         self.expect(TokenKind::Pattern)?;
         let name = self.expect_ident()?;
+
+        // Optional importance directive before the opening brace
+        let importance = if self.check(TokenKind::Importance) {
+            self.advance();
+            self.expect_number()?
+        } else {
+            1.0
+        };
+
         self.expect(TokenKind::LBrace)?;
         let body = self.parse_pattern_body()?;
         self.expect(TokenKind::RBrace)?;
@@ -112,6 +121,7 @@ impl Parser {
             deadline: body.deadline,
             unordered_groups: body.unordered_groups,
             private: false,
+            importance,
         })
     }
 
@@ -186,6 +196,7 @@ impl Parser {
             deadline,
             unordered_groups,
             private: false,
+            importance: 1.0,
         })
     }
 
@@ -473,8 +484,18 @@ impl Parser {
         } else if self.check(TokenKind::Gte) {
             self.advance();
             self.parse_constraint_target(ConstraintOp::Gte)?
+        } else if self.check(TokenKind::In) {
+            self.advance();
+            self.expect(TokenKind::LBracket)?;
+            let mut values = vec![self.parse_constraint_value()?];
+            while self.check(TokenKind::Comma) {
+                self.advance();
+                values.push(self.parse_constraint_value()?);
+            }
+            self.expect(TokenKind::RBracket)?;
+            ClauseTarget::OneOf(values)
         } else {
-            return Err(self.error("expected '=', '->', '<', '>', '<=', or '>='"));
+            return Err(self.error("expected '=', '->', '<', '>', '<=', '>=', or 'in'"));
         };
 
         Ok(ClauseAst {
@@ -723,6 +744,14 @@ impl Parser {
             TokenKind::Concurrent => {
                 self.advance();
                 Ok("concurrent".to_string())
+            }
+            TokenKind::In => {
+                self.advance();
+                Ok("in".to_string())
+            }
+            TokenKind::Importance => {
+                self.advance();
+                Ok("importance".to_string())
             }
             _ => Err(self.error("expected identifier")),
         }

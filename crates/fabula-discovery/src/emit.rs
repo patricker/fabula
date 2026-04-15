@@ -130,6 +130,15 @@ fn emit_constraint(c: &ValueConstraint<String>) -> (&'static str, String) {
         ValueConstraint::GtVar(v) => ("> ", format!("?{}", v)),
         ValueConstraint::LteVar(v) => ("<= ", format!("?{}", v)),
         ValueConstraint::GteVar(v) => (">= ", format!("?{}", v)),
+        ValueConstraint::OneOf(vs) => {
+            // OneOf is not yet representable in DSL syntax; emit as Eq on the
+            // first element as a lossy approximation.
+            if let Some(first) = vs.first() {
+                ("= ", quote_string(first))
+            } else {
+                ("= ", quote_string(""))
+            }
+        }
     }
 }
 

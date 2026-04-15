@@ -83,6 +83,8 @@ pub struct PatternAst {
     pub unordered_groups: Vec<Vec<usize>>,
     /// If true, this pattern was declared with `private` keyword.
     pub private: bool,
+    /// Importance weight for narrative scoring. Defaults to 1.0.
+    pub importance: f64,
 }
 
 /// The interior of a pattern — stages, negations, and temporal constraints,
@@ -100,6 +102,7 @@ pub struct PatternBody {
     pub deadline: Option<f64>,
     pub unordered_groups: Vec<Vec<usize>>,
     pub private: bool,
+    pub importance: f64,
 }
 
 /// A stage within a pattern.
@@ -150,6 +153,8 @@ pub enum ClauseTarget {
     Constraint(ConstraintOp, ConstraintValue),
     /// A constraint comparing against a bound variable: `> ?var`, `= ?var`
     ConstraintVar(ConstraintOp, String),
+    /// A value disjunction: `in ["attack", "betray"]`
+    OneOf(Vec<ConstraintValue>),
 }
 
 /// Constraint operator.
