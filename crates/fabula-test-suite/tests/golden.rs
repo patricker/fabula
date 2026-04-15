@@ -161,6 +161,12 @@ golden_tests! {
     batch_cross_stage_eq_matches,
     incremental_cross_stage_gt,
 
+    // --- Value disjunction (OneOf) ---
+    batch_one_of_matches_any,
+    batch_one_of_rejects_unlisted,
+    batch_one_of_with_variable_join,
+    incremental_one_of_advances,
+
     // --- Unordered (concurrent) stage groups ---
     batch_unordered_group_any_order,
     batch_unordered_group_after_ordered,
