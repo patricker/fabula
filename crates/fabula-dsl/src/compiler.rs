@@ -122,6 +122,7 @@ pub fn compile_pattern_body_with<M: TypeMapper>(
         deadline: body.deadline,
         unordered_groups: body.unordered_groups.clone(),
         private: body.private,
+        importance: body.importance,
     };
     compile_pattern_with(&ast, mapper)
 }
@@ -278,7 +279,7 @@ pub fn compile_pattern_with<M: TypeMapper>(
         builder = builder.deadline(deadline as u64);
     }
 
-    let mut pattern = builder.build();
+    let mut pattern = builder.importance(ast.importance).build();
     pattern.unordered_groups = ast.unordered_groups.clone();
     pattern.private = ast.private;
     Ok(pattern)

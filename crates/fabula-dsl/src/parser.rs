@@ -100,6 +100,15 @@ impl Parser {
     pub fn parse_pattern(&mut self) -> Result<PatternAst, ParseError> {
         self.expect(TokenKind::Pattern)?;
         let name = self.expect_ident()?;
+
+        // Optional importance directive before the opening brace
+        let importance = if self.check(TokenKind::Importance) {
+            self.advance();
+            self.expect_number()?
+        } else {
+            1.0
+        };
+
         self.expect(TokenKind::LBrace)?;
         let body = self.parse_pattern_body()?;
         self.expect(TokenKind::RBrace)?;
@@ -112,6 +121,7 @@ impl Parser {
             deadline: body.deadline,
             unordered_groups: body.unordered_groups,
             private: false,
+            importance,
         })
     }
 
@@ -186,6 +196,7 @@ impl Parser {
             deadline,
             unordered_groups,
             private: false,
+            importance: 1.0,
         })
     }
 
@@ -737,6 +748,10 @@ impl Parser {
             TokenKind::In => {
                 self.advance();
                 Ok("in".to_string())
+            }
+            TokenKind::Importance => {
+                self.advance();
+                Ok("importance".to_string())
             }
             _ => Err(self.error("expected identifier")),
         }

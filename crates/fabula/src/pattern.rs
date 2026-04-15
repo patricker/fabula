@@ -143,6 +143,16 @@ pub struct Pattern<L, V> {
     /// `drain_completed()`, and `on_edge_added()` filter out its results.
     #[cfg_attr(feature = "serde", serde(default))]
     pub private: bool,
+    /// Relative importance weight for narrative scoring and prioritization.
+    /// Defaults to 1.0. Higher values cause this pattern's matches to be
+    /// weighted more heavily in composite scores.
+    #[cfg_attr(feature = "serde", serde(default = "default_importance"))]
+    pub importance: f64,
+}
+
+#[cfg(feature = "serde")]
+fn default_importance() -> f64 {
+    1.0
 }
 
 /// Configuration for looping repeat patterns (`* N..M` or `* N..`).
@@ -274,6 +284,7 @@ impl<L, V> Pattern<L, V> {
             repeat_range: self.repeat_range.clone(),
             unordered_groups: self.unordered_groups.clone(),
             private: self.private,
+            importance: self.importance,
         }
     }
 

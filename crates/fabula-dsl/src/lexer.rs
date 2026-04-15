@@ -20,6 +20,7 @@ pub enum TokenKind {
     Sharing,    // sharing
     Concurrent, // concurrent
     In,         // in
+    Importance, // importance
 
     // Symbols
     LBrace,    // {
@@ -548,6 +549,7 @@ impl<'a> Lexer<'a> {
             "sharing" => TokenKind::Sharing,
             "concurrent" => TokenKind::Concurrent,
             "in" => TokenKind::In,
+            "importance" => TokenKind::Importance,
             _ => TokenKind::Ident(word.to_string()),
         };
         Ok(Token {

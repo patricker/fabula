@@ -34,6 +34,7 @@ pub struct PatternBuilder<L, V> {
     deadline_ticks: Option<u64>,
     unordered_groups: Vec<Vec<usize>>,
     private: bool,
+    importance: f64,
 }
 
 impl<L: Clone, V: Clone> PatternBuilder<L, V> {
@@ -48,6 +49,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             deadline_ticks: None,
             unordered_groups: Vec::new(),
             private: false,
+            importance: 1.0,
         }
     }
 
@@ -132,6 +134,14 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
     /// suppresses its matches and events from output.
     pub fn private(mut self) -> Self {
         self.private = true;
+        self
+    }
+
+    /// Set the importance weight for this pattern. Defaults to 1.0.
+    /// Higher values cause this pattern's matches to be weighted more
+    /// heavily in narrative scoring.
+    pub fn importance(mut self, weight: f64) -> Self {
+        self.importance = weight;
         self
     }
 
@@ -225,6 +235,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             repeat_range: None,
             unordered_groups: self.unordered_groups,
             private: self.private,
+            importance: self.importance,
         }
     }
 }

@@ -1205,3 +1205,34 @@ fn lex_in_bracket_syntax() {
     assert!(matches!(tokens[7].kind, TokenKind::String(ref s) if s == "betray"));
     assert!(matches!(tokens[8].kind, TokenKind::RBracket));
 }
+
+// ===========================================================================
+// Importance directive
+// ===========================================================================
+
+#[test]
+fn roundtrip_importance() {
+    let dsl = r#"
+        pattern climax importance 10.0 {
+            stage e1 {
+                e1.eventType = "confrontation"
+            }
+        }
+    "#;
+    let pattern = parse_pattern(dsl).unwrap();
+    assert_eq!(pattern.name, "climax");
+    assert_eq!(pattern.importance, 10.0);
+}
+
+#[test]
+fn roundtrip_importance_default() {
+    let dsl = r#"
+        pattern normal {
+            stage e1 {
+                e1.eventType = "greeting"
+            }
+        }
+    "#;
+    let pattern = parse_pattern(dsl).unwrap();
+    assert_eq!(pattern.importance, 1.0);
+}
