@@ -226,6 +226,37 @@ where
         self.set_pattern_enabled(idx, false);
     }
 
+    /// Kill all active partial matches whose bindings contain the given node.
+    ///
+    /// Use this when an entity is removed from the simulation (death, departure,
+    /// despawn). Any in-progress patterns involving that entity become invalid
+    /// and should be cleaned up in one call rather than waiting for them to
+    /// expire or stall.
+    ///
+    /// Returns the number of PMs killed.
+    pub fn kill_pms_involving(&mut self, node: &N) -> usize
+    where
+        N: PartialEq,
+    {
+        let mut killed = 0;
+        for pm in &mut self.partial_matches {
+            if pm.state != MatchState::Active {
+                continue;
+            }
+            let involves = pm.bindings.values().any(|bv| match bv {
+                BoundValue::Node(n) => n == node,
+                BoundValue::Value(_) => false,
+            });
+            if involves {
+                pm.state = MatchState::Dead;
+                killed += 1;
+            }
+        }
+        self.partial_matches
+            .retain(|pm| pm.state != MatchState::Dead);
+        killed
+    }
+
     /// Advance the tick counter. Call once per simulation step.
     /// Used for staleness detection. Does NOT produce a delta summary —
     /// use [`end_tick`] for the happy path, or [`tick_delta`] with
