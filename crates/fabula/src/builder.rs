@@ -32,6 +32,7 @@ pub struct PatternBuilder<L, V> {
     negations: Vec<Negation<L, V>>,
     metadata: HashMap<String, String>,
     deadline_ticks: Option<u64>,
+    inactivity_threshold: Option<u64>,
     unordered_groups: Vec<Vec<usize>>,
     private: bool,
     importance: f64,
@@ -47,6 +48,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             negations: Vec::new(),
             metadata: HashMap::new(),
             deadline_ticks: None,
+            inactivity_threshold: None,
             unordered_groups: Vec::new(),
             private: false,
             importance: 1.0,
@@ -127,6 +129,13 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
     /// Set a deadline in engine ticks for partial match expiry.
     pub fn deadline(mut self, ticks: u64) -> Self {
         self.deadline_ticks = Some(ticks);
+        self
+    }
+
+    /// Set an inactivity threshold in engine ticks. PMs that don't advance
+    /// for this many ticks are auto-pruned in `end_tick()`.
+    pub fn inactivity_threshold(mut self, ticks: u64) -> Self {
+        self.inactivity_threshold = Some(ticks);
         self
     }
 
@@ -232,6 +241,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             group: None,
             metadata: self.metadata,
             deadline_ticks: self.deadline_ticks,
+            inactivity_threshold: self.inactivity_threshold,
             repeat_range: None,
             unordered_groups: self.unordered_groups,
             private: self.private,

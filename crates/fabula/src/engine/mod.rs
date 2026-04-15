@@ -305,6 +305,17 @@ where
                 }
             }
         }
+        // Inactivity-based pruning
+        for pm in &mut self.partial_matches {
+            if pm.state != MatchState::Active {
+                continue;
+            }
+            if let Some(threshold) = self.patterns[pm.pattern_idx].inactivity_threshold {
+                if self.tick_counter - pm.last_advanced_tick >= threshold {
+                    pm.state = MatchState::Dead;
+                }
+            }
+        }
         self.partial_matches
             .retain(|pm| pm.state != MatchState::Dead);
 

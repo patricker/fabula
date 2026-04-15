@@ -130,6 +130,8 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
     /// Engine tick at which this partial match was first created.
     /// Used for deadline-based expiration. Inherited on advancement.
     pub created_at_tick: u64,
+    /// Tick at which this PM last advanced (or was created).
+    pub last_advanced_tick: u64,
     /// Number of completed repetitions for repeat-range patterns.
     /// Incremented each time the PM loops back to the repeat segment start.
     /// Zero for non-repeating patterns.

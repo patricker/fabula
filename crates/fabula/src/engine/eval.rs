@@ -178,6 +178,7 @@ where
                             id,
                             fingerprint: fp,
                             created_at_tick: self.tick_counter,
+                            last_advanced_tick: self.tick_counter,
                             repetition_count: 0,
                             matched_stages: init_mask,
                         };
@@ -311,6 +312,7 @@ where
                                             id: cid,
                                             fingerprint: cfp,
                                             created_at_tick: pm.created_at_tick,
+                                            last_advanced_tick: self.tick_counter,
                                             repetition_count: new_rep,
                                             matched_stages: new_mask,
                                         });
@@ -365,6 +367,7 @@ where
                                             id: lid,
                                             fingerprint: lfp,
                                             created_at_tick: pm.created_at_tick,
+                                            last_advanced_tick: self.tick_counter,
                                             repetition_count: new_rep,
                                             matched_stages: 0,
                                         });
@@ -417,6 +420,7 @@ where
                             id,
                             fingerprint: fp,
                             created_at_tick: pm.created_at_tick,
+                            last_advanced_tick: self.tick_counter,
                             repetition_count: pm.repetition_count,
                             matched_stages: new_mask,
                         };
