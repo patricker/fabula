@@ -18,6 +18,8 @@
 //! | Pivot magnitude | PivotDetector | How much did the narrative state shift? |
 //! | Surprise | SurpriseScorer | How unexpected was this? |
 
+use std::collections::HashMap;
+
 use crate::tension::Trajectory;
 use fabula::engine::{PlantStatus, TickDelta};
 
@@ -91,6 +93,10 @@ pub struct NarrativeSignals {
     pub surprise: f64,
     /// Sequential surprise score (from SequentialScorer, higher = more surprising).
     pub sequential_surprise: f64,
+    /// Importance-weighted advancement count. 0.0 means use unweighted `advancements`.
+    pub weighted_advancements: f64,
+    /// Importance-weighted completion count. 0.0 means use unweighted `completions`.
+    pub weighted_completions: f64,
 }
 
 /// Composite narrative quality score with explainable sub-scores.
@@ -136,9 +142,19 @@ pub struct ScoreBreakdown {
 /// assert!(result.total > 0.0, "progress + completion should score positively");
 /// ```
 pub fn score(signals: &NarrativeSignals, weights: &NarrativeWeights) -> NarrativeScore {
+    let adv = if signals.weighted_advancements > 0.0 {
+        signals.weighted_advancements
+    } else {
+        signals.advancements as f64
+    };
+    let comp = if signals.weighted_completions > 0.0 {
+        signals.weighted_completions
+    } else {
+        signals.completions as f64
+    };
     let breakdown = ScoreBreakdown {
-        progress: signals.advancements as f64 * weights.progress,
-        completion: signals.completions as f64 * weights.completion,
+        progress: adv * weights.progress,
+        completion: comp * weights.completion,
         stall_penalty: signals.stalled as f64 * weights.stall_penalty,
         unresolved_penalty: signals.unresolved_plants as f64 * weights.unresolved_penalty,
         resolution: signals.resolutions as f64 * weights.resolution_reward,
@@ -214,7 +230,50 @@ pub fn assemble_signals(
         pivot_magnitude,
         surprise,
         sequential_surprise,
+        weighted_advancements: 0.0,
+        weighted_completions: 0.0,
     }
+}
+
+/// Like [`assemble_signals`] but weights advancements and completions by pattern importance.
+///
+/// `importance` maps pattern names to their importance weight. Patterns not present
+/// in the map default to 1.0. The resulting `weighted_advancements` and
+/// `weighted_completions` fields are the sum of importance values for each
+/// advanced/completed pattern name in the tick delta.
+#[allow(clippy::too_many_arguments)]
+pub fn assemble_signals_weighted(
+    delta: &TickDelta,
+    plant_statuses: &[PlantStatus],
+    filo_violations: usize,
+    tension_trajectory: Trajectory,
+    desired_trajectory: Trajectory,
+    pivot_magnitude: f64,
+    surprise: f64,
+    sequential_surprise: f64,
+    importance: &HashMap<String, f64>,
+) -> NarrativeSignals {
+    let mut signals = assemble_signals(
+        delta,
+        plant_statuses,
+        filo_violations,
+        tension_trajectory,
+        desired_trajectory,
+        pivot_magnitude,
+        surprise,
+        sequential_surprise,
+    );
+    signals.weighted_advancements = delta
+        .advanced
+        .iter()
+        .map(|name| importance.get(name).copied().unwrap_or(1.0))
+        .sum();
+    signals.weighted_completions = delta
+        .completed
+        .iter()
+        .map(|name| importance.get(name).copied().unwrap_or(1.0))
+        .sum();
+    signals
 }
 
 #[cfg(test)]
@@ -339,5 +398,57 @@ mod tests {
     fn zero_signals_zero_score() {
         let result = score(&NarrativeSignals::default(), &NarrativeWeights::default());
         assert_eq!(result.total, 0.0);
+    }
+
+    #[test]
+    fn weighted_advancements_used_when_nonzero() {
+        let signals = NarrativeSignals {
+            advancements: 2,
+            weighted_advancements: 11.0,
+            ..Default::default()
+        };
+        let weights = NarrativeWeights::default();
+        let result = score(&signals, &weights);
+        assert_eq!(result.breakdown.progress, 11.0 * weights.progress);
+    }
+
+    #[test]
+    fn unweighted_used_when_weighted_is_zero() {
+        let signals = NarrativeSignals {
+            advancements: 3,
+            weighted_advancements: 0.0,
+            ..Default::default()
+        };
+        let weights = NarrativeWeights::default();
+        let result = score(&signals, &weights);
+        assert_eq!(result.breakdown.progress, 3.0 * weights.progress);
+    }
+
+    #[test]
+    fn assemble_signals_weighted_computes_importance() {
+        let delta = TickDelta {
+            advanced: vec!["minor".into(), "climax".into()],
+            completed: vec![],
+            negated: vec![],
+            expired: vec![],
+            stalled: vec![],
+            active_pm_count: 0,
+        };
+        let mut importance = HashMap::new();
+        importance.insert("climax".to_string(), 10.0);
+
+        let signals = assemble_signals_weighted(
+            &delta,
+            &[],
+            0,
+            Trajectory::Unknown,
+            Trajectory::Unknown,
+            0.0,
+            0.0,
+            0.0,
+            &importance,
+        );
+        // "minor" defaults to 1.0, "climax" is 10.0
+        assert_eq!(signals.weighted_advancements, 11.0);
     }
 }
