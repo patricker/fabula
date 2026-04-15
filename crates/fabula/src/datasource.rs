@@ -35,6 +35,8 @@ pub enum ValueConstraint<V> {
     LteVar(String),
     /// Must be greater than or equal to the value bound to this variable name.
     GteVar(String),
+    /// Must equal one of the listed values.
+    OneOf(Vec<V>),
 }
 
 impl<V: PartialOrd + PartialEq> ValueConstraint<V> {
@@ -48,6 +50,7 @@ impl<V: PartialOrd + PartialEq> ValueConstraint<V> {
             Self::Gte(v) => value >= v,
             Self::Between(lo, hi) => value >= lo && value <= hi,
             Self::Any => true,
+            Self::OneOf(vs) => vs.iter().any(|v| value == v),
             // *Var variants must be resolved before matching. If they reach here,
             // it's a bug — fail closed (no match).
             Self::EqVar(_)
@@ -76,6 +79,7 @@ impl<V> ValueConstraint<V> {
             Self::Gte(v) => ValueConstraint::Gte(f(v)),
             Self::Between(lo, hi) => ValueConstraint::Between(f(lo), f(hi)),
             Self::Any => ValueConstraint::Any,
+            Self::OneOf(vs) => ValueConstraint::OneOf(vs.iter().map(&f).collect()),
             Self::EqVar(s) => ValueConstraint::EqVar(s.clone()),
             Self::LtVar(s) => ValueConstraint::LtVar(s.clone()),
             Self::GtVar(s) => ValueConstraint::GtVar(s.clone()),
@@ -224,5 +228,36 @@ mod tests {
         let c: ValueConstraint<i32> = ValueConstraint::Any;
         assert!(c.matches(&0));
         assert!(c.matches(&i32::MAX));
+    }
+
+    #[test]
+    fn one_of_matches_any_listed_value() {
+        let c = ValueConstraint::OneOf(vec![1, 2, 3]);
+        assert!(c.matches(&1));
+        assert!(c.matches(&2));
+        assert!(c.matches(&3));
+        assert!(!c.matches(&4));
+    }
+
+    #[test]
+    fn one_of_empty_matches_nothing() {
+        let c = ValueConstraint::OneOf(vec![]);
+        assert!(!c.matches(&0));
+        assert!(!c.matches(&1));
+        assert!(!c.matches(&i32::MAX));
+    }
+
+    #[test]
+    fn one_of_single_behaves_like_eq() {
+        let c = ValueConstraint::OneOf(vec![42]);
+        assert!(c.matches(&42));
+        assert!(!c.matches(&43));
+    }
+
+    #[test]
+    fn one_of_map_transforms_all_elements() {
+        let c = ValueConstraint::OneOf(vec![1, 2, 3]);
+        let mapped = c.map(|v| v * 10);
+        assert_eq!(mapped, ValueConstraint::OneOf(vec![10, 20, 30]));
     }
 }
