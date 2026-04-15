@@ -390,6 +390,43 @@ pub fn assemble_signals(
 
 ---
 
+### `assemble_signals_weighted`
+
+Like `assemble_signals`, but weights advancements and completions by per-pattern importance. Patterns not in the map default to importance 1.0.
+
+```rust
+pub fn assemble_signals_weighted(
+    delta: &TickDelta,
+    plant_statuses: &[PlantStatus],
+    filo_violations: usize,
+    tension_trajectory: Trajectory,
+    desired_trajectory: Trajectory,
+    pivot_magnitude: f64,
+    surprise: f64,
+    sequential_surprise: f64,
+    importance: &HashMap<String, f64>,
+) -> NarrativeSignals
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `importance` | `&HashMap<String, f64>` | Pattern name to importance weight. Missing entries default to 1.0. |
+
+The returned `NarrativeSignals` has `weighted_advancements` and `weighted_completions` populated. When these are nonzero, `score()` uses them instead of the unweighted counts for `progress` and `completion` breakdown fields.
+
+**Usage with `Pattern.importance`:**
+
+```rust
+let importance: HashMap<String, f64> = engine.patterns()
+    .iter()
+    .map(|p| (p.name.clone(), p.importance))
+    .collect();
+let signals = assemble_signals_weighted(&delta, &plants, filo, traj, desired, pivot, surp, seq, &importance);
+let result = score(&signals, &weights);
+```
+
+---
+
 ### `NarrativeWeights`
 
 Configurable weights for each scoring signal. All have sensible defaults.
@@ -425,6 +462,8 @@ Input signals for the scorer. Assemble manually or use `assemble_signals()`.
 | `pivot_magnitude` | `f64` | JSD from PivotDetector (0-1). |
 | `surprise` | `f64` | Pattern-level surprise. |
 | `sequential_surprise` | `f64` | Sequential transition surprise (from `SequentialScorer`). |
+| `weighted_advancements` | `f64` | Importance-weighted advancement sum. 0.0 = use `advancements`. |
+| `weighted_completions` | `f64` | Importance-weighted completion sum. 0.0 = use `completions`. |
 
 Trait implementations: `Debug`, `Clone`, `Default`.
 

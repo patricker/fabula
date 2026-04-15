@@ -58,6 +58,10 @@ pattern climax importance 10.0 {
 
 Maps to `PatternBuilder::importance(weight)`.
 
+:::note
+`inactivity_threshold` (auto-prune PMs after N idle ticks) has no DSL syntax. Set it via the builder API: `PatternBuilder::inactivity_threshold(ticks)`. See [Pattern reference](/reference/patterns#inactivity_threshold).
+:::
+
 ### Sources
 
 The left side of the dot identifies which node to query edges from. There are three kinds:

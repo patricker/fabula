@@ -330,6 +330,10 @@ pattern climax importance 10.0 {
 }
 ```
 
+:::note
+`inactivity_threshold` (auto-prune stale PMs) is builder API only -- no DSL syntax. Use `PatternBuilder::inactivity_threshold(ticks)`.
+:::
+
 ## Graph (testing / playground)
 
 Define a test graph with timestamped edges.
