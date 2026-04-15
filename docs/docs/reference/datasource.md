@@ -218,6 +218,7 @@ assert!(rng.matches(&15));
 | `Lte(V)` | Must be less than or equal to this value. |
 | `Gte(V)` | Must be greater than or equal to this value. |
 | `Between(V, V)` | Must fall within `[low, high]` (inclusive on both ends). |
+| `OneOf(Vec<V>)` | Must equal one of the listed values. |
 | `Any` | Any value matches. |
 
 ### Methods

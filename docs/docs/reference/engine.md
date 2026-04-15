@@ -168,6 +168,8 @@ pub fn end_tick(&mut self, stale_threshold: u64) -> (TickDelta, Vec<SiftEvent<N,
 
 The expiry scan runs before the delta is built: for each active PM whose pattern has a `deadline_ticks`, if `current_tick - pm.created_at_tick > deadline_ticks`, the PM is killed and an `Expired` event is emitted. The expired PM's pattern name is included in `TickDelta.expired`.
 
+After deadline expiry, **inactivity pruning** runs: for each active PM whose pattern has an `inactivity_threshold`, if `current_tick - pm.last_advanced_tick >= threshold`, the PM is silently killed (no `Expired` event). This catches PMs that advanced partway but then stalled, without requiring a deadline on the total PM lifetime.
+
 ```rust reference file=tests/reference_engine.rs#end_tick_usage
 ```
 
@@ -205,6 +207,24 @@ Check if a pattern is currently enabled.
 ```rust
 pub fn is_pattern_enabled(&self, idx: usize) -> bool
 ```
+
+---
+
+#### `kill_pms_involving`
+
+Kill all active partial matches whose bindings contain the given node. Use when an entity is removed from the simulation (death, departure, despawn). Any in-progress patterns involving that entity become invalid and are cleaned up in one call rather than waiting for them to expire or stall.
+
+```rust
+pub fn kill_pms_involving(&mut self, node: &N) -> usize
+where
+    N: PartialEq,
+```
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `node` | `&N` | The node to search for in PM bindings. |
+
+**Returns:** `usize` -- the number of PMs killed. Only `BoundValue::Node` bindings are checked; `BoundValue::Value` bindings are ignored.
 
 ---
 
@@ -452,6 +472,7 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
     pub id: usize,
     pub created_at: T,
     pub created_at_tick: u64,
+    pub last_advanced_tick: u64,
     pub fingerprint: u64,
     pub repetition_count: u32,
     pub matched_stages: u64,
@@ -468,6 +489,7 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
 | `id` | `usize` | Unique identifier for tracking. |
 | `created_at` | `T` | Timestamp when this partial match was first initiated. Set from the initiating edge's interval start; inherited from parent on fork. Only meaningful in incremental mode. |
 | `created_at_tick` | `u64` | Engine tick when this partial match was first initiated. Inherited from parent on advancement (not reset). Used by `end_tick()` for deadline expiry checks: `current_tick - created_at_tick > deadline_ticks`. |
+| `last_advanced_tick` | `u64` | Engine tick when this PM last advanced (or was created). Updated each time the PM advances to a new stage. Used by `end_tick()` for inactivity pruning: `current_tick - last_advanced_tick >= inactivity_threshold`. |
 | `fingerprint` | `u64` | Precomputed dedup hash of `(pattern_idx, next_stage, bindings, intervals, repetition_count, matched_stages)`. Computed once at creation using order-independent XOR hashing. |
 | `repetition_count` | `u32` | Number of completed sub-pattern occurrences for repeat-range patterns. Incremented each time the PM loops back to the repeat segment start. Zero for non-repeating patterns. |
 | `matched_stages` | `u64` | Bitmask tracking which stages in an unordered group have been satisfied. Bit `i` is set when stage `i` has been matched. Used by the engine to determine which unordered group stages remain and when the group is complete (all bits set). Zero for patterns without unordered groups. |
