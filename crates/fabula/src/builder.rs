@@ -366,6 +366,28 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
         self
     }
 
+    /// Add a clause matching any of the given values: `source --[label]--> (one of values)`.
+    pub fn edge_one_of(mut self, source: impl Into<String>, label: L, values: Vec<V>) -> Self {
+        self.clauses.push(Clause {
+            source: Var::new(source),
+            label,
+            target: Target::Constraint(crate::datasource::ValueConstraint::OneOf(values)),
+            negated: false,
+        });
+        self
+    }
+
+    /// Add a negated one-of clause: the edge target must NOT be any of the given values.
+    pub fn not_edge_one_of(mut self, source: impl Into<String>, label: L, values: Vec<V>) -> Self {
+        self.clauses.push(Clause {
+            source: Var::new(source),
+            label,
+            target: Target::Constraint(crate::datasource::ValueConstraint::OneOf(values)),
+            negated: true,
+        });
+        self
+    }
+
     /// Add a negated clause: the edge must NOT exist.
     pub fn not_edge(mut self, source: impl Into<String>, label: L, value: V) -> Self {
         self.clauses.push(Clause {
@@ -474,5 +496,71 @@ impl<L: Clone, V: Clone> UnorderedGroupBuilder<L, V> {
         let builder = build(builder);
         self.stages.push(builder.build());
         self
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::datasource::ValueConstraint;
+
+    #[test]
+    fn edge_one_of_creates_constraint_clause() {
+        let pattern = PatternBuilder::<String, String>::new("test_one_of")
+            .stage("e1", |s| {
+                s.edge_one_of(
+                    "e1",
+                    "status".to_string(),
+                    vec![
+                        "active".to_string(),
+                        "pending".to_string(),
+                        "review".to_string(),
+                    ],
+                )
+            })
+            .build();
+
+        assert_eq!(pattern.stages.len(), 1);
+        let clause = &pattern.stages[0].clauses[0];
+        assert!(!clause.negated);
+        match &clause.target {
+            Target::Constraint(ValueConstraint::OneOf(values)) => {
+                assert_eq!(
+                    values,
+                    &vec![
+                        "active".to_string(),
+                        "pending".to_string(),
+                        "review".to_string(),
+                    ]
+                );
+            }
+            other => panic!("Expected Target::Constraint(ValueConstraint::OneOf(..)), got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn not_edge_one_of_creates_negated_constraint_clause() {
+        let pattern = PatternBuilder::<String, String>::new("test_not_one_of")
+            .stage("e1", |s| {
+                s.not_edge_one_of(
+                    "e1",
+                    "status".to_string(),
+                    vec!["closed".to_string(), "archived".to_string()],
+                )
+            })
+            .build();
+
+        assert_eq!(pattern.stages.len(), 1);
+        let clause = &pattern.stages[0].clauses[0];
+        assert!(clause.negated);
+        match &clause.target {
+            Target::Constraint(ValueConstraint::OneOf(values)) => {
+                assert_eq!(
+                    values,
+                    &vec!["closed".to_string(), "archived".to_string()]
+                );
+            }
+            other => panic!("Expected Target::Constraint(ValueConstraint::OneOf(..)), got {:?}", other),
+        }
     }
 }
