@@ -1,6 +1,6 @@
 [package]
 name = "fabula-petgraph"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -10,8 +10,8 @@ keywords = ["graph", "pattern-matching", "temporal", "petgraph", "sifting"]
 categories = ["algorithms", "data-structures"]
 
 [dependencies]
-fabula = { path = "../fabula", version = "0.1" }
+fabula = { path = "../fabula", version = "0.2" }
 petgraph = "0.8"
 
 [dev-dependencies]
-fabula = { path = "../fabula", version = "0.1" }
+fabula = { path = "../fabula", version = "0.2" }
