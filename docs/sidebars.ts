@@ -79,6 +79,7 @@ const sidebars: SidebarsConfig = {
         'guides/language-integration',
         'guides/performance',
         'guides/tracing-causal-chains',
+        'guides/detecting-surprising-events',
       ],
     },
     {
