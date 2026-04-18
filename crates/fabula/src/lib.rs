@@ -37,6 +37,7 @@
 //! For full evaluation examples, see `fabula-memory` which provides `MemGraph`.
 
 pub mod builder;
+pub mod causality;
 pub mod compose;
 pub mod datasource;
 pub mod engine;
@@ -47,6 +48,7 @@ pub mod scoring;
 /// Convenience re-exports for common usage.
 pub mod prelude {
     pub use crate::builder::PatternBuilder;
+    pub use crate::causality::{CausalEdge, CausalPath};
     pub use crate::datasource::{DataSource, Label, NodeId, Val, ValueConstraint};
     pub use crate::engine::{
         evaluate_pattern, evaluate_pattern_at, evaluate_pattern_first, evaluate_pattern_limit,
