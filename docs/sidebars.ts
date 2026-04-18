@@ -88,6 +88,7 @@ const sidebars: SidebarsConfig = {
         'reference/datasource',
         'reference/patterns',
         'reference/engine',
+        'reference/causality',
         'reference/scoring',
         'reference/narratives',
         'reference/dsl',
