@@ -14,7 +14,7 @@
 //!
 //! Based on ROADMAP Phase 6.1.
 
-use crate::datasource::{DataSource, ValueConstraint};
+use crate::datasource::DataSource;
 use crate::interval::NumericTime;
 use std::collections::HashMap;
 
@@ -82,13 +82,9 @@ fn causal_predecessors<DS: DataSource>(
 ) -> Vec<PredecessorEntry<DS::N, DS::V, DS::T>> {
     let mut out = Vec::new();
     for (label, weight) in causal_labels {
-        for edge in ds.scan_any_time(label, &ValueConstraint::Any) {
-            if let Some(tgt_node) = ds.value_as_node(&edge.target) {
-                if &tgt_node == target {
-                    let edge_time = edge.interval.start.clone();
-                    out.push((edge.source, edge.target, edge_time, *weight));
-                }
-            }
+        for edge in ds.predecessors(target, label) {
+            let edge_time = edge.interval.start.clone();
+            out.push((edge.source, edge.target, edge_time, *weight));
         }
     }
     out
