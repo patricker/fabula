@@ -200,6 +200,26 @@ pub trait DataSource {
     /// vs. a literal (for comparison). This lets the pattern matcher
     /// know whether to follow a value as a node or compare it as data.
     fn value_as_node(&self, value: &Self::V) -> Option<Self::N>;
+
+    /// Find all edges with `label` whose target resolves to `node`, at any time.
+    ///
+    /// This is the reverse-adjacency lookup: "which edges point INTO this node?"
+    /// Used by `fabula::causality::causal_paths` and any other caller that walks
+    /// the graph backward from an effect.
+    ///
+    /// The default implementation scans all edges with the label and filters by
+    /// target. Adapters with a reverse index should override this for `O(1)`
+    /// lookup instead of `O(|edges_with_label|)`.
+    fn predecessors(
+        &self,
+        node: &Self::N,
+        label: &Self::L,
+    ) -> Vec<Edge<Self::N, Self::V, Self::T>> {
+        self.scan_any_time(label, &ValueConstraint::Any)
+            .into_iter()
+            .filter(|e| self.value_as_node(&e.target).as_ref() == Some(node))
+            .collect()
+    }
 }
 
 #[cfg(test)]

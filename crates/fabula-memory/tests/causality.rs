@@ -95,3 +95,32 @@ fn memgraph_empty_graph_empty_result() {
     let paths = causal_paths(&g, &"anything".to_string(), 3, &labels());
     assert!(paths.is_empty());
 }
+
+#[test]
+fn datasource_predecessors_default_impl() {
+    // Exercise the DataSource::predecessors default implementation directly
+    // (via MemGraph, which doesn't override it) to confirm it returns the
+    // correct set of reverse edges.
+    use fabula::datasource::DataSource;
+
+    let mut g = MemGraph::new();
+    g.add_ref("a", "causes", "target", 1);
+    g.add_ref("b", "causes", "target", 2);
+    g.add_ref("c", "causes", "unrelated", 3);
+    g.add_ref("d", "enables", "target", 4);
+
+    let preds = g.predecessors(&"target".to_string(), &"causes".to_string());
+    assert_eq!(preds.len(), 2, "two edges labeled 'causes' point at 'target'");
+    let sources: Vec<String> = preds.into_iter().map(|e| e.source).collect();
+    assert!(sources.contains(&"a".to_string()));
+    assert!(sources.contains(&"b".to_string()));
+
+    // Different label returns only that label's edges.
+    let enables = g.predecessors(&"target".to_string(), &"enables".to_string());
+    assert_eq!(enables.len(), 1);
+    assert_eq!(enables[0].source, "d");
+
+    // Node with no incoming edges returns empty.
+    let empty = g.predecessors(&"nobody".to_string(), &"causes".to_string());
+    assert!(empty.is_empty());
+}

@@ -26,6 +26,9 @@ pub trait DataSource {
         -> Vec<Edge<Self::N, Self::V, Self::T>>;
     fn now(&self) -> Self::T;
     fn value_as_node(&self, value: &Self::V) -> Option<Self::N>;
+    // Provided method with default implementation; adapters may override.
+    fn predecessors(&self, node: &Self::N, label: &Self::L)
+        -> Vec<Edge<Self::N, Self::V, Self::T>>;
 }
 ```
 
@@ -156,16 +159,40 @@ fn value_as_node(&self, value: &Self::V) -> Option<Self::N>
 
 ---
 
+#### `predecessors` (provided)
+
+Returns all edges with `label` whose target resolves to `node`, at any time. The reverse-adjacency lookup — "which edges point INTO this node?" Used by [`fabula::causality::causal_paths`](/reference/causality).
+
+```rust
+fn predecessors(
+    &self,
+    node: &Self::N,
+    label: &Self::L,
+) -> Vec<Edge<Self::N, Self::V, Self::T>>
+```
+
+| Parameter | Type | Required | Default | Description |
+|-----------|------|----------|---------|-------------|
+| `node` | `&Self::N` | yes | -- | The node whose incoming edges you want. |
+| `label` | `&Self::L` | yes | -- | Edge label to filter by. |
+
+**Returns:** `Vec<Edge<N, V, T>>` -- all edges with `label` whose target resolves (via `value_as_node`) to `node`.
+
+**Default implementation:** `scan_any_time(label, ValueConstraint::Any)` + filter by `value_as_node(target) == Some(node)`. This is `O(|edges_with_label|)`. Adapters with a reverse index should override for `O(1)` lookup; the in-tree adapters currently use the default.
+
+---
+
 ### When each method is called
 
-| Method | Batch evaluation | Incremental (`on_edge_added`) | Negation check |
-|--------|-----------------|-------------------------------|----------------|
-| `edges_from` | Yes -- follows bound variables through stages. | Yes -- validates secondary clauses at event time. | Yes -- verifies remaining negation clauses. |
-| `scan` | Yes -- finds starting nodes for unbound first clauses. | No. | No. |
-| `edges_from_any_time` | No. | No. | No. |
-| `scan_any_time` | No. | No. | Yes -- finds candidate entities for batch negation. |
-| `now` | Yes -- passed to `edges_from`/`scan` as `at`. | Yes -- used for negation clause verification. | Yes -- implicit via batch/incremental. |
-| `value_as_node` | Yes -- determines if targets are traversable. | Yes -- same. | Yes -- binding consistency checks. |
+| Method | Batch evaluation | Incremental (`on_edge_added`) | Negation check | Causal pathfinding |
+|--------|-----------------|-------------------------------|----------------|--------------------|
+| `edges_from` | Yes -- follows bound variables through stages. | Yes -- validates secondary clauses at event time. | Yes -- verifies remaining negation clauses. | No. |
+| `scan` | Yes -- finds starting nodes for unbound first clauses. | No. | No. | No. |
+| `edges_from_any_time` | No. | No. | No. | No. |
+| `scan_any_time` | No. | No. | Yes -- finds candidate entities for batch negation. | Indirectly (default `predecessors` uses it). |
+| `now` | Yes -- passed to `edges_from`/`scan` as `at`. | Yes -- used for negation clause verification. | Yes -- implicit via batch/incremental. | No. |
+| `value_as_node` | Yes -- determines if targets are traversable. | Yes -- same. | Yes -- binding consistency checks. | Yes -- resolves edge targets to node IDs. |
+| `predecessors` | No. | No. | No. | Yes -- each BFS node triggers one call per causal label. |
 
 ---
 

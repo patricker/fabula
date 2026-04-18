@@ -43,7 +43,7 @@ Walks backward from `effect` through causal edges, returning all paths of length
 
 **Emission:** Every depth along every branch is returned — a chain `a → b → c → d` queried at `d` yields three paths (`{c,d}`, `{b,c,d}`, `{a,b,c,d}`), each scored independently. Short paths typically outrank long ones because `gap_penalty` grows and `divergence_factor` only shrinks with depth.
 
-**Performance:** Each BFS node triggers one `DataSource::scan_any_time` call per causal label, then filters by target. Total cost is `O(|edges_with_causal_labels| × |causal_labels| × |nodes_visited|)`. For graphs with many edges or tight hot paths (e.g., MCTS inner loops), consider caching the result or building a reverse adjacency index over causal labels once and reusing it. A future `DataSource::predecessors()` extension point would allow adapters to provide an indexed lookup; until then, plan for the scan cost.
+**Performance:** Each BFS node triggers one `DataSource::predecessors(node, label)` call per causal label. The trait's default implementation scans all edges with that label and filters by target — `O(|edges_with_label|)` per call. For graphs with many edges or tight hot paths (e.g., MCTS inner loops), adapters can override `predecessors` with an indexed reverse-adjacency lookup for `O(1)` access. The in-tree adapters (`MemGraph`, `PetGraph`, `GrafeoGraph`) currently use the scanning default; contribute an override if you hit this in profile.
 
 ---
 
