@@ -130,6 +130,45 @@ Laplace smoothing ensures that novel transitions (never observed before) get a h
 
 Sequential surprise is independent of pattern-level and property-level surprise. A transition can be surprising even between two individually unsurprising patterns, and vice versa. A betrayal after a betrayal might be unremarkable by pattern frequency but highly surprising as a transition if the simulation usually de-escalates after the first one.
 
+## Contextual surprise
+
+The three signals above (pattern, property, sequential) all come from *frequency statistics*: how often has this pattern/match/transition appeared in historical data? They answer variants of "how rare is this?"
+
+A fourth axis is orthogonal to all of them: **given the causal graph leading up to this event, was this predictable?** An event can be statistically common yet contextually surprising if nothing in the timeline causally produced it — or statistically rare yet contextually unsurprising if a clean chain of causes led straight to it.
+
+`fabula::causality::event_causal_surprise` computes this by walking backward from the event through caller-declared causal edges and inverting the best path's cleanliness:
+
+```
+surprise = 1.0 − best_path_cleanliness
+```
+
+- No causal path at all → surprise = 1.0. The event "came out of nowhere."
+- Clean direct cause with full weight → surprise = 0.0. Fully expected.
+- Weak causes, distant gaps, or many candidate predecessors → intermediate score.
+
+### When to use it
+
+- **Anomaly detection.** A GM tool or observability dashboard flags events that have no causal explanation — a sign of an exploit, a bug, or a genuinely emergent moment.
+- **MCTS value signals.** During rollout evaluation, add a penalty for contextually-surprising events the rollout invents — they are narratively "out of nowhere" and usually feel wrong.
+- **Narrative quality.** A writer might want *some* contextual surprise (twists!) but not too much. Score ranges become tuning knobs.
+
+### Relationship to the other three
+
+Contextual surprise is **independent** of pattern/property/sequential surprise. The matrix of outcomes:
+
+| Statistical | Contextual | Example |
+|---|---|---|
+| Low | Low | "Another betrayal; grudge clearly caused it" — routine plot beat. |
+| Low | High | "Another betrayal, but there was no setup" — potential continuity break. |
+| High | Low | "Rare reconciliation, but the chain of peace offerings explains it" — earned turn. |
+| High | High | "Rare reconciliation out of nowhere" — either a bug or a genuine twist. |
+
+Compose however your application demands. The scorers impose no weighting.
+
+### Divergence caveat
+
+The formula uses the full `cleanliness` score as its basis, which includes a `divergence_factor` that shrinks the score when an event has many possible predecessors. For contextual surprise this is intentional — "one of many candidate causes" is a softer predictor than "exactly one necessary cause" — but callers who disagree can run `causal_paths` directly and compose their own formula. See the [reference](../reference/causality) for the building blocks.
+
 ## Putting it together
 
 The three signals answer orthogonal questions at different granularities.
@@ -148,4 +187,5 @@ Combine them however your application demands -- weighted sum, product, max, or 
 
 - [Scoring Reference](../reference/scoring) -- full API for SurpriseScorer, StuScorer, and SequentialScorer
 - [Narrative Quality](../reference/narratives) -- composite scoring for MCTS evaluation (thread tracking, tension arcs, pivot detection)
+- [Detecting Surprising Events](../guides/detecting-surprising-events) -- hands-on how-to for contextual surprise
 - [Design Decisions](./design-decisions) -- why scoring is implemented as post-processing, not engine modification
