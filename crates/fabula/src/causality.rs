@@ -46,14 +46,19 @@ pub struct CausalEdge<V, T> {
 ///
 /// `weights` contains one entry per edge in the path (length == path.edges.len()).
 /// `total_gap` is the sum of temporal gaps between consecutive nodes as f64.
-/// `branches_skipped` is the number of causal predecessors the BFS declined to
-/// follow at any node along the path (measures divergence).
+/// `divergent_branches` is the total count of sibling causes the path
+/// "walked past" — at each node on the path, every additional causal
+/// predecessor (beyond the one followed into this path) contributes one.
+/// It measures how much of a fork the causal graph had along this chain;
+/// the BFS follows all siblings in separate paths, but higher divergence
+/// means this chain is one of many plausible explanations rather than
+/// the only one.
 ///
 /// Returns a score in `[0.0, 1.0]`. Empty weights → `0.0`.
 pub fn cleanliness_score(
     weights: &[f64],
     total_gap: f64,
-    branches_skipped: usize,
+    divergent_branches: usize,
 ) -> f64 {
     if weights.is_empty() {
         return 0.0;
@@ -62,7 +67,7 @@ pub fn cleanliness_score(
     // Gap penalty saturates at 0.5 using an exponential approach.
     // gap = 0 → penalty = 0; gap → ∞ → penalty → 0.5.
     let gap_penalty = 0.5 * (1.0 - (-total_gap / 50.0).exp());
-    let divergence_factor = 1.0 / (1.0 + branches_skipped as f64);
+    let divergence_factor = 1.0 / (1.0 + divergent_branches as f64);
     (mean_weight * (1.0 - gap_penalty) * divergence_factor).clamp(0.0, 1.0)
 }
 
@@ -122,10 +127,10 @@ where
     let mut worklist: Vec<WorkItem<DS::N, DS::V, DS::T>> =
         vec![(vec![effect.clone()], Vec::new(), 0)];
 
-    while let Some((nodes_rev, edges_rev, branches_skipped)) = worklist.pop() {
+    while let Some((nodes_rev, edges_rev, divergent_branches)) = worklist.pop() {
         if edges_rev.len() >= max_hops {
             if !edges_rev.is_empty() {
-                finalize_path(nodes_rev, edges_rev, branches_skipped, &mut completed);
+                finalize_path(nodes_rev, edges_rev, divergent_branches, &mut completed);
             }
             continue;
         }
@@ -136,7 +141,7 @@ where
 
         if preds.is_empty() {
             if !edges_rev.is_empty() {
-                finalize_path(nodes_rev, edges_rev, branches_skipped, &mut completed);
+                finalize_path(nodes_rev, edges_rev, divergent_branches, &mut completed);
             }
             continue;
         }
@@ -159,7 +164,7 @@ where
                 time: pred_time,
                 weight,
             });
-            let new_branches = branches_skipped + pred_count - 1;
+            let new_branches = divergent_branches + pred_count - 1;
             worklist.push((new_nodes, new_edges, new_branches));
         }
 
@@ -168,7 +173,7 @@ where
         // the "proximate cause" view. Longer extensions explored above become
         // additional paths in the result set.
         if !edges_rev.is_empty() {
-            finalize_path(nodes_rev, edges_rev, branches_skipped, &mut completed);
+            finalize_path(nodes_rev, edges_rev, divergent_branches, &mut completed);
         }
     }
 
@@ -183,7 +188,7 @@ where
 fn finalize_path<N, V, T>(
     nodes_rev: Vec<N>,
     edges_rev: Vec<CausalEdge<V, T>>,
-    branches_skipped: usize,
+    divergent_branches: usize,
     out: &mut Vec<CausalPath<N, V, T>>,
 ) where
     T: NumericTime,
@@ -203,8 +208,10 @@ fn finalize_path<N, V, T>(
     };
 
     let weights: Vec<f64> = edges.iter().map(|e| e.weight).collect();
-    let cleanliness = cleanliness_score(&weights, total_gap, branches_skipped);
-    let confidence = weights.iter().sum::<f64>() / weights.len().max(1) as f64;
+    let cleanliness = cleanliness_score(&weights, total_gap, divergent_branches);
+    // Confidence = weakest-link: a chain is only as strong as its least-certain edge.
+    // This is a distinct signal from cleanliness (which uses the mean).
+    let confidence = weights.iter().copied().reduce(f64::min).unwrap_or(0.0);
 
     out.push(CausalPath {
         nodes,

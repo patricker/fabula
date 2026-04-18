@@ -54,7 +54,7 @@ Walks backward from `effect` through causal edges, returning all paths of length
 | `nodes` | `Vec<N>` | Path nodes ordered root-cause → effect. `len() == edges.len() + 1`. |
 | `edges` | `Vec<CausalEdge<V, T>>` | Edges between consecutive nodes. |
 | `cleanliness` | `f64` | Quality score in `[0.0, 1.0]`. Higher is better. |
-| `confidence` | `f64` | Mean edge weight as a proxy for confidence. |
+| `confidence` | `f64` | Weakest-link confidence — the minimum edge weight along the path. Captures "a chain is only as strong as its least-certain edge," and provides a distinct signal from `cleanliness` (which averages weights rather than taking the minimum). |
 
 ### Cleanliness formula
 
@@ -64,7 +64,7 @@ cleanliness = mean(edge_weights) × (1 − gap_penalty) × divergence_factor
 
 - `mean(edge_weights)` — arithmetic mean of each edge's weight from the causal labels map.
 - `gap_penalty` — saturating at `0.5`, derived from total time span: `0.5 × (1 − exp(−total_gap / 50.0))`.
-- `divergence_factor = 1.0 / (1.0 + branches_skipped)` — penalizes paths that walked past highly-branched nodes.
+- `divergence_factor = 1.0 / (1.0 + divergent_branches)` — `divergent_branches` is the total count of sibling causes along the path (every node with more than one causal predecessor contributes). Penalizes paths that pass through highly-branched nodes.
 
 The scorer is also exposed as a standalone function for explainability and re-scoring with altered inputs:
 
@@ -72,7 +72,7 @@ The scorer is also exposed as a standalone function for explainability and re-sc
 pub fn cleanliness_score(
     weights: &[f64],
     total_gap: f64,
-    branches_skipped: usize,
+    divergent_branches: usize,
 ) -> f64
 ```
 
