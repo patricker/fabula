@@ -141,7 +141,6 @@ where
             continue;
         }
 
-        let mut extended = false;
         for (pred_node, pred_value, pred_time, weight) in preds {
             if nodes_rev.contains(&pred_node) {
                 continue;
@@ -160,14 +159,15 @@ where
                 time: pred_time,
                 weight,
             });
-            let new_branches = branches_skipped + pred_count.saturating_sub(1);
+            let new_branches = branches_skipped + pred_count - 1;
             worklist.push((new_nodes, new_edges, new_branches));
-            extended = true;
         }
 
-        // If no extensions were valid but we have walked some distance, emit
-        // the current path as-is.
-        if !extended && !edges_rev.is_empty() {
+        // Also emit the current path as a valid explanation — shorter paths
+        // typically score higher (smaller gap, less divergence) and represent
+        // the "proximate cause" view. Longer extensions explored above become
+        // additional paths in the result set.
+        if !edges_rev.is_empty() {
             finalize_path(nodes_rev, edges_rev, branches_skipped, &mut completed);
         }
     }

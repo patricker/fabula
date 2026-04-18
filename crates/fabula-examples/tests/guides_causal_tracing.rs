@@ -24,29 +24,23 @@ fn guide_example_produces_sorted_paths() {
 
     let paths = causal_paths(&graph, &"betrayal_event".to_string(), 5, &causal_labels);
 
-    assert!(!paths.is_empty(), "expected at least one causal path");
+    // Every depth from 1 hop (proximate cause) to 3 hops (full root-cause chain)
+    // is emitted for each of the two causal branches: six paths total.
+    assert_eq!(paths.len(), 6, "expected 6 paths across 2 branches × 3 depths");
 
-    // Verify ordering: paths should be sorted by cleanliness descending
     for w in paths.windows(2) {
-        assert!(w[0].cleanliness >= w[1].cleanliness, "paths should be sorted by cleanliness descending");
+        assert!(w[0].cleanliness >= w[1].cleanliness);
     }
 
-    // Verify top path has reasonable cleanliness (though not as high as guide examples suggest)
+    // Top path is the proximate cause: grudge_event directly causes betrayal.
     let top = &paths[0];
-    assert!(top.cleanliness > 0.3, "top path should have above-minimum cleanliness");
-    assert!(top.cleanliness <= 1.0, "top path cleanliness should be normalized");
+    assert_eq!(top.nodes, vec!["grudge_event".to_string(), "betrayal_event".to_string()]);
+    assert!((top.cleanliness - 0.500).abs() < 0.01, "top cleanliness ~0.500, got {}", top.cleanliness);
 
-    // Verify top path includes expected nodes (should have both insult_event and grudge_event)
-    assert!(
-        top.nodes.contains(&"insult_event".to_string()),
-        "top chain should include insult_event"
-    );
-    assert!(
-        top.nodes.contains(&"grudge_event".to_string()),
-        "top chain should include grudge_event"
-    );
-    assert!(
-        top.nodes.contains(&"betrayal_event".to_string()),
-        "top chain should end with betrayal_event"
-    );
+    // The full three-hop chain from the highest-weight branch is also present.
+    let full_chain = paths
+        .iter()
+        .find(|p| p.nodes.len() == 4 && p.nodes[0] == "failed_negotiation")
+        .expect("full insult→grudge→betrayal chain should be emitted");
+    assert!((full_chain.cleanliness - 0.425).abs() < 0.01);
 }

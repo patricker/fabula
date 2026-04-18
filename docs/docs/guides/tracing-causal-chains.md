@@ -46,15 +46,20 @@ for p in paths.iter().take(3) {
 }
 ```
 
-**Expected output** (shape):
+**Example output** (for a graph where `insult_event → grudge_event → betrayal_event` sits alongside a rival-alliance branch, both converging at `betrayal_event`):
 
 ```
-cleanliness=0.94 (2 hops): ["insult_event", "grudge_event", "betrayal_event"]
-cleanliness=0.71 (4 hops): ["failed_negotiation", "insult_event", "grudge_event", "rival_encounter", "betrayal_event"]
-cleanliness=0.42 (3 hops): ["old_debt", "strained_alliance", "rival_encounter", "betrayal_event"]
+cleanliness=0.50 (1 hops): ["grudge_event", "betrayal_event"]
+cleanliness=0.50 (2 hops): ["insult_event", "grudge_event", "betrayal_event"]
+cleanliness=0.43 (3 hops): ["failed_negotiation", "insult_event", "grudge_event", "betrayal_event"]
+cleanliness=0.40 (1 hops): ["rival_encounter", "betrayal_event"]
+cleanliness=0.34 (2 hops): ["strained_alliance", "rival_encounter", "betrayal_event"]
+cleanliness=0.31 (3 hops): ["old_debt", "strained_alliance", "rival_encounter", "betrayal_event"]
 ```
 
-Paths are sorted by cleanliness — the first path is the most confident explanation.
+Paths are sorted by cleanliness — the first path is the most confident explanation. `causal_paths` returns **every depth for every branch**: the top-ranked "proximate cause" (1 hop), the mid-range explanation (2 hops), and the full root-cause trace (3 hops). Pick whichever depth suits your UI — a GM debug panel might show just `[0]`; an after-action summary might show the deepest path per branch.
+
+The ceiling for any path is `~0.5` here because `betrayal_event` has two causal predecessors (`grudge_event` via `causes`, `rival_encounter` via `escalates`), so every path pays a divergence penalty for the branch it didn't take. Single-predecessor graphs produce cleaner scores.
 
 ## 3. Combine with narrative scoring
 
