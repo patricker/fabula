@@ -99,14 +99,22 @@ let rollout_penalty: f64 = rollout_events
 
 ## 6. Interpreting the number
 
-| Score | Meaning | Action |
-|---|---|---|
-| 0.0 – 0.25 | Event is explained by a clean proximate cause. | Accept as routine. |
-| 0.25 – 0.5 | Chain exists but is moderately long, weak, or branchy. | Log; probably fine. |
-| 0.5 – 0.75 | Chain is weak or heavily branched. | Possibly interesting — a real narrative twist, or an edge case to audit. |
-| 0.75 – 1.0 | Little or no causal explanation. | Flag — possible exploit, bug, or emergent moment worth a close look. |
+Scores fall into three broad buckets. The cause of a middling score is always either a weak causal weight (the label you registered has weight < 1.0) or divergence (the event has more than one candidate predecessor at some hop along the path). Temporal gap does *not* raise surprise on its own — a direct immediate cause always wins the ranking.
 
-Thresholds are domain-dependent. Start with `0.75` as an anomaly threshold and tune.
+| Score | What it means | Action |
+|---|---|---|
+| 0.0 – 0.3 | A full-weight direct cause exists. | Accept as routine. |
+| 0.3 – 0.7 | The best causal chain uses a weaker label or passes through a branching point. | Log; usually fine — interpret in context. |
+| 0.7 – 1.0 | Either no chain at all, or only very weak / heavily branched chains. | Flag — possible exploit, bug, or a genuine narrative twist. |
+
+Thresholds are domain-dependent. Start with `0.7` as an anomaly threshold and tune.
+
+**Worked examples** (reproduced by the test suite in `crates/fabula-examples/tests/guides_detecting_surprise.rs`):
+
+- A single `causes` edge (weight 1.0): cleanliness = 1.0, surprise = **0.0**.
+- A single `enables` edge (weight 0.6): cleanliness = 0.6, surprise = **0.4**.
+- Two causes for one event (both weight 1.0): the divergence factor kicks in — cleanliness = 0.5, surprise = **0.5**.
+- No causal edge at all: surprise = **1.0**.
 
 ## See also
 

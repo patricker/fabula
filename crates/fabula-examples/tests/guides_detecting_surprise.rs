@@ -40,6 +40,19 @@ fn guide_weak_cause_is_medium_surprise() {
 }
 
 #[test]
+fn guide_divergent_causes_produce_half_surprise() {
+    // Two full-weight causes for the same effect: each path carries a
+    // divergence penalty of 1, so cleanliness = 1.0 × 1 × 1/(1+1) = 0.5
+    // and surprise = 0.5. Pins the divergence bucket advertised in the
+    // guide's worked-examples block.
+    let mut g = MemGraph::new();
+    g.add_ref("cause_a", "causes", "effect", 1);
+    g.add_ref("cause_b", "causes", "effect", 1);
+    let s = event_causal_surprise(&g, &"effect".to_string(), 5, &causal_labels());
+    assert!((s - 0.5).abs() < 0.01, "divergent causes → surprise ~0.5, got {}", s);
+}
+
+#[test]
 fn guide_batch_call_works_on_tick_worth_of_events() {
     let mut g = MemGraph::new();
     g.add_ref("grudge", "causes", "betrayal", 2);

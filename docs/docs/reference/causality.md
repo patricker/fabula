@@ -125,8 +125,10 @@ where `best_path_cleanliness` is the highest `cleanliness` among paths returned 
 | Score | Meaning |
 |---|---|
 | `0.0` | Event is fully explained by a clean, short causal chain. Expected. |
-| `~0.5` | Multiple candidate causes, weak weights, or long gaps. Moderately surprising. |
+| `~0.5` | Either multiple candidate causes (divergent predecessors share a path) or a moderately weak causal weight. Partially explained. |
 | `1.0` | No causal explanation — the event "came out of nowhere." |
+
+Note that **the proximate cause dominates**: because `causal_paths` emits every depth and sorts cleanliness-descending, a short clean chain will always outrank a longer one. Temporal gap only affects paths with two or more edges, so a distant upstream history does *not* raise surprise as long as a direct immediate cause exists. If you want "long gap" to count against the score, you'd need to post-process `causal_paths` yourself and pick a different path-selection rule.
 
 ### Contextual vs statistical surprise
 
