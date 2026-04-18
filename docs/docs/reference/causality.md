@@ -41,6 +41,10 @@ Walks backward from `effect` through causal edges, returning all paths of length
 
 **Cycle guard:** Each path tracks its own visited set; a node cannot appear twice in the same path.
 
+**Emission:** Every depth along every branch is returned — a chain `a → b → c → d` queried at `d` yields three paths (`{c,d}`, `{b,c,d}`, `{a,b,c,d}`), each scored independently. Short paths typically outrank long ones because `gap_penalty` grows and `divergence_factor` only shrinks with depth.
+
+**Performance:** Each BFS node triggers one `DataSource::scan_any_time` call per causal label, then filters by target. Total cost is `O(|edges_with_causal_labels| × |causal_labels| × |nodes_visited|)`. For graphs with many edges or tight hot paths (e.g., MCTS inner loops), consider caching the result or building a reverse adjacency index over causal labels once and reusing it. A future `DataSource::predecessors()` extension point would allow adapters to provide an indexed lookup; until then, plan for the scan cost.
+
 ---
 
 ## `CausalPath`
@@ -61,6 +65,18 @@ cleanliness = mean(edge_weights) × (1 − gap_penalty) × divergence_factor
 - `mean(edge_weights)` — arithmetic mean of each edge's weight from the causal labels map.
 - `gap_penalty` — saturating at `0.5`, derived from total time span: `0.5 × (1 − exp(−total_gap / 50.0))`.
 - `divergence_factor = 1.0 / (1.0 + branches_skipped)` — penalizes paths that walked past highly-branched nodes.
+
+The scorer is also exposed as a standalone function for explainability and re-scoring with altered inputs:
+
+```rust
+pub fn cleanliness_score(
+    weights: &[f64],
+    total_gap: f64,
+    branches_skipped: usize,
+) -> f64
+```
+
+Pass it the edge weights, summed absolute time gaps between consecutive edges, and the total branches-skipped count to reproduce a path's score or explore "what if this weight were higher?" without re-traversing the graph.
 
 ---
 

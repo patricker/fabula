@@ -14,6 +14,10 @@
 //!
 //! Based on ROADMAP Phase 6.1.
 
+use crate::datasource::{DataSource, ValueConstraint};
+use crate::interval::NumericTime;
+use std::collections::HashMap;
+
 /// A traced causal chain leading to an effect.
 #[derive(Debug, Clone)]
 pub struct CausalPath<N, V, T> {
@@ -46,7 +50,7 @@ pub struct CausalEdge<V, T> {
 /// follow at any node along the path (measures divergence).
 ///
 /// Returns a score in `[0.0, 1.0]`. Empty weights → `0.0`.
-pub(crate) fn cleanliness_score(
+pub fn cleanliness_score(
     weights: &[f64],
     total_gap: f64,
     branches_skipped: usize,
@@ -61,10 +65,6 @@ pub(crate) fn cleanliness_score(
     let divergence_factor = 1.0 / (1.0 + branches_skipped as f64);
     (mean_weight * (1.0 - gap_penalty) * divergence_factor).clamp(0.0, 1.0)
 }
-
-use crate::datasource::{DataSource, ValueConstraint};
-use crate::interval::NumericTime;
-use std::collections::HashMap;
 
 /// Collect all causal predecessors of `target` across all causal labels.
 /// Returns `(source_node, value, time, weight)` tuples.
