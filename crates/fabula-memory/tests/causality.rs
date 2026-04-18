@@ -71,6 +71,25 @@ fn memgraph_cycle_does_not_loop() {
 }
 
 #[test]
+fn memgraph_confidence_is_weakest_link() {
+    // Mixed-weight chain: confidence should be the minimum weight, not the mean.
+    let mut labels = HashMap::new();
+    labels.insert("strongly_causes".to_string(), 1.0);
+    labels.insert("weakly_suggests".to_string(), 0.3);
+
+    let mut g = MemGraph::new();
+    g.add_ref("a", "strongly_causes", "b", 1);
+    g.add_ref("b", "weakly_suggests", "c", 2);
+    let paths = causal_paths(&g, &"c".to_string(), 5, &labels);
+    let full = paths
+        .iter()
+        .find(|p| p.nodes.len() == 3)
+        .expect("expected the a->b->c chain");
+    // Weakest link is 0.3 (weakly_suggests), not the mean of 0.65.
+    assert!((full.confidence - 0.3).abs() < 1e-9, "got {}", full.confidence);
+}
+
+#[test]
 fn memgraph_empty_graph_empty_result() {
     let g = MemGraph::new();
     let paths = causal_paths(&g, &"anything".to_string(), 3, &labels());
