@@ -78,6 +78,7 @@ const sidebars: SidebarsConfig = {
         'guides/golden-tests',
         'guides/language-integration',
         'guides/performance',
+        'guides/tracing-causal-chains',
       ],
     },
     {
