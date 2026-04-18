@@ -90,6 +90,71 @@ Pass it the edge weights, summed absolute time gaps between consecutive edges, a
 
 ---
 
+## `event_causal_surprise`
+
+```rust
+pub fn event_causal_surprise<DS: DataSource>(
+    ds: &DS,
+    event: &DS::N,
+    max_hops: usize,
+    causal_labels: &HashMap<DS::L, f64>,
+) -> f64
+where
+    DS::T: NumericTime,
+```
+
+Score an event's *contextual* surprise — how predictable was this event given the causal graph leading to it? Returns a value in `[0.0, 1.0]`.
+
+| Parameter | Type | Description |
+|---|---|---|
+| `ds` | `&impl DataSource` | The graph to query. |
+| `event` | `&DS::N` | The event node being scored. |
+| `max_hops` | `usize` | Max depth for the backward search. Short windows (3–5) are typical. |
+| `causal_labels` | `&HashMap<DS::L, f64>` | Same map you pass to `causal_paths`. |
+
+### Formula
+
+```
+surprise = 1.0 − best_path_cleanliness
+```
+
+where `best_path_cleanliness` is the highest `cleanliness` among paths returned by [`causal_paths`]. When no paths exist, `surprise = 1.0`.
+
+### Interpretation
+
+| Score | Meaning |
+|---|---|
+| `0.0` | Event is fully explained by a clean, short causal chain. Expected. |
+| `~0.5` | Multiple candidate causes, weak weights, or long gaps. Moderately surprising. |
+| `1.0` | No causal explanation — the event "came out of nowhere." |
+
+### Contextual vs statistical surprise
+
+This is **contextual** surprise — "given what just happened, was this predictable?" It is orthogonal to the **statistical** surprise scorers in [`fabula::scoring`](/reference/scoring), which measure how unusual an event is relative to a baseline frequency.
+
+A statistically common event (e.g. "another betrayal this tick") can still be contextually surprising if nothing in the causal graph led to it. A statistically rare event can be contextually unsurprising if a clean chain explains it. Compose both signals in your downstream scoring.
+
+---
+
+## `event_causal_surprise_batch`
+
+```rust
+pub fn event_causal_surprise_batch<DS: DataSource>(
+    ds: &DS,
+    events: &[DS::N],
+    max_hops: usize,
+    causal_labels: &HashMap<DS::L, f64>,
+) -> Vec<f64>
+where
+    DS::T: NumericTime,
+```
+
+Compute [`event_causal_surprise`] for each input event. Returns a `Vec<f64>` the same length as `events`, in the same order.
+
+Useful when you want to score every completion from a tick at once and feed the results into a narrative signal pipeline. Computation is independent per event; cost scales linearly with input length.
+
+---
+
 ## Related
 
 - [How-to: Trace an effect back to its causes](/guides/tracing-causal-chains)
