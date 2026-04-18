@@ -111,6 +111,9 @@ golden_tests! {
     causality_no_causal_edges,
     causality_max_hops_limit,
     causality_sorted_by_cleanliness,
+    causality_surprise_orphan_event,
+    causality_surprise_clean_chain,
+    causality_surprise_batch_parallel,
 
     // --- Winnow replay ---
     incremental_winnow_7step_sequence,
