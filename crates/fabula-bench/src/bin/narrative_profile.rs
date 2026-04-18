@@ -65,7 +65,9 @@ fn main() {
     let weights = NarrativeWeights::default();
 
     // CSV header
-    println!("tick,elapsed_us,advancements,completions,stalled,filo_violations,pivot,tension_fit,score");
+    println!(
+        "tick,elapsed_us,advancements,completions,stalled,filo_violations,pivot,tension_fit,score"
+    );
 
     let overall_start = Instant::now();
 

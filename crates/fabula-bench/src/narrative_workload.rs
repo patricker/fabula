@@ -154,9 +154,7 @@ pub fn generate_trace(config: &NarrativeTraceConfig) -> NarrativeTrace {
 
         // -- Tension value --
         let tension_value = match config.narrative_shape {
-            NarrativeShape::RisingPeakFalling => {
-                (std::f64::consts::PI * progress).sin()
-            }
+            NarrativeShape::RisingPeakFalling => (std::f64::consts::PI * progress).sin(),
             NarrativeShape::Flat => 0.5 + (rng.f64() - 0.5) * 0.05,
             NarrativeShape::Chaotic => rng.f64(),
         };

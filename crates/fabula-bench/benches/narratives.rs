@@ -120,9 +120,7 @@ fn score_one_tick(mut pipeline: WarmedPipeline, tick: fabula_bench::NarrativeTic
     pipeline.thread_tracker.observe_delta(&tick.delta);
     let filo_violations = pipeline.thread_tracker.check_filo().len();
 
-    pipeline
-        .tension_tracker
-        .push(tick.tick, tick.tension_value);
+    pipeline.tension_tracker.push(tick.tick, tick.tension_value);
     let trajectory = pipeline.tension_tracker.trajectory();
 
     for event_type in &tick.event_types {
