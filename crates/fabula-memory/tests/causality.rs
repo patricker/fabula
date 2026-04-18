@@ -124,3 +124,47 @@ fn datasource_predecessors_default_impl() {
     let empty = g.predecessors(&"nobody".to_string(), &"causes".to_string());
     assert!(empty.is_empty());
 }
+
+#[test]
+fn memgraph_surprise_no_cause() {
+    let g = MemGraph::new();
+    let s = fabula::causality::event_causal_surprise(
+        &g,
+        &"orphan_event".to_string(),
+        3,
+        &labels(),
+    );
+    assert!((s - 1.0).abs() < 1e-9);
+}
+
+#[test]
+fn memgraph_surprise_clean_chain_is_low() {
+    let mut g = MemGraph::new();
+    g.add_ref("cause", "causes", "effect", 1);
+    let s = fabula::causality::event_causal_surprise(
+        &g,
+        &"effect".to_string(),
+        3,
+        &labels(),
+    );
+    // Single pred, weight 1.0, no gap, no divergence → cleanliness 1.0, surprise 0.0.
+    assert!(s.abs() < 1e-9, "got {}", s);
+}
+
+#[test]
+fn memgraph_surprise_batch_matches_individual_calls() {
+    let mut g = MemGraph::new();
+    g.add_ref("a", "causes", "b", 1);
+    let events = vec![
+        "b".to_string(),
+        "unrelated".to_string(),
+    ];
+    let batch = fabula::causality::event_causal_surprise_batch(
+        &g, &events, 3, &labels(),
+    );
+    let individual: Vec<f64> = events
+        .iter()
+        .map(|e| fabula::causality::event_causal_surprise(&g, e, 3, &labels()))
+        .collect();
+    assert_eq!(batch, individual);
+}
