@@ -78,6 +78,7 @@ const sidebars: SidebarsConfig = {
         'guides/golden-tests',
         'guides/language-integration',
         'guides/performance',
+        'guides/tracing-causal-chains',
       ],
     },
     {
@@ -88,6 +89,7 @@ const sidebars: SidebarsConfig = {
         'reference/datasource',
         'reference/patterns',
         'reference/engine',
+        'reference/causality',
         'reference/scoring',
         'reference/narratives',
         'reference/dsl',

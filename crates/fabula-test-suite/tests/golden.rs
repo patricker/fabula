@@ -105,6 +105,13 @@ golden_tests! {
     batch_explicit_during_constraint,
     batch_explicit_overlaps_constraint,
 
+    // --- Causality ---
+    causality_single_hop,
+    causality_multi_hop_chain,
+    causality_no_causal_edges,
+    causality_max_hops_limit,
+    causality_sorted_by_cleanliness,
+
     // --- Winnow replay ---
     incremental_winnow_7step_sequence,
     batch_winnow_multi_pattern,

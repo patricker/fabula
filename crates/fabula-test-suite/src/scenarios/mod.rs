@@ -8,6 +8,7 @@
 //! `gap_*`         — tests using `engine.why_not()` (gap analysis)
 
 mod allen_temporal;
+mod causality;
 mod composition;
 mod consistency;
 mod cross_stage_constraints;
@@ -25,6 +26,7 @@ mod value_disjunction;
 mod winnow_replay;
 
 pub use allen_temporal::*;
+pub use causality::*;
 pub use composition::*;
 pub use consistency::*;
 pub use cross_stage_constraints::*;

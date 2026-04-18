@@ -698,3 +698,9 @@ Analysis of a single clause within a stage.
 | `description` | `String` | Human-readable clause description. |
 | `matched` | `bool` | Whether this clause matched. |
 | `reason` | `Option<String>` | Explanation of why the clause failed, or `None` if it matched. |
+
+---
+
+## Related
+
+- [Causality reference](/reference/causality) -- `causal_paths()` for retrospective causal tracing
