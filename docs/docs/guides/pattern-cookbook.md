@@ -296,6 +296,49 @@ compose any_harm = harm_attack | harm_betray | harm_steal nonexclusive
 
 The `in [...]` approach is more concise and avoids the overhead of three separate pattern registrations.
 
+## Crowded patterns: avoid PM accumulation with `advance_in_place`
+
+**Problem:** You have a two-stage pattern (`enter then leave`) matched against a simulation with hundreds of characters. Each enter creates a stage-1 PM. Each leave advances some of them to stage 2, but the default fork semantics keep the original stage-1 PM alive. After a long run, you have thousands of stage-1 PMs that will never usefully match.
+
+**Solution:** Mark the pattern `advance_in_place`:
+
+```rust
+PatternBuilder::<String, MemValue>::new("enter_then_leave")
+    .stage("a", |s| s.edge("a", "eventType".into(), MemValue::Str("enter".into())))
+    .stage("b", |s| s.edge("b", "eventType".into(), MemValue::Str("leave".into())))
+    .advance_in_place()
+    .build()
+```
+
+Or in the DSL:
+
+```
+advance_in_place pattern enter_then_leave {
+    stage a { a.type = "enter" }
+    stage b { b.type = "leave" }
+}
+```
+
+**When this is wrong:** If you DO want each enter to potentially match multiple leaves from the same character (e.g., repeated visits), don't enable the flag. Default fork behavior is correct.
+
+**Measuring the effect:** The `fabula-bench/src/bin/advance_in_place_cmp.rs` binary runs a synthetic 200-enter / 200-leave crowd workload against the pattern with and without the flag. Representative numbers from one run:
+
+```
+metric,without_flag,with_flag
+active_pms_at_end,200,0
+total_pms_at_end,40200,200
+active_ratio,0.000
+total_ratio,0.005
+```
+
+The flag collapses the PM table by ~99.5% on this workload -- a direct consequence of killing the stage-1 originals that would otherwise re-match every subsequent leave.
+
+Run it yourself with:
+
+```
+cargo run --release -p fabula-bench --bin advance_in_place_cmp
+```
+
 ## Next steps
 
 - [Pattern Playground](../playground/pattern-playground) -- try these recipes interactively in the browser without a Rust project.
