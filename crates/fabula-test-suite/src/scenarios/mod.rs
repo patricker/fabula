@@ -7,6 +7,7 @@
 //! `incremental_*` -- tests using `engine.on_edge_added()` (streaming)
 //! `gap_*`         -- tests using `engine.why_not()` (gap analysis)
 
+mod advance_in_place;
 mod allen_temporal;
 mod causality;
 mod composition;
@@ -25,6 +26,7 @@ mod value_constraints;
 mod value_disjunction;
 mod winnow_replay;
 
+pub use advance_in_place::*;
 pub use allen_temporal::*;
 pub use causality::*;
 pub use composition::*;

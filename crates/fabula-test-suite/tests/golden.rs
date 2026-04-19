@@ -58,6 +58,12 @@ macro_rules! golden_tests {
 // ===========================================================================
 
 golden_tests! {
+    // --- Advance in place ---
+    advance_in_place_default_preserves_original,
+    advance_in_place_consumes_original,
+    advance_in_place_still_emits_completed,
+    advance_in_place_crowded_no_residue,
+
     // --- Hospitality (batch) ---
     batch_hospitality_matches,
     batch_hospitality_negated_when_guest_leaves,
