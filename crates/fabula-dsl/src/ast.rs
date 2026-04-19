@@ -85,6 +85,9 @@ pub struct PatternAst {
     pub private: bool,
     /// Importance weight for narrative scoring. Defaults to 1.0.
     pub importance: f64,
+    /// If true, this pattern was declared with `advance_in_place` keyword --
+    /// the engine will consume the original PM after strict-forward advancement.
+    pub advance_in_place: bool,
 }
 
 /// The interior of a pattern -- stages, negations, and temporal constraints,
@@ -103,6 +106,7 @@ pub struct PatternBody {
     pub unordered_groups: Vec<Vec<usize>>,
     pub private: bool,
     pub importance: f64,
+    pub advance_in_place: bool,
 }
 
 /// A stage within a pattern.

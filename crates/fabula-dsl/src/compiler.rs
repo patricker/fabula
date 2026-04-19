@@ -123,6 +123,7 @@ pub fn compile_pattern_body_with<M: TypeMapper>(
         unordered_groups: body.unordered_groups.clone(),
         private: body.private,
         importance: body.importance,
+        advance_in_place: body.advance_in_place,
     };
     compile_pattern_with(&ast, mapper)
 }
@@ -282,6 +283,7 @@ pub fn compile_pattern_with<M: TypeMapper>(
     let mut pattern = builder.importance(ast.importance).build();
     pattern.unordered_groups = ast.unordered_groups.clone();
     pattern.private = ast.private;
+    pattern.advance_in_place = ast.advance_in_place;
     Ok(pattern)
 }
 
