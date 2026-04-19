@@ -139,6 +139,7 @@ pub fn rename_vars<L: Clone, V: Clone>(
         unordered_groups: pattern.unordered_groups.clone(),
         private: pattern.private,
         importance: pattern.importance,
+        advance_in_place: pattern.advance_in_place,
     }
 }
 
@@ -198,6 +199,7 @@ pub fn sequence<L: Clone, V: Clone>(
         repeat_range: None,
         unordered_groups,
         private: false,
+        advance_in_place: false,
         importance: 1.0,
     }
 }
@@ -294,6 +296,7 @@ pub fn repeat<L: Clone, V: Clone>(
         repeat_range: None,
         unordered_groups,
         private: false,
+        advance_in_place: false,
         importance: 1.0,
     }
 }
@@ -370,6 +373,7 @@ pub fn repeat_range<L: Clone, V: Clone>(
         }),
         unordered_groups,
         private: false,
+        advance_in_place: false,
         importance: 1.0,
     }
 }

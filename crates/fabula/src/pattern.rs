@@ -151,6 +151,16 @@ pub struct Pattern<L, V> {
     /// weighted more heavily in composite scores.
     #[cfg_attr(feature = "serde", serde(default = "default_importance"))]
     pub importance: f64,
+    /// When true, this pattern's PMs are consumed after strict-forward
+    /// advancement (the original PM is marked Dead by the engine). This
+    /// prevents long-tail duplication in crowded simulations where the
+    /// same stage will never be matched again with the same bindings.
+    /// Default: false (preserves the classic "original survives" invariant).
+    ///
+    /// Within-unordered-group advancements do NOT consume the original --
+    /// the mask semantics require it alive for further group matching.
+    #[cfg_attr(feature = "serde", serde(default))]
+    pub advance_in_place: bool,
 }
 
 #[cfg(feature = "serde")]
@@ -289,6 +299,7 @@ impl<L, V> Pattern<L, V> {
             unordered_groups: self.unordered_groups.clone(),
             private: self.private,
             importance: self.importance,
+            advance_in_place: self.advance_in_place,
         }
     }
 

@@ -36,6 +36,7 @@ pub struct PatternBuilder<L, V> {
     unordered_groups: Vec<Vec<usize>>,
     private: bool,
     importance: f64,
+    advance_in_place: bool,
 }
 
 impl<L: Clone, V: Clone> PatternBuilder<L, V> {
@@ -52,6 +53,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             unordered_groups: Vec::new(),
             private: false,
             importance: 1.0,
+            advance_in_place: false,
         }
     }
 
@@ -154,6 +156,18 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
         self
     }
 
+    /// Enable "advance without forking": when a PM advances strictly forward
+    /// under this pattern, the original PM is consumed (marked Dead), preventing
+    /// the accumulation of duplicate stage-N PMs in crowded simulations.
+    ///
+    /// Use when the pattern is expected to match exactly one sequence per binding
+    /// set (the common case in narrative sifting). Leave disabled when the same
+    /// stage should match multiple distinct forward edges from one prefix.
+    pub fn advance_in_place(mut self) -> Self {
+        self.advance_in_place = true;
+        self
+    }
+
     /// Attach a metadata key-value pair to the pattern.
     pub fn metadata(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.metadata.insert(key.into(), value.into());
@@ -246,6 +260,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
             unordered_groups: self.unordered_groups,
             private: self.private,
             importance: self.importance,
+            advance_in_place: self.advance_in_place,
         }
     }
 }

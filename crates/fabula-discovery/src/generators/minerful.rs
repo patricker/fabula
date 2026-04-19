@@ -217,5 +217,6 @@ fn build_pattern(idx: usize, round: usize, stats: &PairStats) -> Pattern<String,
         unordered_groups: Vec::new(),
         private: false,
         importance: 1.0,
+        advance_in_place: false,
     }
 }
