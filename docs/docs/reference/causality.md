@@ -76,7 +76,7 @@ pub fn cleanliness_score(
 ) -> f64
 ```
 
-Pass it the edge weights, summed absolute time gaps between consecutive edges, and the total branches-skipped count to reproduce a path's score or explore "what if this weight were higher?" without re-traversing the graph.
+Pass it the edge weights, summed absolute time gaps between consecutive edges, and the total divergent-branches count to reproduce a path's score or explore "what if this weight were higher?" without re-traversing the graph.
 
 ---
 
