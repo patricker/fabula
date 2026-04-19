@@ -200,7 +200,7 @@ pub fn batch_unordered_group_shared_binding<G: TestGraph>() {
         BoundValue::Node("alice".into())
     );
 
-    // Different actors — should not match
+    // Different actors -- should not match
     let mut g2 = G::new_graph();
     g2.add_str_edge("ev1", "type", "alpha", 1);
     g2.add_ref_edge("ev1", "actor", "alice", 1);

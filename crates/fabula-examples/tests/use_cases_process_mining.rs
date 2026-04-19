@@ -65,7 +65,7 @@ fn batch_auditing() {
     let matches = engine.evaluate(&graph);
     for m in &matches {
         println!(
-            "Deviation: {} — order: {:?}",
+            "Deviation: {} -- order: {:?}",
             m.pattern,
             m.bindings.get("order")
         );
@@ -81,7 +81,7 @@ fn batch_auditing() {
             .count();
         if matched > 0 && matched < gap.stages.len() {
             println!(
-                "Near-miss: {} — {}/{} stages matched",
+                "Near-miss: {} -- {}/{} stages matched",
                 pattern.name,
                 matched,
                 gap.stages.len()

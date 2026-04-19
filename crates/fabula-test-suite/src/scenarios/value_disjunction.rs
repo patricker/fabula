@@ -1,9 +1,9 @@
-//! Value disjunction (OneOf) scenarios — matching edges against a set of values.
+//! Value disjunction (OneOf) scenarios -- matching edges against a set of values.
 
 use crate::TestGraph;
 use fabula::prelude::*;
 
-/// Batch: OneOf matches any listed value — "attack" and "betray" match, "trade" does not.
+/// Batch: OneOf matches any listed value -- "attack" and "betray" match, "trade" does not.
 pub fn batch_one_of_matches_any<G: TestGraph>() {
     let mut g = G::new_graph();
     g.add_str_edge("ev1", "eventType", "attack", 1);
@@ -66,7 +66,7 @@ pub fn batch_one_of_rejects_unlisted<G: TestGraph>() {
     );
 }
 
-/// Batch: OneOf with variable join across two stages — only Alice matches
+/// Batch: OneOf with variable join across two stages -- only Alice matches
 /// because she both attacks and apologizes.
 pub fn batch_one_of_with_variable_join<G: TestGraph>() {
     let mut g = G::new_graph();
@@ -135,7 +135,7 @@ pub fn incremental_one_of_advances<G: TestGraph>() {
         .build();
     engine.register(pattern);
 
-    // Feed "trade" — should NOT produce any events
+    // Feed "trade" -- should NOT produce any events
     g.add_str_edge("ev1", "eventType", "trade", 1);
     g.set_current_time(1);
     let ev = engine.on_edge_added(
@@ -150,7 +150,7 @@ pub fn incremental_one_of_advances<G: TestGraph>() {
         "trade is not in OneOf list, no events expected"
     );
 
-    // Feed "attack" — single-stage pattern should complete immediately
+    // Feed "attack" -- single-stage pattern should complete immediately
     g.add_str_edge("ev2", "eventType", "attack", 2);
     g.set_current_time(2);
     let ev = engine.on_edge_added(

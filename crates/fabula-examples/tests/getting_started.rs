@@ -10,7 +10,7 @@ fn build_graph() -> MemGraph {
     graph.add_ref("login1", "user", "alice", 1);
     graph.add_str("login1", "location", "new_york", 1);
 
-    // Alice logs in from Tokyo at time 3 — no logout in between.
+    // Alice logs in from Tokyo at time 3 -- no logout in between.
     graph.add_str("login2", "type", "login", 3);
     graph.add_ref("login2", "user", "alice", 3);
     graph.add_str("login2", "location", "tokyo", 3);
@@ -24,7 +24,7 @@ fn build_graph() -> MemGraph {
     graph.add_str("logout1", "type", "logout", 4);
     graph.add_ref("logout1", "user", "bob", 4);
 
-    // Bob logs in from Paris at time 5 — but he logged out first, so this is fine.
+    // Bob logs in from Paris at time 5 -- but he logged out first, so this is fine.
     graph.add_str("login4", "type", "login", 5);
     graph.add_ref("login4", "user", "bob", 5);
     graph.add_str("login4", "location", "paris", 5);

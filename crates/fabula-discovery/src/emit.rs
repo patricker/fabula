@@ -17,7 +17,7 @@ use fabula::pattern::{Clause, MetricGap, Negation, Pattern, Stage, Target, Tempo
 ///
 /// - Only handles `Pattern<String, String>` (not `MemValue` or custom types).
 ///   String values are emitted as quoted string literals.
-/// - Composition metadata (group, repeat_range) is not emitted — compose
+/// - Composition metadata (group, repeat_range) is not emitted -- compose
 ///   directives are a higher-level concept not representable from a single pattern.
 /// - Unordered groups are emitted as `concurrent { }` blocks.
 /// - `ValueConstraint::Between(lo, hi)` is emitted as `>= lo`, dropping the
@@ -183,7 +183,7 @@ fn emit_gap(out: &mut String, gap: &MetricGap) {
             out.push_str(&format!(" gap ..{}", format_num(max)));
         }
         (None, None) => {
-            // No gap constraints — don't emit anything
+            // No gap constraints -- don't emit anything
         }
     }
 }
@@ -204,7 +204,7 @@ fn format_num(n: f64) -> String {
 /// Otherwise, use simple double-quoted syntax.
 fn quote_string(s: &str) -> String {
     if s.contains('"') {
-        // Triple-quoted strings cannot contain """ — the lexer would see it as the
+        // Triple-quoted strings cannot contain """ -- the lexer would see it as the
         // closing delimiter. Replace any run of 3+ quotes with pairs separated by
         // a space so the content is slightly altered but the DSL remains valid.
         let safe = s.replace("\"\"\"", "\"\" \"");

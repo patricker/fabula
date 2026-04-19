@@ -5,7 +5,7 @@
 //! Milieu, Inquiry, Character, Event threads open and close; well-nested
 //! stories close threads in reverse order of opening.
 //!
-//! The tracker does NOT define what constitutes an "open" or "close" event —
+//! The tracker does NOT define what constitutes an "open" or "close" event --
 //! the caller registers pattern indices for each thread. The tracker monitors
 //! engine state to report which threads are open, stale, or mis-nested.
 
@@ -32,7 +32,7 @@ pub struct ThreadStatus {
     pub unresolved: bool,
 }
 
-/// A FILO nesting violation — thread A opened before thread B but B hasn't
+/// A FILO nesting violation -- thread A opened before thread B but B hasn't
 /// closed yet while A is closing.
 #[derive(Debug, Clone)]
 pub struct FiloViolation {
@@ -45,7 +45,7 @@ pub struct FiloViolation {
 /// Tracks narrative thread lifecycles.
 ///
 /// Register threads (open/close pattern pairs), then query status after
-/// each tick. The tracker reads engine state — it does not modify it.
+/// each tick. The tracker reads engine state -- it does not modify it.
 ///
 /// ```rust,ignore
 /// let mut tracker = ThreadTracker::new();
@@ -91,7 +91,7 @@ impl ThreadTracker {
     /// Record that a thread opened. Call when the open pattern's first stage matches.
     ///
     /// Deduplicates by name: calling this twice with the same name is a no-op.
-    /// FILO tracking is per-thread-name, not per-instance — if the same thread
+    /// FILO tracking is per-thread-name, not per-instance -- if the same thread
     /// type opens multiple times, only the first open is tracked for nesting order.
     pub fn record_open(&mut self, thread_name: &str) {
         if !self.open_order.contains(&thread_name.to_string()) {
@@ -104,7 +104,7 @@ impl ThreadTracker {
         self.close_order.push(thread_name.to_string());
     }
 
-    /// Update from a TickDelta — automatically records opens and closes.
+    /// Update from a TickDelta -- automatically records opens and closes.
     ///
     /// Matches pattern names in the delta against `{thread_name}_open` and
     /// `{thread_name}_close` conventions. For custom pattern names, use

@@ -272,7 +272,7 @@ mod scaling {
             .bench_values(|(mut g, mut e, edges)| feed_edges(&mut g, &mut e, edges));
     }
 
-    /// Batch vs incremental. MemGraph batch at 1K+ is O(E^2) — too slow to bench.
+    /// Batch vs incremental. MemGraph batch at 1K+ is O(E^2) -- too slow to bench.
     #[divan::bench(args = [100, 1000])]
     fn batch_petgraph(bencher: Bencher, edges: usize) {
         let config = WorkloadConfig {

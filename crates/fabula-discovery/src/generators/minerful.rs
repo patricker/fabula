@@ -141,7 +141,7 @@ impl CandidateGenerator for MinerfulGenerator {
     }
 
     fn feedback(&mut self, _scored: &[ScoredPattern<String, String>]) {
-        // MINERful is a single-pass miner — feedback doesn't change its behavior.
+        // MINERful is a single-pass miner -- feedback doesn't change its behavior.
         // Future: could adjust support/confidence thresholds based on acceptance rates.
     }
 

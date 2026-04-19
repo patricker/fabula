@@ -1,11 +1,11 @@
-//! Golden test scenarios — each function is generic over `TestGraph` and runs
+//! Golden test scenarios -- each function is generic over `TestGraph` and runs
 //! against every adapter.
 //!
 //! # Naming convention
 //!
-//! `batch_*`       — tests using `engine.evaluate()` (full snapshot scan)
-//! `incremental_*` — tests using `engine.on_edge_added()` (streaming)
-//! `gap_*`         — tests using `engine.why_not()` (gap analysis)
+//! `batch_*`       -- tests using `engine.evaluate()` (full snapshot scan)
+//! `incremental_*` -- tests using `engine.on_edge_added()` (streaming)
+//! `gap_*`         -- tests using `engine.why_not()` (gap analysis)
 
 mod allen_temporal;
 mod causality;

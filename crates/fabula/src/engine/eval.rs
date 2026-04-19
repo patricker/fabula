@@ -1,4 +1,4 @@
-//! Evaluation methods — batch, incremental, gap analysis, and all private helpers.
+//! Evaluation methods -- batch, incremental, gap analysis, and all private helpers.
 //!
 //! This module contains Block 2 of the SiftEngine impl: methods that require
 //! full trait bounds (`T: Sub + NumericTime`) and take `&impl DataSource`
@@ -18,7 +18,7 @@ use std::fmt::Debug;
 use std::hash::Hash;
 
 // ---------------------------------------------------------------------------
-// Block 2: Evaluation methods — full bounds + DataSource parameter.
+// Block 2: Evaluation methods -- full bounds + DataSource parameter.
 // ---------------------------------------------------------------------------
 
 impl<N, L, V, T> SiftEngine<N, L, V, T>
@@ -268,7 +268,7 @@ where
                                 let mask = pm.matched_stages | (1u64 << try_idx);
                                 let all_matched = group.iter().all(|&si| mask & (1u64 << si) != 0);
                                 if all_matched {
-                                    // Group complete — advance past it
+                                    // Group complete -- advance past it
                                     let group_end = *group.iter().max().unwrap() + 1;
                                     (group_end, mask)
                                 } else {
@@ -477,7 +477,7 @@ where
 
         // Exclusive choice groups: when a pattern with a group completes,
         // kill all other active PMs in the same group.
-        // Exception: repeat-range patterns exempt their own looping PMs —
+        // Exception: repeat-range patterns exempt their own looping PMs --
         // completion at min should kill other alternatives, not the continuation.
         let completed_in_groups: Vec<(usize, String)> = events
             .iter()
@@ -532,7 +532,7 @@ where
         }
 
         // Filter out events from private patterns.
-        // This happens AFTER exclusive group handling — private patterns still
+        // This happens AFTER exclusive group handling -- private patterns still
         // participate in group kills, we only hide them from the returned events.
         events.retain(|e| {
             let pattern_name = match e {

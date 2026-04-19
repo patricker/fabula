@@ -12,5 +12,5 @@ fn all_dsl_examples_parse() {
         });
         count += 1;
     }
-    assert!(count > 0, "no .fabula files found — check dsl/ directory");
+    assert!(count > 0, "no .fabula files found -- check dsl/ directory");
 }

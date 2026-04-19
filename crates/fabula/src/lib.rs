@@ -9,11 +9,11 @@
 //!
 //! ## Crate Structure
 //!
-//! - **`fabula`** (this crate) — core library with zero dependencies. Pattern types,
+//! - **`fabula`** (this crate) -- core library with zero dependencies. Pattern types,
 //!   the `DataSource` trait, Allen interval algebra, the `SiftEngine`.
-//! - **`fabula-memory`** — `MemGraph`, a simple in-memory `DataSource` for testing.
-//! - **`fabula-petgraph`** — `DataSource` adapter wrapping `petgraph::StableGraph`.
-//! - **`fabula-grafeo`** — `DataSource` adapter for the Grafeo graph database.
+//! - **`fabula-memory`** -- `MemGraph`, a simple in-memory `DataSource` for testing.
+//! - **`fabula-petgraph`** -- `DataSource` adapter wrapping `petgraph::StableGraph`.
+//! - **`fabula-grafeo`** -- `DataSource` adapter for the Grafeo graph database.
 //!
 //! ## Quick Start
 //!
@@ -48,7 +48,10 @@ pub mod scoring;
 /// Convenience re-exports for common usage.
 pub mod prelude {
     pub use crate::builder::PatternBuilder;
-    pub use crate::causality::{causal_paths, cleanliness_score, CausalEdge, CausalPath};
+    pub use crate::causality::{
+        causal_paths, cleanliness_score, event_causal_surprise,
+        event_causal_surprise_batch, CausalEdge, CausalPath,
+    };
     pub use crate::datasource::{DataSource, Label, NodeId, Val, ValueConstraint};
     pub use crate::engine::{
         evaluate_pattern, evaluate_pattern_at, evaluate_pattern_first, evaluate_pattern_limit,

@@ -1,4 +1,4 @@
-//! The `DataSource` trait — how fabula queries a temporal graph.
+//! The `DataSource` trait -- how fabula queries a temporal graph.
 //!
 //! Any backing store implements this two-method trait to make its graph
 //! queryable by fabula's pattern matcher.
@@ -52,7 +52,7 @@ impl<V: PartialOrd + PartialEq> ValueConstraint<V> {
             Self::Any => true,
             Self::OneOf(vs) => vs.iter().any(|v| value == v),
             // *Var variants must be resolved before matching. If they reach here,
-            // it's a bug — fail closed (no match).
+            // it's a bug -- fail closed (no match).
             Self::EqVar(_)
             | Self::LtVar(_)
             | Self::GtVar(_)
@@ -98,7 +98,7 @@ impl<V> ValueConstraint<V> {
 }
 
 // ---------------------------------------------------------------------------
-// Trait bound aliases — reduce boilerplate on generic impls
+// Trait bound aliases -- reduce boilerplate on generic impls
 // ---------------------------------------------------------------------------
 
 /// Trait bound alias for node identifier types.
@@ -142,16 +142,16 @@ pub struct Edge<N, V, T> {
 ///
 /// # Type Parameters
 ///
-/// - `N` — Node identifier (e.g., `EntityId`, `String`, `u64`)
-/// - `L` — Edge label (e.g., predicate ID `u32`, `String`, enum)
-/// - `V` — Edge value (e.g., another node ID, number, string — often the same type as `N` with an enum wrapper)
-/// - `T` — Time type (e.g., `i64`, `chrono::NaiveDateTime`)
+/// - `N` -- Node identifier (e.g., `EntityId`, `String`, `u64`)
+/// - `L` -- Edge label (e.g., predicate ID `u32`, `String`, enum)
+/// - `V` -- Edge value (e.g., another node ID, number, string -- often the same type as `N` with an enum wrapper)
+/// - `T` -- Time type (e.g., `i64`, `chrono::NaiveDateTime`)
 pub trait DataSource {
     /// Node identifier type.
     type N: Eq + Hash + Clone + Debug;
     /// Edge label type.
     type L: Eq + Hash + Clone + Debug;
-    /// Value type (edge targets — can be nodes, strings, numbers, booleans).
+    /// Value type (edge targets -- can be nodes, strings, numbers, booleans).
     type V: PartialEq + PartialOrd + Clone + Debug + Hash;
     /// Time type.
     type T: Ord + Clone + Debug + Hash;
@@ -169,7 +169,7 @@ pub trait DataSource {
     /// Find all source nodes that have an edge with `label` matching `constraint`,
     /// active at time `at`.
     ///
-    /// This is the "index scan" — used to find starting points for pattern matching
+    /// This is the "index scan" -- used to find starting points for pattern matching
     /// when a clause binds a new variable.
     fn scan(
         &self,

@@ -1,4 +1,4 @@
-//! Causal pathfinding scenarios — run against MemGraph, PetGraph, GrafeoGraph.
+//! Causal pathfinding scenarios -- run against MemGraph, PetGraph, GrafeoGraph.
 
 use crate::TestGraph;
 use fabula::causality::causal_paths;
@@ -68,4 +68,42 @@ pub fn causality_sorted_by_cleanliness<G: TestGraph>() {
             "paths must be sorted descending by cleanliness"
         );
     }
+}
+
+/// An event with no causal predecessors scores maximum surprise.
+pub fn causality_surprise_orphan_event<G: TestGraph>() {
+    let g = G::new_graph();
+    let s = fabula::causality::event_causal_surprise(
+        &g,
+        &"orphan".to_string(),
+        3,
+        &labels(),
+    );
+    assert!((s - 1.0).abs() < 1e-9, "got {}", s);
+}
+
+/// An event with a clean single-hop cause scores minimum surprise.
+pub fn causality_surprise_clean_chain<G: TestGraph>() {
+    let mut g = G::new_graph();
+    g.add_ref_edge("cause", "causes", "effect", 1);
+    let s = fabula::causality::event_causal_surprise(
+        &g,
+        &"effect".to_string(),
+        3,
+        &labels(),
+    );
+    assert!(s.abs() < 1e-9, "clean chain → surprise 0.0, got {}", s);
+}
+
+/// Batch scoring returns one value per event in parallel order.
+pub fn causality_surprise_batch_parallel<G: TestGraph>() {
+    let mut g = G::new_graph();
+    g.add_ref_edge("cause", "causes", "effect", 1);
+    let events = vec!["effect".to_string(), "unrelated".to_string()];
+    let scores = fabula::causality::event_causal_surprise_batch(
+        &g, &events, 3, &labels(),
+    );
+    assert_eq!(scores.len(), 2);
+    assert!(scores[0] < 0.01, "effect should be unsurprising, got {}", scores[0]);
+    assert!((scores[1] - 1.0).abs() < 1e-9, "unrelated should be maximally surprising, got {}", scores[1]);
 }

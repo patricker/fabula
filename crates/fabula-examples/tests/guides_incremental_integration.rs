@@ -328,12 +328,12 @@ fn tick_deltas_and_scoring() {
     // After processing all edges for this tick:
     let (delta, expired_events) = engine.end_tick(50); // stale threshold = 50 ticks
 
-    // delta.advanced — patterns that progressed this tick
-    // delta.completed — patterns that fully matched
-    // delta.negated — patterns that were killed
-    // delta.expired — patterns that had PMs expire (deadline exceeded)
-    // delta.stalled — patterns with active PMs that haven't advanced in 50+ ticks
-    // delta.active_pm_count — total active partial matches
+    // delta.advanced -- patterns that progressed this tick
+    // delta.completed -- patterns that fully matched
+    // delta.negated -- patterns that were killed
+    // delta.expired -- patterns that had PMs expire (deadline exceeded)
+    // delta.stalled -- patterns with active PMs that haven't advanced in 50+ ticks
+    // delta.active_pm_count -- total active partial matches
 
     // Handle expired partial matches
     for ev in &expired_events {
@@ -365,7 +365,7 @@ fn narrative_scoring_integration() {
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     let graph = MemGraph::new();
 
-    // Register patterns (elided — see Step 1 above)
+    // Register patterns (elided -- see Step 1 above)
 
     // Set up narrative trackers
     let mut thread_tracker = ThreadTracker::new();
@@ -401,8 +401,8 @@ fn narrative_scoring_integration() {
         0.0, // sequential surprise score
     );
     let result = score(&signals, &NarrativeWeights::default());
-    // result.total — composite narrative quality score
-    // result.breakdown — per-signal contributions for debugging
+    // result.total -- composite narrative quality score
+    // result.breakdown -- per-signal contributions for debugging
     // #endregion
     let _ = (&result, &graph);
 }

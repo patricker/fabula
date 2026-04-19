@@ -1,4 +1,4 @@
-//! The sift engine — pattern registration, batch evaluation, incremental
+//! The sift engine -- pattern registration, batch evaluation, incremental
 //! matching, and gap analysis.
 //!
 //! This is the core of fabula. The engine maintains registered patterns and
@@ -8,14 +8,14 @@
 //! ## Research foundation
 //!
 //! - Kreminski et al. (2019) "Felt: A Simple Story Sifter" (ICIDS 2019)
-//!   — Core sifting model: patterns as Datalog-like queries with logic
+//!   -- Core sifting model: patterns as Datalog-like queries with logic
 //!   variables over EAV graphs. Plant/payoff tracking for narrative causality.
 //! - Kreminski et al. (2021) "Winnow: A Domain-Specific Language for
-//!   Incremental Story Sifting" (AIIDE 2021) — Incremental matching with
+//!   Incremental Story Sifting" (AIIDE 2021) -- Incremental matching with
 //!   negation windows (`unless-event ... between`). The 4-phase algorithm
 //!   (negation check → initiation → advancement → cleanup) is adapted from
 //!   Winnow's streaming evaluation model.
-//! - Rete networks (Forgy 1982) — Pattern lifecycle conventions: disabled
+//! - Rete networks (Forgy 1982) -- Pattern lifecycle conventions: disabled
 //!   patterns kill active partial matches immediately; fingerprint-based
 //!   deduplication prevents unbounded PM accumulation.
 //!
@@ -52,12 +52,12 @@ pub use types::*;
 
 /// The sift engine. Generic over node, label, value, and time types.
 ///
-/// Decoupled from [`DataSource`] — the engine stores patterns and partial
+/// Decoupled from [`DataSource`] -- the engine stores patterns and partial
 /// matches using the four type parameters directly. Methods that need graph
 /// access take `&impl DataSource<N=N, L=L, V=V, T=T>` as a parameter,
 /// allowing the engine to outlive any particular DataSource instance.
 ///
-/// `Clone` creates an independent copy of all engine state — patterns,
+/// `Clone` creates an independent copy of all engine state -- patterns,
 /// partial matches, metrics, enabled flags. Use this for speculative
 /// evaluation (MCTS forking): clone the engine, evaluate on a forked
 /// DataSource, score the result, discard or commit.
@@ -109,11 +109,11 @@ pub type SiftEngineFor<DS> = SiftEngine<
     <DS as DataSource>::T,
 >;
 
-// NOTE: tick accumulators are NOT included in Clone — a forked engine
+// NOTE: tick accumulators are NOT included in Clone -- a forked engine
 // starts with empty accumulators (no events in its new timeline).
 
 // ---------------------------------------------------------------------------
-// Block 1: Lifecycle methods — lighter bounds, no DataSource needed.
+// Block 1: Lifecycle methods -- lighter bounds, no DataSource needed.
 // wk-sift can construct and register patterns without T: Sub + NumericTime.
 // ---------------------------------------------------------------------------
 
@@ -258,7 +258,7 @@ where
     }
 
     /// Advance the tick counter. Call once per simulation step.
-    /// Used for staleness detection. Does NOT produce a delta summary —
+    /// Used for staleness detection. Does NOT produce a delta summary --
     /// use [`end_tick`] for the happy path, or [`tick_delta`] with
     /// manually collected events for filtered deltas.
     pub fn tick(&mut self) {
@@ -436,7 +436,7 @@ where
     /// has active PMs and the payoff hasn't completed, the setup is "in flight."
     /// When the payoff completes, the setup is resolved.
     ///
-    /// Inspired by Chatman (1978) "Story and Discourse" — kernel (plot-critical)
+    /// Inspired by Chatman (1978) "Story and Discourse" -- kernel (plot-critical)
     /// vs satellite (texture) events. Plants are satellites that become kernels
     /// when they resolve.
     ///
@@ -594,7 +594,7 @@ where
 
     /// Compute a deterministic dedup hash for a partial match.
     ///
-    /// Prevents duplicate PMs from accumulating — a key concern from Rete
+    /// Prevents duplicate PMs from accumulating -- a key concern from Rete
     /// network literature where unbounded token accumulation degrades
     /// performance. Uses order-independent XOR of per-entry hashes so
     /// HashMap iteration order doesn't matter. Zero allocation.
@@ -630,7 +630,7 @@ where
         repetition_count.hash(&mut h);
         matched_stages.hash(&mut h);
 
-        // XOR of per-entry hashes — order-independent, no sorting needed.
+        // XOR of per-entry hashes -- order-independent, no sorting needed.
         // Mix in map length to distinguish empty maps from self-cancelling entries.
         let mut bindings_xor: u64 = 0;
         for (k, v) in bindings {
@@ -669,11 +669,11 @@ where
 }
 
 // Manual Clone: tick accumulators are intentionally empty in cloned engines.
-// Do NOT replace with #[derive(Clone)] — forked engines start fresh.
+// Do NOT replace with #[derive(Clone)] -- forked engines start fresh.
 impl<N: Debug + Clone, L: Clone, V: Debug + Clone, T: Clone> Clone for SiftEngine<N, L, V, T> {
     /// Clone the entire engine state for speculative evaluation.
     ///
-    /// Both the original and clone are independent — advancing one
+    /// Both the original and clone are independent -- advancing one
     /// does not affect the other. Use this for MCTS-style forking:
     /// clone the engine, evaluate on a forked graph, score, discard or commit.
     fn clone(&self) -> Self {

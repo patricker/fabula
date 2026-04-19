@@ -1,4 +1,4 @@
-//! Romantic arc — three-stage tag-based pattern from Winnow.
+//! Romantic arc -- three-stage tag-based pattern from Winnow.
 //!
 //! Two negative romantic events then one positive, all by the same character.
 
@@ -46,7 +46,7 @@ pub fn batch_romantic_arc_matches<G: TestGraph>() {
     assert!(G::is_node_eq(&matches[0].bindings["char"], "mira"));
 }
 
-/// Batch: inline not_edge in stage 1 — event WITH tag=major -> no match, without -> match.
+/// Batch: inline not_edge in stage 1 -- event WITH tag=major -> no match, without -> match.
 pub fn batch_romantic_arc_inline_negation<G: TestGraph>() {
     // Pattern: stage 1 has not_edge for tag=major
     let pattern = PatternBuilder::new("romantic_arc_no_major")

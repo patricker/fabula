@@ -1,14 +1,14 @@
 //! A simple in-memory temporal graph implementation of [`DataSource`].
 //!
 //! Useful for testing fabula without a backing database. Not intended for
-//! production use — it's a linear scan over all edges.
+//! production use -- it's a linear scan over all edges.
 
 use fabula::datasource::{DataSource, Edge, ValueConstraint};
 use fabula::interval::Interval;
 use std::fmt;
 use std::hash::{Hash, Hasher};
 
-/// A value in the in-memory graph — can be a node reference, string, number, or boolean.
+/// A value in the in-memory graph -- can be a node reference, string, number, or boolean.
 #[derive(Debug, Clone, PartialEq, PartialOrd)]
 pub enum MemValue {
     /// Reference to another node.
@@ -56,7 +56,7 @@ struct StoredEdge {
 /// A simple in-memory temporal graph.
 ///
 /// Stores edges as `(source, label, target, interval)` tuples.
-/// Queries are linear scans — fine for testing, not for production.
+/// Queries are linear scans -- fine for testing, not for production.
 #[derive(Clone)]
 pub struct MemGraph {
     edges: Vec<StoredEdge>,
@@ -262,7 +262,7 @@ mod tests {
         // Close it at time 3
         assert!(g.end_edge("alice", "mood", 3));
 
-        // Now it's bounded [1, 3) — visible at time 2 but not at time 3
+        // Now it's bounded [1, 3) -- visible at time 2 but not at time 3
         assert_eq!(g.edges_from(&"alice".into(), &"mood".into(), &2).len(), 1);
         assert_eq!(g.edges_from(&"alice".into(), &"mood".into(), &3).len(), 0);
     }

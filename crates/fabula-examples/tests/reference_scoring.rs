@@ -25,7 +25,7 @@ fn surprise_scorer_usage() {
     let matches = engine.evaluate(&graph);
     scorer.observe(&matches, engine.patterns());
     let scored = scorer.score(&matches, engine.patterns());
-    // scored[i].surprise — higher = more unexpected
+    // scored[i].surprise -- higher = more unexpected
     // #endregion
 
     assert_eq!(scored.len(), 1);

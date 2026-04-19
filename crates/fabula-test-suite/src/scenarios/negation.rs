@@ -1,4 +1,4 @@
-//! Negation window scenarios — unless_between, unless_after, unless_global.
+//! Negation window scenarios -- unless_between, unless_after, unless_global.
 
 use crate::TestGraph;
 use fabula::prelude::*;
@@ -31,7 +31,7 @@ pub fn batch_unless_after_blocks<G: TestGraph>() {
     engine.register(pattern);
 
     // No apology -> should match
-    assert_eq!(engine.evaluate(&g).len(), 1, "no apology — should match");
+    assert_eq!(engine.evaluate(&g).len(), 1, "no apology -- should match");
 
     // Add apology after promise -> should NOT match
     g.add_str_edge("ev_apology", "eventType", "apologize", 3);
@@ -39,7 +39,7 @@ pub fn batch_unless_after_blocks<G: TestGraph>() {
     assert_eq!(
         engine.evaluate(&g).len(),
         0,
-        "apology exists — should not match"
+        "apology exists -- should not match"
     );
 }
 
@@ -72,7 +72,7 @@ pub fn batch_unless_global<G: TestGraph>() {
     assert_eq!(
         engine.evaluate(&g).len(),
         1,
-        "no reconciliation — should match"
+        "no reconciliation -- should match"
     );
 
     // Add reconciliation between betrayals -> no match
@@ -85,7 +85,7 @@ pub fn batch_unless_global<G: TestGraph>() {
     );
 }
 
-/// Batch: double negation — two unless_between windows. Either one blocks.
+/// Batch: double negation -- two unless_between windows. Either one blocks.
 pub fn batch_double_negation_two_windows<G: TestGraph>() {
     // Pattern: e1 -> e2 -> e3, unless leave between e1..e2, unless betray between e2..e3
     let pattern = PatternBuilder::new("guarded_sequence")
@@ -178,7 +178,7 @@ pub fn batch_double_negation_two_windows<G: TestGraph>() {
     );
 }
 
-/// Batch: negation with multi-clause body — only blocks when ALL clauses match.
+/// Batch: negation with multi-clause body -- only blocks when ALL clauses match.
 pub fn batch_negation_multi_clause_body<G: TestGraph>() {
     // Pattern: promise -> fulfill, unless (eventType=leave AND actor=?person) between
     let pattern = PatternBuilder::new("kept_promise")
@@ -267,7 +267,7 @@ pub fn batch_negation_at_boundary_exclusive<G: TestGraph>() {
         })
         .build();
 
-    // Negation event at t=1 (same as e1 at t=1) — window is (1, 3) exclusive start
+    // Negation event at t=1 (same as e1 at t=1) -- window is (1, 3) exclusive start
     let mut g = G::new_graph();
     g.add_str_edge("ev1", "eventType", "start", 1);
     g.add_ref_edge("ev1", "actor", "alice", 1);

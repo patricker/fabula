@@ -3,11 +3,11 @@
 //! The parser is designed for composability: downstream DSLs can reuse it to
 //! parse fabula pattern syntax embedded in their own blocks. Key entry points:
 //!
-//! - [`Parser::parse_pattern_body()`] — parse stages, negations, and temporals
+//! - [`Parser::parse_pattern_body()`] -- parse stages, negations, and temporals
 //!   without the `pattern name { }` wrapper
-//! - [`Parser::pos()`] / [`Parser::into_inner()`] — read or recover the cursor
+//! - [`Parser::pos()`] / [`Parser::into_inner()`] -- read or recover the cursor
 //!   position for resumable parsing
-//! - [`Parser::from_tokens_at()`] — construct a parser at a specific position
+//! - [`Parser::from_tokens_at()`] -- construct a parser at a specific position
 //!   in an existing token stream
 
 use crate::ast::*;
@@ -125,8 +125,8 @@ impl Parser {
         })
     }
 
-    /// Parse the body of a pattern — stages, negations, and temporal
-    /// constraints — without the `pattern name { }` wrapper.
+    /// Parse the body of a pattern -- stages, negations, and temporal
+    /// constraints -- without the `pattern name { }` wrapper.
     ///
     /// Stops when it sees `}` or EOF but does **not** consume the closing
     /// brace. The caller owns the block structure and is responsible for

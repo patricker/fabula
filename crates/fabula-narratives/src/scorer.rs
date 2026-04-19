@@ -68,7 +68,7 @@ impl Default for NarrativeWeights {
 /// Input signals for the narrative scorer.
 ///
 /// The caller assembles these from the various trackers and engine state.
-/// This decouples the scorer from the trackers — it's a pure function
+/// This decouples the scorer from the trackers -- it's a pure function
 /// from signals to score.
 #[derive(Debug, Clone, Default)]
 pub struct NarrativeSignals {
@@ -182,7 +182,7 @@ pub fn score(signals: &NarrativeSignals, weights: &NarrativeWeights) -> Narrativ
 /// Convenience: compute tension fit from a trajectory and desired direction.
 ///
 /// Returns 1.0 if the trajectory matches, -1.0 if opposite, 0.0 if neutral.
-/// Unknown trajectories (either actual or desired) always return 0.0 —
+/// Unknown trajectories (either actual or desired) always return 0.0 --
 /// two unknowns are not a match, they're both lacking data.
 pub fn tension_fit(actual: Trajectory, desired: Trajectory) -> f64 {
     match (actual, desired) {

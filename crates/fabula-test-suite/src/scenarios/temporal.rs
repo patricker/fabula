@@ -1,4 +1,4 @@
-//! Temporal ordering scenarios — verifying that stage order is enforced.
+//! Temporal ordering scenarios -- verifying that stage order is enforced.
 
 use crate::TestGraph;
 use fabula::prelude::*;
@@ -6,7 +6,7 @@ use fabula::prelude::*;
 /// Batch: events in wrong temporal order should NOT match a two-stage pattern.
 pub fn batch_rejects_wrong_temporal_order<G: TestGraph>() {
     let mut g = G::new_graph();
-    // "enter" at time 5, "leave" at time 1 — reverse order
+    // "enter" at time 5, "leave" at time 1 -- reverse order
     g.add_str_edge("ev1", "eventType", "enter", 5);
     g.add_ref_edge("ev1", "actor", "alice", 5);
     g.add_str_edge("ev2", "eventType", "leave", 1);
@@ -29,7 +29,7 @@ pub fn batch_rejects_wrong_temporal_order<G: TestGraph>() {
     assert_eq!(
         engine.evaluate(&g).len(),
         0,
-        "temporal order violated — should not match"
+        "temporal order violated -- should not match"
     );
 }
 
@@ -116,6 +116,6 @@ pub fn batch_correct_temporal_order<G: TestGraph>() {
     assert_eq!(
         engine.evaluate(&g).len(),
         1,
-        "correct temporal order — should match"
+        "correct temporal order -- should match"
     );
 }

@@ -1,4 +1,4 @@
-//! Multiple pattern scenarios — two patterns registered simultaneously.
+//! Multiple pattern scenarios -- two patterns registered simultaneously.
 
 use crate::TestGraph;
 use fabula::prelude::*;
@@ -39,7 +39,7 @@ pub fn multi_pattern_all_four_winnow<G: TestGraph>() {
             .build(),
     );
 
-    // Pattern 2: romantic_arc (won't match — no romantic tags)
+    // Pattern 2: romantic_arc (won't match -- no romantic tags)
     engine.register(
         PatternBuilder::new("romantic_arc")
             .stage("e1", |s| {
@@ -66,7 +66,7 @@ pub fn multi_pattern_all_four_winnow<G: TestGraph>() {
             .build(),
     );
 
-    // Pattern 3: two betrayals (won't match — no betray events)
+    // Pattern 3: two betrayals (won't match -- no betray events)
     engine.register(
         PatternBuilder::new("two_betrayals")
             .stage("e1", |s| {
@@ -78,7 +78,7 @@ pub fn multi_pattern_all_four_winnow<G: TestGraph>() {
             .build(),
     );
 
-    // Pattern 4: hypocrisy-like (won't match — no preach events)
+    // Pattern 4: hypocrisy-like (won't match -- no preach events)
     engine.register(
         PatternBuilder::new("hypocrisy")
             .stage("e1", |s| {
@@ -155,7 +155,7 @@ pub fn incremental_multiple_patterns_fire<G: TestGraph>() {
             .build(),
     );
 
-    // Pattern 2: any enterTown (single stage — completes immediately)
+    // Pattern 2: any enterTown (single stage -- completes immediately)
     engine.register(
         PatternBuilder::new("any_enter")
             .stage("e", |s| {

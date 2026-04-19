@@ -51,7 +51,7 @@ fn incremental_negation_kills_only_matching_variable_bindings() {
 
     assert_eq!(engine.active_matches_for("enter_then_harm").len(), 2);
 
-    // Alice leaves — should kill only alice's partial match
+    // Alice leaves -- should kill only alice's partial match
     g.add_str("ev_leave", "eventType", "leave", 3);
     g.add_ref("ev_leave", "actor", "alice", 3);
     g.set_time(3);
@@ -257,7 +257,7 @@ fn incremental_temporal_ordering_enforced() {
         &Interval::open(10),
     );
 
-    // Event B at t=5 (BEFORE A — temporal order violated)
+    // Event B at t=5 (BEFORE A -- temporal order violated)
     g.add_str("ev2", "eventType", "b", 5);
     g.set_time(10);
     let events = engine.on_edge_added(
@@ -292,7 +292,7 @@ fn incremental_temporal_ordering_enforced() {
 
 #[test]
 fn interval_zero_length() {
-    // Interval [5, 5) — start == end, zero length
+    // Interval [5, 5) -- start == end, zero length
     let iv = Interval::new(5, 5);
     assert!(!iv.covers(&5), "[5,5) should not cover 5 (empty interval)");
     assert!(!iv.covers(&4));

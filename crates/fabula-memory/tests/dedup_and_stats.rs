@@ -83,7 +83,7 @@ fn dedup_before_fix_duplicate_events_produce_multiple() {
 #[test]
 fn dedup_distinct_intervals_not_merged() {
     // Same actor enters at t=1 and t=3. Same bindings (person=alice) but
-    // different intervals. These are distinct temporal threads — both kept.
+    // different intervals. These are distinct temporal threads -- both kept.
     let mut g = MemGraph::new();
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(
@@ -171,7 +171,7 @@ fn dedup_pm_count_bounded() {
 
 #[test]
 fn dedup_events_match_pms() {
-    // Event count must equal PM count — no orphan events, no silent PMs.
+    // Event count must equal PM count -- no orphan events, no silent PMs.
     let mut g = MemGraph::new();
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
     engine.register(

@@ -1,4 +1,4 @@
-//! Pattern composition operators — build complex patterns from simpler ones.
+//! Pattern composition operators -- build complex patterns from simpler ones.
 //!
 //! Inspired by Kreminski et al. (2025) "Stories from the Bottom Up: Composable
 //! Story Sifting Patterns" (FDG 2025). Enables authorial decomposition: write
@@ -7,9 +7,9 @@
 //! Three operators that produce regular [`Pattern`] structs the engine handles
 //! without modification:
 //!
-//! - [`sequence`] — A then B, with shared variable bindings
-//! - [`choice`] — any of N alternatives (optionally exclusive)
-//! - [`repeat`] — A happens N times
+//! - [`sequence`] -- A then B, with shared variable bindings
+//! - [`choice`] -- any of N alternatives (optionally exclusive)
+//! - [`repeat`] -- A happens N times
 //!
 //! All operators use [`rename_vars`] internally to prevent accidental variable
 //! collisions between sub-patterns. Variables listed in `shared` are kept as-is;
@@ -33,7 +33,7 @@
 //!         .edge_bind("e2", "actor".into(), "char"))
 //!     .build();
 //!
-//! // char is shared — same character must make and fulfill the promise
+//! // char is shared -- same character must make and fulfill the promise
 //! let arc = compose::sequence("promise_kept", &setup, &payoff, &["char"]);
 //! assert_eq!(arc.stages.len(), 2);
 //! ```
@@ -42,7 +42,7 @@ use crate::pattern::*;
 use std::collections::{HashMap, HashSet};
 
 // ---------------------------------------------------------------------------
-// rename_vars — the core utility
+// rename_vars -- the core utility
 // ---------------------------------------------------------------------------
 
 /// Rename all variables in a pattern, prefixing with `prefix_` unless the
@@ -135,7 +135,7 @@ pub fn rename_vars<L: Clone, V: Clone>(
         deadline_ticks: pattern.deadline_ticks,
         inactivity_threshold: pattern.inactivity_threshold,
         repeat_range: pattern.repeat_range.clone(),
-        // Unordered groups are stage indices (positional), not variable names — no renaming needed.
+        // Unordered groups are stage indices (positional), not variable names -- no renaming needed.
         unordered_groups: pattern.unordered_groups.clone(),
         private: pattern.private,
         importance: pattern.importance,
@@ -209,7 +209,7 @@ pub fn sequence<L: Clone, V: Clone>(
 /// Create a set of alternative patterns. Returns one pattern per alternative.
 ///
 /// If `exclusive` is true, all returned patterns share a mutual-exclusion
-/// group — when one completes, the engine kills active PMs for the others.
+/// group -- when one completes, the engine kills active PMs for the others.
 ///
 /// Register all returned patterns with the engine:
 /// ```rust,ignore
@@ -299,7 +299,7 @@ pub fn repeat<L: Clone, V: Clone>(
 }
 
 // ---------------------------------------------------------------------------
-// repeat_range — looping repeat with first/last bookends
+// repeat_range -- looping repeat with first/last bookends
 // ---------------------------------------------------------------------------
 
 /// Create a pattern that matches a sub-pattern at least `min` times, up to

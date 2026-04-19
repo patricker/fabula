@@ -53,7 +53,7 @@ impl SurpriseScorer {
 
     /// Set the expected match frequency for a pattern (by registration index).
     ///
-    /// `baseline` is a probability in (0, 1] — e.g., 0.1 means "expected to
+    /// `baseline` is a probability in (0, 1] -- e.g., 0.1 means "expected to
     /// match in 10% of observation rounds."
     pub fn set_baseline(&mut self, pattern_idx: usize, baseline: f64) {
         assert!(
@@ -95,7 +95,7 @@ impl SurpriseScorer {
     /// Record observations from incremental matching events.
     ///
     /// Call this after each `on_edge_added()`. Only counts `Completed` events.
-    /// Does NOT increment the round counter — call [`tick`] manually to
+    /// Does NOT increment the round counter -- call [`tick`] manually to
     /// mark observation boundaries in incremental mode.
     pub fn observe_events<N: Debug, V: Debug, L, VV>(
         &mut self,
@@ -245,7 +245,7 @@ mod tests {
         let surprise = scorer.surprise_for(0).unwrap();
         // With Laplace smoothing: p = (5+1)/(10+1) = 0.545, baseline = 0.5
         // surprise = -log2(0.545/0.5) = -log2(1.09) ≈ -0.12
-        // Close to zero — slightly negative because observed slightly above baseline
+        // Close to zero -- slightly negative because observed slightly above baseline
         assert!(
             surprise.abs() < 0.5,
             "surprise should be near zero, got {:.2}",

@@ -12,7 +12,7 @@
 //!    Build the graph, build the pattern, run the engine, assert results.
 //! 2. Add the function name to the `golden_tests!` invocation in
 //!    `tests/golden.rs`.
-//! 3. Done — it now runs against all three adapters.
+//! 3. Done -- it now runs against all three adapters.
 
 pub mod scenarios;
 

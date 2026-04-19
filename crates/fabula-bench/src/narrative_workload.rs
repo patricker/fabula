@@ -5,13 +5,13 @@
 //! shape, event diversity, thread density, and stall rate.
 //!
 //! The generator directly constructs [`TickDelta`], [`PlantStatus`], tension
-//! values, and event distributions — this is what makes it self-contained.
+//! values, and event distributions -- this is what makes it self-contained.
 
 use fabula::engine::{PlantStatus, TickDelta};
 use fabula_narratives::tension::Trajectory;
 
 // ---------------------------------------------------------------------------
-// Seeded PRNG (minimal xorshift64 — no external dep)
+// Seeded PRNG (minimal xorshift64 -- no external dep)
 // ---------------------------------------------------------------------------
 
 struct Rng(u64);
@@ -121,7 +121,7 @@ pub struct NarrativeTrace {
 pub fn generate_trace(config: &NarrativeTraceConfig) -> NarrativeTrace {
     let mut rng = Rng::new(config.seed);
 
-    // Thread registrations — pattern indices are synthetic (not used by engine)
+    // Thread registrations -- pattern indices are synthetic (not used by engine)
     let thread_registrations: Vec<(String, usize, usize)> = (0..config.thread_count)
         .map(|i| (format!("thread_{}", i), i * 2, i * 2 + 1))
         .collect();
@@ -131,7 +131,7 @@ pub fn generate_trace(config: &NarrativeTraceConfig) -> NarrativeTrace {
         .map(|i| format!("evt_{}", i))
         .collect();
 
-    // Activity pattern names — pool size scales with character count
+    // Activity pattern names -- pool size scales with character count
     let pattern_pool_size = config.character_count.max(10);
     let pattern_names: Vec<String> = (0..pattern_pool_size)
         .map(|i| format!("pat_{}", i))
@@ -430,7 +430,7 @@ mod tests {
             "should have some tension fit signal"
         );
         assert!(any_stalled, "should have at least one stalled tick");
-        // FILO violations depend on thread open/close ordering — may or may not
+        // FILO violations depend on thread open/close ordering -- may or may not
         // occur with seed 42. Just verify the tracker ran without panicking.
         let _ = any_filo_violation;
     }

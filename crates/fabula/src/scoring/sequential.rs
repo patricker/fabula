@@ -123,7 +123,7 @@ mod tests {
         let mut seq = SequentialScorer::new();
         seq.observe_transition("a", "b");
 
-        // "c" never observed after "a" — Laplace gives nonzero
+        // "c" never observed after "a" -- Laplace gives nonzero
         let p = seq.transition_probability("a", "c").unwrap();
         assert!(p > 0.0, "novel successor should have nonzero probability");
         assert!(p <= 0.5, "novel successor should be low probability: {}", p);

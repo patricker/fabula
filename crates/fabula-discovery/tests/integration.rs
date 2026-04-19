@@ -130,7 +130,7 @@ fn end_to_end_discovery_and_emission() {
 fn discovered_patterns_match_corpus() {
     // Use the same rich corpus (bounded intervals) so MINERful can compute
     // Allen relations. For MemGraph evaluation, add edges as open-ended so
-    // they remain visible at ds.now() — evaluate_pattern is a snapshot query.
+    // they remain visible at ds.now() -- evaluate_pattern is a snapshot query.
     let corpus = make_rich_corpus();
 
     let generator = MinerfulGenerator::new(MinerfulConfig {

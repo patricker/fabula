@@ -1,11 +1,11 @@
-//! Pattern types — the compiled representation of a sifting query.
+//! Pattern types -- the compiled representation of a sifting query.
 //!
 //! A pattern describes a subgraph template with named variables, temporal
 //! ordering constraints, and negation windows.
 //!
-//! Based on Kreminski et al. (2019) "Felt" — sifting patterns as Datalog-like
-//! queries with logic variables and temporal ordering — and Kreminski et al.
-//! (2021) "Winnow" — multi-stage pattern architecture with negation windows.
+//! Based on Kreminski et al. (2019) "Felt" -- sifting patterns as Datalog-like
+//! queries with logic variables and temporal ordering -- and Kreminski et al.
+//! (2021) "Winnow" -- multi-stage pattern architecture with negation windows.
 
 use crate::datasource::ValueConstraint;
 use crate::interval::AllenRelation;
@@ -14,7 +14,7 @@ use std::fmt;
 
 /// A named position in a pattern traversal.
 ///
-/// Variables that appear in multiple clauses create joins — the pattern
+/// Variables that appear in multiple clauses create joins -- the pattern
 /// matcher ensures they bind to the same node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -44,7 +44,7 @@ pub enum Target<V> {
     Constraint(ValueConstraint<V>),
 }
 
-/// A single clause in a pattern — one edge traversal constraint.
+/// A single clause in a pattern -- one edge traversal constraint.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Clause<L, V> {
@@ -54,7 +54,7 @@ pub struct Clause<L, V> {
     pub label: L,
     /// What the target should match.
     pub target: Target<V>,
-    /// If true, this clause is negated — the edge must NOT exist.
+    /// If true, this clause is negated -- the edge must NOT exist.
     pub negated: bool,
 }
 
@@ -83,7 +83,7 @@ pub struct TemporalConstraint {
     pub gap: Option<MetricGap>,
 }
 
-/// A negation window — a set of clauses that must NOT match between two events.
+/// A negation window -- a set of clauses that must NOT match between two events.
 ///
 /// Corresponds to Winnow's `unless-event ... between ?start ?end`.
 #[derive(Debug, Clone, PartialEq)]
@@ -101,19 +101,19 @@ pub struct Negation<L, V> {
     pub is_global: bool,
 }
 
-/// A compiled sifting pattern — a named subgraph template with temporal
+/// A compiled sifting pattern -- a named subgraph template with temporal
 /// constraints and negation windows.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct Pattern<L, V> {
     /// Pattern name (for identification in matches and gap analysis).
     pub name: String,
-    /// Ordered event stages — each stage is a group of clauses that must all
+    /// Ordered event stages -- each stage is a group of clauses that must all
     /// match the same event/node. Stages are temporally ordered left-to-right.
     pub stages: Vec<Stage<L, V>>,
     /// Additional temporal constraints beyond implicit stage ordering.
     pub temporal: Vec<TemporalConstraint>,
-    /// Negation windows — clauses that must NOT match between events.
+    /// Negation windows -- clauses that must NOT match between events.
     pub negations: Vec<Negation<L, V>>,
     /// Optional mutual-exclusion group. When a pattern with a group completes,
     /// all other active partial matches in the same group are killed.
@@ -135,7 +135,7 @@ pub struct Pattern<L, V> {
     pub repeat_range: Option<RepeatRange>,
     /// Unordered stage groups. Each inner Vec contains stage indices that may
     /// match in any order (must be consecutive indices, max stage index < 64).
-    /// Stages within the same group have no implicit temporal ordering — the
+    /// Stages within the same group have no implicit temporal ordering -- the
     /// engine tries all unmatched group stages against each incoming edge and
     /// advances past the group when all are matched.
     #[cfg_attr(feature = "serde", serde(default))]
@@ -181,7 +181,7 @@ pub struct RepeatRange {
 }
 
 /// A stage is a group of clauses anchored to a single event/node variable.
-/// Stages are the units of incremental matching — each new event is tested
+/// Stages are the units of incremental matching -- each new event is tested
 /// against the next unmatched stage.
 #[derive(Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -417,7 +417,7 @@ mod tests {
         let empty = PatternBuilder::<String, String>::new("empty").build();
         assert_eq!(empty.condition_count(), 0);
 
-        // Negation clauses are NOT counted — only stage clauses
+        // Negation clauses are NOT counted -- only stage clauses
         let with_negation = PatternBuilder::<String, String>::new("neg")
             .stage("e1", |s| s.edge("e1", "type".into(), "start".into()))
             .stage("e2", |s| s.edge("e2", "type".into(), "end".into()))

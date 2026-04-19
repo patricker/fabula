@@ -61,7 +61,7 @@ pub use compiler::{compile_pattern_body, compile_pattern_body_with, MemMapper, T
 pub struct ParsedDocument<L = String, V = MemValue> {
     /// All compiled patterns (both directly declared and composed).
     pub patterns: Vec<Pattern<L, V>>,
-    /// Parsed graphs (always `MemGraph` — graphs are test-only).
+    /// Parsed graphs (always `MemGraph` -- graphs are test-only).
     pub graphs: Vec<MemGraph>,
 }
 

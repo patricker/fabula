@@ -78,7 +78,7 @@ pub fn batch_sequence_different_actors_no_match<G: TestGraph>() {
 // Sequence with negation: setup's negation carries into composed pattern
 // ---------------------------------------------------------------------------
 
-/// Promise kept — unless cancelled in between.
+/// Promise kept -- unless cancelled in between.
 pub fn batch_sequence_with_negation<G: TestGraph>() {
     let setup = PatternBuilder::<String, G::V>::new("setup")
         .stage("e1", |s| {
@@ -105,7 +105,7 @@ pub fn batch_sequence_with_negation<G: TestGraph>() {
 
     let arc = compose::sequence("promise_then_celebrate", &setup, &reaction, &["char"]);
 
-    // Graph WITH cancel — should not match
+    // Graph WITH cancel -- should not match
     let mut g = G::new_graph();
     g.add_str_edge("ev1", "eventType", "promise", 1);
     g.add_ref_edge("ev1", "actor", "alice", 1);
@@ -124,7 +124,7 @@ pub fn batch_sequence_with_negation<G: TestGraph>() {
 }
 
 // ---------------------------------------------------------------------------
-// Choice: exclusive — first to complete kills others
+// Choice: exclusive -- first to complete kills others
 // ---------------------------------------------------------------------------
 
 /// Three crisis types, exclusive. Only the first to complete survives.
@@ -172,10 +172,10 @@ pub fn incremental_choice_exclusive<G: TestGraph>() {
         .collect();
     assert_eq!(completed.len(), 1);
 
-    // Now war hits — but it's still a single-stage pattern, so it completes immediately
+    // Now war hits -- but it's still a single-stage pattern, so it completes immediately
     // However, the group kill from famine's completion already happened in the previous call.
     // War's completion is independent (single-stage patterns complete on initiation).
-    // The exclusive group kills PMs, not completed matches — single-stage patterns
+    // The exclusive group kills PMs, not completed matches -- single-stage patterns
     // don't have active PMs to kill.
     // For multi-stage exclusive choice, see the next test.
 }
@@ -265,7 +265,7 @@ pub fn incremental_choice_exclusive_multistage<G: TestGraph>() {
 }
 
 // ---------------------------------------------------------------------------
-// Choice: non-exclusive — both alternatives can complete independently
+// Choice: non-exclusive -- both alternatives can complete independently
 // ---------------------------------------------------------------------------
 
 /// Two crisis types, non-exclusive. Both can complete without killing each other.
@@ -307,7 +307,7 @@ pub fn incremental_choice_nonexclusive<G: TestGraph>() {
         .collect();
     assert_eq!(completed.len(), 1, "war should complete");
 
-    // Famine hits second — non-exclusive, so it should also complete
+    // Famine hits second -- non-exclusive, so it should also complete
     g.add_str_edge("ev2", "eventType", "famine", 2);
     g.set_current_time(2);
     let events = engine.on_edge_added(

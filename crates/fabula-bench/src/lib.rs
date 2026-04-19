@@ -1,9 +1,9 @@
 //! Benchmark workload generators for fabula.
 //!
 //! Provides three workload builders:
-//! - [`build_isolated_workload`] — deterministic, parameterized workloads for divan benchmarks
-//! - [`build_gm_workload`] — realistic GM-profile workload for profiling (samply, dhat)
-//! - [`generate_trace`] — synthetic narrative trace for scoring pipeline benchmarks
+//! - [`build_isolated_workload`] -- deterministic, parameterized workloads for divan benchmarks
+//! - [`build_gm_workload`] -- realistic GM-profile workload for profiling (samply, dhat)
+//! - [`generate_trace`] -- synthetic narrative trace for scoring pipeline benchmarks
 //!
 //! Engine workloads are generic over [`TestGraph`]. Narrative workloads are
 //! self-contained (no `SiftEngine` or `DataSource` needed).

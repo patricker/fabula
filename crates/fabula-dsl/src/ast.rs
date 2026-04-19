@@ -1,6 +1,6 @@
 //! Abstract syntax tree types for the fabula DSL.
 
-/// Top-level document — contains patterns, graphs, and compose directives
+/// Top-level document -- contains patterns, graphs, and compose directives
 /// in declaration order (needed for name resolution).
 #[derive(Debug, Clone)]
 pub struct Document {
@@ -39,7 +39,7 @@ pub enum DocumentItem {
     Compose(ComposeAst),
 }
 
-/// A compose directive — builds a pattern from named sub-patterns.
+/// A compose directive -- builds a pattern from named sub-patterns.
 #[derive(Debug, Clone)]
 pub struct ComposeAst {
     pub name: String,
@@ -87,11 +87,11 @@ pub struct PatternAst {
     pub importance: f64,
 }
 
-/// The interior of a pattern — stages, negations, and temporal constraints,
+/// The interior of a pattern -- stages, negations, and temporal constraints,
 /// without the `pattern name { }` wrapper.
 ///
 /// Used by [`crate::parser::Parser::parse_pattern_body()`] for composable
-/// parsing — downstream DSLs can parse a pattern body embedded in their own
+/// parsing -- downstream DSLs can parse a pattern body embedded in their own
 /// block syntax.
 #[derive(Debug, Clone)]
 pub struct PatternBody {
@@ -115,9 +115,9 @@ pub struct StageAst {
 /// Whether a clause source is a variable reference or a literal node name.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SourceKind {
-    /// `?var` — references a previously bound variable or the stage anchor.
+    /// `?var` -- references a previously bound variable or the stage anchor.
     Var,
-    /// `name` — a literal graph node name (or stage anchor, or negation scan root).
+    /// `name` -- a literal graph node name (or stage anchor, or negation scan root).
     Literal,
 }
 

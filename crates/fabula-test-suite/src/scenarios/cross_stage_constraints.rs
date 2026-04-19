@@ -1,4 +1,4 @@
-//! Cross-stage value comparison scenarios — GtVar, LtVar, EqVar.
+//! Cross-stage value comparison scenarios -- GtVar, LtVar, EqVar.
 
 use crate::TestGraph;
 use fabula::prelude::*;
@@ -152,7 +152,7 @@ pub fn incremental_cross_stage_gt<G: TestGraph>() {
         .count();
     assert!(advanced > 0, "first bid should initiate a PM");
 
-    // Tick 2: bid at 150 — should complete
+    // Tick 2: bid at 150 -- should complete
     g.add_str_edge("ev2", "type", "bid", 2);
     g.add_num_edge("ev2", "price", 150.0, 2);
     g.set_current_time(2);

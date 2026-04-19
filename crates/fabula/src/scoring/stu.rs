@@ -31,7 +31,7 @@ pub struct StuScoredMatch<N: Debug, V: Debug, T: Debug + Clone> {
     /// Each entry is `(property_string, frequency)`.
     pub property_frequencies: Vec<(String, f64)>,
     /// StU score: aggregated property frequencies. Interpretation depends on
-    /// the aggregation mode — lower = more surprising for most modes, but
+    /// the aggregation mode -- lower = more surprising for most modes, but
     /// **higher = more surprising** for `TfIdf`.
     pub stu_score: f64,
 }
@@ -51,10 +51,10 @@ struct PropertyTable {
 /// Aggregation strategy for combining per-property frequencies into a single StU score.
 ///
 /// Each variant implements a different "theory of surprise":
-/// - `ArithmeticMean` — average rarity across all properties
-/// - `TfIdf` — total information content (log-weighted, **higher = more surprising**)
-/// - `GeometricMean` — sensitive to outlier rare properties
-/// - `Min` — the single rarest property dominates
+/// - `ArithmeticMean` -- average rarity across all properties
+/// - `TfIdf` -- total information content (log-weighted, **higher = more surprising**)
+/// - `GeometricMean` -- sensitive to outlier rare properties
+/// - `Min` -- the single rarest property dominates
 ///
 /// All variants except `TfIdf` produce scores where **lower = more surprising**.
 /// `TfIdf` has reversed polarity: **higher = more surprising**.
@@ -84,7 +84,7 @@ pub enum StuAggregation {
 /// scores lower (= more surprising).
 ///
 /// **The scorer only does frequency math.** Property extraction is the caller's
-/// responsibility — this struct never touches a graph or DataSource.
+/// responsibility -- this struct never touches a graph or DataSource.
 ///
 /// # Aggregation
 ///
@@ -230,7 +230,7 @@ impl StuScorer {
     /// `GeometricMean`, and `Min`; **higher = more surprising** for `TfIdf`.
     ///
     /// Matches whose pattern has not been observed get `stu_score = 1.0`
-    /// (maximally unsurprising — no data to distinguish).
+    /// (maximally unsurprising -- no data to distinguish).
     #[allow(clippy::type_complexity)]
     pub fn score<
         N: Debug + Clone + PartialEq,
@@ -326,7 +326,7 @@ impl StuScorer {
                     }
                 }
 
-                // Sort ascending — rarest properties first (for explainability)
+                // Sort ascending -- rarest properties first (for explainability)
                 prop_freqs
                     .sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap_or(std::cmp::Ordering::Equal));
 
@@ -690,7 +690,7 @@ mod tests {
             raw_freq
         );
 
-        // With many observations, confidence ≈ 1.0 — score ≈ raw freq
+        // With many observations, confidence ≈ 1.0 -- score ≈ raw freq
         let mut stu2 = StuScorer::new();
         for _ in 0..50 {
             stu2.observe_one("test", &["common"]);

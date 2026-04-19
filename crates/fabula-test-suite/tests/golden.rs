@@ -1,12 +1,12 @@
 #![allow(non_snake_case)]
-//! Golden test runner — stamps out every scenario for every adapter.
+//! Golden test runner -- stamps out every scenario for every adapter.
 //!
 //! # How it works
 //!
 //! 1. `TestGraph` impls for all adapters live in `fabula_test_suite::lib`
 //!    (satisfying orphan rules).
 //! 2. Scenario functions in `fabula_test_suite::scenarios` are generic over
-//!    `TestGraph` — they build graphs, patterns, and assertions once.
+//!    `TestGraph` -- they build graphs, patterns, and assertions once.
 //! 3. The `golden_tests!` macro below generates 3 `#[test]` functions per
 //!    scenario (one per adapter).
 //!
@@ -54,7 +54,7 @@ macro_rules! golden_tests {
 }
 
 // ===========================================================================
-// Scenario registry — add one line here, get tests for all three adapters.
+// Scenario registry -- add one line here, get tests for all three adapters.
 // ===========================================================================
 
 golden_tests! {
@@ -111,6 +111,9 @@ golden_tests! {
     causality_no_causal_edges,
     causality_max_hops_limit,
     causality_sorted_by_cleanliness,
+    causality_surprise_orphan_event,
+    causality_surprise_clean_chain,
+    causality_surprise_batch_parallel,
 
     // --- Winnow replay ---
     incremental_winnow_7step_sequence,

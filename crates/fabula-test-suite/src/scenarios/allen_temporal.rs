@@ -1,4 +1,4 @@
-//! Allen temporal relation scenarios — explicit temporal constraints on bounded intervals.
+//! Allen temporal relation scenarios -- explicit temporal constraints on bounded intervals.
 
 use crate::TestGraph;
 use fabula::prelude::*;

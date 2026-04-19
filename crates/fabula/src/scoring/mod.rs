@@ -1,7 +1,7 @@
 //! Statistical surprise scoring for pattern matches.
 //!
 //! Ranks matches by how unexpected they are relative to a baseline frequency.
-//! Operates as a post-processing step — the engine finds matches, the scorer
+//! Operates as a post-processing step -- the engine finds matches, the scorer
 //! ranks them. No engine modification required.
 //!
 //! ## Research foundation
@@ -12,7 +12,7 @@
 //! - **Property-level**: Kreminski, Dickinson, Wardrip-Fruin, Mateas (2022)
 //!   "Select the Unexpected: A Statistical Heuristic for Story Sifting"
 //!   (ICIDS 2022). Scores individual matches by the mean empirical frequency
-//!   of their *properties* — two matches of the same pattern score differently
+//!   of their *properties* -- two matches of the same pattern score differently
 //!   if one involves rarer attributes.
 
 mod sequential;
