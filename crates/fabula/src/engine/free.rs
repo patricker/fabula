@@ -1,6 +1,6 @@
 //! Free functions for pattern evaluation and gap analysis without a SiftEngine.
 //!
-//! These functions enable standalone evaluation — useful when a consumer
+//! These functions enable standalone evaluation -- useful when a consumer
 //! wants to evaluate individual patterns or run gap analysis without owning
 //! an engine instance.
 
@@ -19,7 +19,7 @@ use std::hash::Hash;
 /// Resolve a `*Var` constraint against a bindings map, producing a concrete constraint.
 ///
 /// Returns `None` if the variable is not bound or is bound to a `Node`
-/// (type mismatch — comparisons require `Value`, not `Node`).
+/// (type mismatch -- comparisons require `Value`, not `Node`).
 fn resolve_constraint<N: Debug, V: Clone + PartialEq + PartialOrd + Debug>(
     constraint: &ValueConstraint<V>,
     bindings: &HashMap<String, BoundValue<N, V>>,
@@ -95,7 +95,7 @@ where
 
 /// Evaluate a single pattern, returning only the first complete match.
 ///
-/// Stops as soon as one match is found — O(1) matches instead of O(all).
+/// Stops as soon as one match is found -- O(1) matches instead of O(all).
 /// For the common case where you only need "does at least one match exist?"
 pub fn evaluate_pattern_first<N, L, V, T>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
@@ -184,7 +184,7 @@ where
         .collect()
 }
 
-/// Standalone gap analysis — why hasn't this pattern matched?
+/// Standalone gap analysis -- why hasn't this pattern matched?
 ///
 /// This is the standalone equivalent of [`super::SiftEngine::why_not`]. It
 /// analyzes a pattern against a data source without requiring engine registration.
@@ -213,7 +213,7 @@ where
 /// Evaluate a single pattern at a specific time point.
 ///
 /// Like [`evaluate_pattern`] but takes an explicit `at` time instead of
-/// calling `ds.now()`. Useful for speculative evaluation — checking what
+/// calling `ds.now()`. Useful for speculative evaluation -- checking what
 /// would match at a future or past timestamp without mutating the graph's clock.
 pub fn evaluate_pattern_at<N, L, V, T>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
@@ -415,7 +415,7 @@ where
     let mut result = Vec::new();
     for (bindings, intervals) in candidates {
         let mut partial = vec![(bindings.clone(), intervals.clone())];
-        // Try each remaining unmatched stage — since stages are unordered,
+        // Try each remaining unmatched stage -- since stages are unordered,
         // we process them in index order but each stage match is independent.
         // This works because find_stage_matches uses bindings for join
         // constraints, so each subsequent stage is constrained by prior matches.

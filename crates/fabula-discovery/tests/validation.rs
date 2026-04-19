@@ -40,7 +40,7 @@ fn edge(
 }
 
 /// Build a MemGraph with open-ended intervals (all edges visible at now()).
-/// evaluate_pattern is a snapshot query at ds.now() — bounded edges ending
+/// evaluate_pattern is a snapshot query at ds.now() -- bounded edges ending
 /// before now() are invisible. Open-ended intervals with start-time ordering
 /// preserve temporal constraint checking for Before/Meets relations.
 fn corpus_to_open_memgraph(corpus: &TraceCorpus) -> MemGraph {
@@ -122,9 +122,9 @@ fn print_patterns(patterns: &[ScoredPattern<String, String>]) {
 
 /// Medieval court with 3 planted patterns + noise.
 ///
-/// P1: befriend Before betray (shared source = the betrayer)  — 3 instances
-/// P2: arrive Before depart (shared source = the traveler)    — 3 instances
-/// P3: accuse Before exile (accuse.target = exile.source)     — 3 instances
+/// P1: befriend Before betray (shared source = the betrayer)  -- 3 instances
+/// P2: arrive Before depart (shared source = the traveler)    -- 3 instances
+/// P3: accuse Before exile (accuse.target = exile.source)     -- 3 instances
 fn medieval_court_corpus() -> TraceCorpus {
     TraceCorpus::new(vec![
         // P1: befriend -> betray (shared source)
@@ -169,7 +169,7 @@ fn medieval_court_corpus() -> TraceCorpus {
 /// Window 2 (t=100..200): 5x request->complete + noise
 fn temporal_corpus() -> TraceCorpus {
     let mut edges = Vec::new();
-    // Window 1: t=0..100 — 5 request/complete pairs
+    // Window 1: t=0..100 -- 5 request/complete pairs
     for i in 0..5 {
         let t = i * 20i64;
         let src = format!("agent_{}", i);
@@ -177,7 +177,7 @@ fn temporal_corpus() -> TraceCorpus {
         edges.push(edge(&src, "request", &task, t, t + 3));
         edges.push(edge(&src, "complete", &task, t + 8, t + 12));
     }
-    // Window 2: t=100..200 — 5 request/complete pairs (different agents)
+    // Window 2: t=100..200 -- 5 request/complete pairs (different agents)
     for i in 0..5 {
         let t = 100 + i * 20i64;
         let src = format!("agent_{}", i + 10);
@@ -890,10 +890,10 @@ fn exp7_narrative_arc_discovery() {
     ]);
 
     println!("Corpus: {} edges", corpus.len());
-    println!("  Act 1 (Setup):        10 edges — love, trust, alliance");
-    println!("  Act 2 (Complication):  7 edges — challenge, attack, kill, banish");
-    println!("  Act 3 (Resolution):    8 edges — plan, fake_death, poison, die");
-    println!("  Noise:                 6 edges — gossip, patrol\n");
+    println!("  Act 1 (Setup):        10 edges -- love, trust, alliance");
+    println!("  Act 2 (Complication):  7 edges -- challenge, attack, kill, banish");
+    println!("  Act 3 (Resolution):    8 edges -- plan, fake_death, poison, die");
+    println!("  Noise:                 6 edges -- gossip, patrol\n");
 
     let config = MinerfulConfig {
         min_support: 0.03,

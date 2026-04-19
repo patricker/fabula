@@ -1,4 +1,4 @@
-//! Integration tests — porting Winnow's test scenarios + additional coverage.
+//! Integration tests -- porting Winnow's test scenarios + additional coverage.
 
 use fabula::prelude::*;
 use fabula_memory::{MemGraph, MemValue};
@@ -249,7 +249,7 @@ fn incremental_hospitality_unrelated_leave_doesnt_kill() {
         &Interval::open(2),
     );
 
-    // Charlie leaves — should NOT kill
+    // Charlie leaves -- should NOT kill
     g.add_str("ev_leave", "eventType", "leaveTown", 3);
     g.add_ref("ev_leave", "actor", "charlie", 3);
     g.set_time(3);
@@ -454,7 +454,7 @@ fn batch_unless_after_blocks_match() {
 }
 
 // ---------------------------------------------------------------------------
-// Global negation (unless_global — Winnow default)
+// Global negation (unless_global -- Winnow default)
 // ---------------------------------------------------------------------------
 
 #[test]
@@ -522,7 +522,7 @@ fn batch_rejects_wrong_temporal_order() {
     assert_eq!(
         engine.evaluate(&g).len(),
         0,
-        "temporal order violated — should not match"
+        "temporal order violated -- should not match"
     );
 }
 

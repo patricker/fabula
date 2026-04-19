@@ -89,7 +89,7 @@ fn complete_mcts_example() {
     let candidates: Vec<(&str, &str, &str)> = vec![
         ("harm", "bob", "alice"),    // completes hospitality_violation
         ("forgive", "alice", "bob"), // no pattern effect (no prior harm)
-        ("trade", "bob", "alice"),   // neutral — advances nothing
+        ("trade", "bob", "alice"),   // neutral -- advances nothing
     ];
 
     let weights = NarrativeWeights::default();
@@ -146,7 +146,7 @@ fn complete_mcts_example() {
     }
 
     println!("\nBest action: {} (score: {:.2})", best_action, best_score);
-    // The original engine is unchanged — no speculative state leaked.
+    // The original engine is unchanged -- no speculative state leaked.
     assert_eq!(
         engine.partial_matches().len(),
         engine

@@ -139,7 +139,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
         self
     }
 
-    /// Mark this pattern as private — the engine evaluates it internally but
+    /// Mark this pattern as private -- the engine evaluates it internally but
     /// suppresses its matches and events from output.
     pub fn private(mut self) -> Self {
         self.private = true;
@@ -177,7 +177,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
 
     /// Add a group of stages that may match in any order (concurrent).
     ///
-    /// Use the callback to add stages — they are appended to the pattern
+    /// Use the callback to add stages -- they are appended to the pattern
     /// and their indices are recorded as an unordered group. The engine
     /// will try all unmatched stages in the group against each incoming
     /// edge and advance past the group when all are matched.

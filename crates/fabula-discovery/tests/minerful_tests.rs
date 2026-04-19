@@ -146,7 +146,7 @@ fn minerful_empty_corpus() {
 
 #[test]
 fn minerful_single_label_corpus() {
-    // A corpus with only one distinct label — no label pairs to mine
+    // A corpus with only one distinct label -- no label pairs to mine
     let edges = vec![
         (
             "a".into(),

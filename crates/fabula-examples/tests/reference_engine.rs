@@ -69,6 +69,6 @@ fn end_tick_usage() {
     }
     // #endregion
 
-    // First tick — no expiry yet
+    // First tick -- no expiry yet
     assert!(expired_events.is_empty());
 }

@@ -36,7 +36,7 @@ fn run_profile<G: TestGraph>(_adapter_name: &str) {
         total_edges
     );
 
-    // CSV header — all columns are per-tick except peak_pms (lifetime high-water)
+    // CSV header -- all columns are per-tick except peak_pms (lifetime high-water)
     println!("tick,edges,elapsed_us,active_pms,tick_on_edge,tick_fingerprints,tick_neg_checks,peak_pms,advanced,completed,negated");
 
     let overall_start = Instant::now();

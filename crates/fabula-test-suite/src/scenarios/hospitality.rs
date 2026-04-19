@@ -1,4 +1,4 @@
-//! Violation of hospitality — the canonical multi-stage pattern from Winnow.
+//! Violation of hospitality -- the canonical multi-stage pattern from Winnow.
 //!
 //! Guest enters town -> host shows hospitality -> host harms guest.
 //! Unless guest leaves between entry and harm.
@@ -70,7 +70,7 @@ pub fn batch_hospitality_negated_when_guest_leaves<G: TestGraph>() {
     g.add_ref_edge("ev_leave", "actor", "alice", 2);
     let mut engine: SiftEngineFor<G> = SiftEngine::new();
     engine.register(voh_pattern::<G>());
-    assert_eq!(engine.evaluate(&g).len(), 0, "guest left — should negate");
+    assert_eq!(engine.evaluate(&g).len(), 0, "guest left -- should negate");
 }
 
 /// Batch: an unrelated character leaving does NOT negate.

@@ -47,7 +47,7 @@ pub struct CausalEdge<V, T> {
 /// `weights` contains one entry per edge in the path (length == path.edges.len()).
 /// `total_gap` is the sum of temporal gaps between consecutive nodes as f64.
 /// `divergent_branches` is the total count of sibling causes the path
-/// "walked past" — at each node on the path, every additional causal
+/// "walked past" -- at each node on the path, every additional causal
 /// predecessor (beyond the one followed into this path) contributes one.
 /// It measures how much of a fork the causal graph had along this chain;
 /// the BFS follows all siblings in separate paths, but higher divergence
@@ -164,7 +164,7 @@ where
             worklist.push((new_nodes, new_edges, new_branches));
         }
 
-        // Also emit the current path as a valid explanation — shorter paths
+        // Also emit the current path as a valid explanation -- shorter paths
         // typically score higher (smaller gap, less divergence) and represent
         // the "proximate cause" view. Longer extensions explored above become
         // additional paths in the result set.
@@ -199,7 +199,7 @@ where
 ///
 /// # Complements statistical surprise
 ///
-/// This is *contextual* surprise — it answers "given what just happened,
+/// This is *contextual* surprise -- it answers "given what just happened,
 /// was this predictable?" It is independent of the *statistical* surprise
 /// scorers in [`crate::scoring`], which measure how unusual an event is
 /// relative to a baseline frequency. An event can be statistically common
@@ -240,7 +240,7 @@ where
 /// Semantically equivalent to mapping `event_causal_surprise` over the slice,
 /// but expresses the batch intent and keeps call sites tidy.
 ///
-/// Computation is independent per event — no cross-event caching — so the
+/// Computation is independent per event -- no cross-event caching -- so the
 /// cost is `O(events.len() × per-event-BFS-cost)`. See the reference page
 /// for the underlying scan cost.
 pub fn event_causal_surprise_batch<DS: DataSource>(
@@ -301,7 +301,7 @@ mod bfs_tests {
     use crate::interval::Interval;
     use std::collections::HashMap;
 
-    // Minimal inline datasource for unit tests — avoids pulling in fabula-memory.
+    // Minimal inline datasource for unit tests -- avoids pulling in fabula-memory.
     #[derive(Default)]
     struct ToyGraph {
         edges: Vec<(String, String, String, i64)>, // (src, label, target, time)
@@ -589,7 +589,7 @@ mod surprise_tests {
         // The 1-hop path [b, c] scores cleanliness=1.0 (no gap computed for
         // single-edge paths). So best cleanliness is 1.0, surprise 0.0.
         // This test pins that the immediate cause always dominates even
-        // when upstream history is distant — which is the intended behavior.
+        // when upstream history is distant -- which is the intended behavior.
         assert!(s.abs() < 1e-9, "got {}", s);
     }
 

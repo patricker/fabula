@@ -22,7 +22,7 @@ fn gap_analysis_auditing() {
         })
         .build();
 
-    // Build a compliant graph — revoke then reauthorize then access.
+    // Build a compliant graph -- revoke then reauthorize then access.
     let mut graph = MemGraph::new();
     graph.add_str("e1", "type", "revoke", 1);
     graph.add_ref("e1", "user", "alice", 1);
@@ -48,7 +48,7 @@ fn gap_analysis_auditing() {
                     StageStatus::Matched => {}
                     StageStatus::Unmatched | StageStatus::PartiallyMatched { .. } => {
                         println!(
-                            "Near-miss for '{}': stage '{}' — {:?}",
+                            "Near-miss for '{}': stage '{}' -- {:?}",
                             pattern.name, stage.anchor, stage.status
                         );
                         for clause in &stage.clauses {

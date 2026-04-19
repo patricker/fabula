@@ -40,7 +40,7 @@ impl PatternEvaluator for SurpriseEvaluator {
             return 0.0;
         }
 
-        // Actual match count — use a simple heuristic based on shared-node co-occurrence
+        // Actual match count -- use a simple heuristic based on shared-node co-occurrence
         // For single-stage patterns, observed = label frequency
         // For multi-stage, count pairwise co-occurrences sharing a node
         let observed_freq = if pattern.stages.len() == 1 {

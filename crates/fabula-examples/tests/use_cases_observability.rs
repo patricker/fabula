@@ -50,10 +50,10 @@ fn incremental_integration() {
                 // Alert: cascade_timeout detected!
                 // bindings["svc_a"], bindings["svc_b"], bindings["svc_c"]
                 // contain the affected services.
-                println!("Alert: {} — {:?}", pattern, bindings);
+                println!("Alert: {} -- {:?}", pattern, bindings);
             }
             SiftEvent::Negated { pattern, .. } => {
-                // Recovery detected — a previously active alert is resolved.
+                // Recovery detected -- a previously active alert is resolved.
                 println!("Resolved: {}", pattern);
             }
             _ => {}

@@ -35,10 +35,10 @@ impl PatternEvaluator for MatchQualityEvaluator {
         let corpus_size = corpus.len() as f64;
         let match_ratio = match_count as f64 / corpus_size;
         let match_quality = if match_ratio > 0.5 {
-            // Too general — matches more than half the corpus
+            // Too general -- matches more than half the corpus
             0.5 / match_ratio
         } else {
-            // Good — specific enough to be interesting
+            // Good -- specific enough to be interesting
             (match_count as f64).ln().max(0.0)
         };
 
@@ -53,7 +53,7 @@ impl PatternEvaluator for MatchQualityEvaluator {
 /// Convert a TraceCorpus to a MemGraph for pattern evaluation.
 ///
 /// Uses open-ended intervals so all edges remain visible at `now()`.
-/// `evaluate_pattern` is a snapshot query at `ds.now()` — bounded edges
+/// `evaluate_pattern` is a snapshot query at `ds.now()` -- bounded edges
 /// ending before `now()` would be invisible, yielding zero matches.
 /// Temporal constraint checking falls back to start-time ordering for
 /// open-ended intervals (Before/Meets relations), so discovered patterns

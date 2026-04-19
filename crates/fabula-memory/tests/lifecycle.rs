@@ -457,7 +457,7 @@ fn plant_payoff_tracks_setup_and_resolution() {
     let status = engine.plant_status(50);
     assert_eq!(status.len(), 1);
     assert_eq!(status[0].payoff_completions, 0, "no payoff yet");
-    assert!(!status[0].stale, "only 1 tick — not stale");
+    assert!(!status[0].stale, "only 1 tick -- not stale");
 
     // Payoff fires
     g.add_str("ev2", "type", "fulfill", 2);
@@ -581,7 +581,7 @@ fn end_tick_accumulates_and_clears() {
     );
     assert_eq!(engine.current_tick(), 1);
 
-    // Next tick with no events — accumulators should be cleared
+    // Next tick with no events -- accumulators should be cleared
     let (delta2, _) = engine.end_tick(50);
     assert!(delta2.completed.is_empty(), "no events this tick");
     assert!(delta2.advanced.is_empty(), "no events this tick");
@@ -720,7 +720,7 @@ fn pm_created_at_inherited_on_advance() {
         &Interval::open(10),
     );
 
-    // Stage 2 at t=50 — PM advances but created_at stays 10
+    // Stage 2 at t=50 -- PM advances but created_at stays 10
     g.add_str("ev2", "eventType", "greet", 50);
     g.set_time(50);
     engine.on_edge_added(
@@ -861,7 +861,7 @@ fn no_expiry_without_deadline() {
         &Interval::open(1),
     );
 
-    // 200 ticks without completing — should never expire
+    // 200 ticks without completing -- should never expire
     for _ in 0..200 {
         let (delta, _) = engine.end_tick(50);
         assert!(delta.expired.is_empty());
@@ -908,7 +908,7 @@ fn completed_before_deadline_no_expiry() {
     // Drain the completed PM
     engine.drain_completed();
 
-    // 20 more ticks — no expiry (PM already completed and drained)
+    // 20 more ticks -- no expiry (PM already completed and drained)
     for _ in 0..20 {
         let (delta, _) = engine.end_tick(50);
         assert!(delta.expired.is_empty());
@@ -961,7 +961,7 @@ fn negation_kills_before_deadline() {
         .iter()
         .any(|e| matches!(e, SiftEvent::Negated { .. })));
 
-    // PM is dead — no expiry should fire later
+    // PM is dead -- no expiry should fire later
     for _ in 0..200 {
         let (delta, _) = engine.end_tick(50);
         assert!(
@@ -1116,7 +1116,7 @@ fn incremental_cross_stage_gt_var() {
         &Interval::open(1),
     );
 
-    // Tick 2: bid at 150 — should complete
+    // Tick 2: bid at 150 -- should complete
     g.add_str("ev2", "type", "bid", 2);
     g.add_num("ev2", "price", 150.0, 2);
     g.set_time(2);
@@ -1162,7 +1162,7 @@ fn cross_stage_eq_var_matches() {
 
 #[test]
 fn cross_stage_var_node_type_mismatch_no_match() {
-    // Variable bound to a Node, not a Value — GtVar should fail resolution
+    // Variable bound to a Node, not a Value -- GtVar should fail resolution
     let mut g = MemGraph::new();
     g.add_str("ev1", "type", "action", 1);
     g.add_ref("ev1", "actor", "alice", 1);
@@ -1307,12 +1307,12 @@ fn cross_stage_var_range_check() {
 
 #[test]
 fn cross_stage_var_in_negation_body() {
-    // *Var inside unless_between — negation kills if edge > ?threshold
+    // *Var inside unless_between -- negation kills if edge > ?threshold
     let mut g = MemGraph::new();
     g.add_str("ev1", "type", "set_limit", 1);
     g.add_num("ev1", "limit", 50.0, 1);
     g.add_str("ev2", "type", "violation", 2);
-    g.add_num("ev2", "amount", 80.0, 2); // 80 > 50 — triggers negation
+    g.add_num("ev2", "amount", 80.0, 2); // 80 > 50 -- triggers negation
     g.add_str("ev3", "type", "audit", 3);
     g.set_time(10);
 
@@ -1339,7 +1339,7 @@ fn cross_stage_var_in_negation_body() {
     assert_eq!(
         engine.evaluate(&g).len(),
         0,
-        "negation should kill — 80 > 50"
+        "negation should kill -- 80 > 50"
     );
 }
 
@@ -1451,7 +1451,7 @@ fn repeat_range_continues_after_min() {
         );
     }
 
-    // Offense 3 — should produce another completion (3 >= min=2)
+    // Offense 3 -- should produce another completion (3 >= min=2)
     g.add_str("ev3", "type", "offense", 3);
     g.add_ref("ev3", "target", "alice", 3);
     g.set_time(3);
@@ -1490,7 +1490,7 @@ fn repeat_range_stops_at_max() {
     engine.register(pattern);
     let mut g = MemGraph::new();
 
-    // Use a "setup" event type for first_ stage, and "offense" for last_ — but
+    // Use a "setup" event type for first_ stage, and "offense" for last_ -- but
     // actually both first_ and last_ match the same sub-pattern ("offense").
     // With multiple events, multiple starting points create multiple PMs.
     // Just verify that completions happen but no PM has rep_count > max.
@@ -1523,7 +1523,7 @@ fn repeat_range_stops_at_max() {
 
 #[test]
 fn repeat_range_unbounded_keeps_matching() {
-    // Pattern: offense * 2.. sharing(target) — no max
+    // Pattern: offense * 2.. sharing(target) -- no max
     // min=2 means 2 total occurrences → first completion after 2 events
     let offense = PatternBuilder::new("offense")
         .stage("e", |s| {

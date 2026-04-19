@@ -142,7 +142,7 @@ fn score_one_tick(mut pipeline: WarmedPipeline, tick: fabula_bench::NarrativeTic
 }
 
 // ===========================================================================
-// Tier 1: Throughput — full pipeline over complete trace
+// Tier 1: Throughput -- full pipeline over complete trace
 // ===========================================================================
 
 /// Full pipeline throughput at various character counts.
@@ -178,7 +178,7 @@ mod throughput {
 }
 
 // ===========================================================================
-// Tier 2: Per-tick latency — single tick, pre-warmed trackers
+// Tier 2: Per-tick latency -- single tick, pre-warmed trackers
 // ===========================================================================
 
 /// Single-tick latency with pre-warmed pipeline state.
@@ -235,7 +235,7 @@ mod per_tick {
 }
 
 // ===========================================================================
-// Tier 3: Scaling — sweep one dimension at a time
+// Tier 3: Scaling -- sweep one dimension at a time
 // ===========================================================================
 
 /// Dimension sweeps to find scaling curves.

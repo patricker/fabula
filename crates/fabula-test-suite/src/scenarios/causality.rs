@@ -1,4 +1,4 @@
-//! Causal pathfinding scenarios — run against MemGraph, PetGraph, GrafeoGraph.
+//! Causal pathfinding scenarios -- run against MemGraph, PetGraph, GrafeoGraph.
 
 use crate::TestGraph;
 use fabula::causality::causal_paths;

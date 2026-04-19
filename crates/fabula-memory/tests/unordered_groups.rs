@@ -109,7 +109,7 @@ fn batch_unordered_end_before_group_no_match() {
         })
         .build();
 
-    // finish at t=2, beta at t=3 — finish before group complete
+    // finish at t=2, beta at t=3 -- finish before group complete
     let mut g = MemGraph::new();
     g.add_str("ev1", "type", "alpha", 1);
     g.add_str("ev2", "type", "finish", 2);

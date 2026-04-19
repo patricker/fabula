@@ -269,7 +269,7 @@ fn emit_constraint_between() {
         .build();
 
     let dsl = pattern_to_dsl(&pattern);
-    // Between is lossy — emitted as >= lo
+    // Between is lossy -- emitted as >= lo
     assert!(
         dsl.contains(">= \"10\""),
         "DSL should contain '>= \"10\"' for Between: {}",

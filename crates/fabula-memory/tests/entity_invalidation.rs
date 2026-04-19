@@ -18,7 +18,7 @@ fn kill_pms_involving_removes_matching_pms() {
             .build(),
     );
 
-    // Feed stage 1 for alice — creates 1 active PM
+    // Feed stage 1 for alice -- creates 1 active PM
     g.add_str("alice", "type", "start", 1);
     g.set_time(1);
     engine.on_edge_added(

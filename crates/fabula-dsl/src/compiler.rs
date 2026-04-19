@@ -381,7 +381,7 @@ fn add_clause_to_stage<M: TypeMapper>(
     mapper: &M,
 ) -> StageBuilder<M::L, M::V> {
     let source = &clause.source;
-    // Unwrap mapper results — validation errors in mapper are propagated
+    // Unwrap mapper results -- validation errors in mapper are propagated
     // at a higher level; within the builder callback we cannot return Result.
     let label = mapper
         .label(&clause.label)
@@ -672,7 +672,7 @@ fn parse_allen_relation(s: &str) -> Result<AllenRelation, String> {
 }
 
 // ---------------------------------------------------------------------------
-// Graph compilation (always MemGraph — test-only)
+// Graph compilation (always MemGraph -- test-only)
 // ---------------------------------------------------------------------------
 
 /// Compile a graph AST into a `MemGraph`.

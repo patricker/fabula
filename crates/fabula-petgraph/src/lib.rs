@@ -1,4 +1,4 @@
-//! Petgraph adapter for fabula — wraps `petgraph::StableGraph` with temporal edges.
+//! Petgraph adapter for fabula -- wraps `petgraph::StableGraph` with temporal edges.
 //!
 //! Petgraph has no native temporal support, so this adapter stores intervals
 //! as part of the edge weight. Queries filter by time at evaluation.
@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::fmt::Debug;
 use std::hash::{Hash, Hasher};
 
-/// A temporal edge weight — bundles a label, value, and validity interval
+/// A temporal edge weight -- bundles a label, value, and validity interval
 /// onto a petgraph edge.
 #[derive(Debug, Clone)]
 pub struct TemporalEdge<L, V, T> {

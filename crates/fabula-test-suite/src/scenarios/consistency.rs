@@ -1,4 +1,4 @@
-//! Consistency scenarios — verifying batch and incremental produce equivalent results,
+//! Consistency scenarios -- verifying batch and incremental produce equivalent results,
 //! and that drain_completed behaves correctly.
 
 use crate::TestGraph;
@@ -216,7 +216,7 @@ pub fn batch_incremental_multi_match_consistency<G: TestGraph>() {
     );
 }
 
-/// drain_completed is idempotent — second drain returns 0.
+/// drain_completed is idempotent -- second drain returns 0.
 pub fn drain_completed_idempotent<G: TestGraph>() {
     let mut g = G::new_graph();
     let mut engine: SiftEngineFor<G> = SiftEngine::new();
@@ -243,7 +243,7 @@ pub fn drain_completed_idempotent<G: TestGraph>() {
     assert_eq!(second.len(), 0, "second drain should return 0");
 }
 
-/// drain_completed interleaved — complete A, drain, complete B, drain.
+/// drain_completed interleaved -- complete A, drain, complete B, drain.
 pub fn drain_completed_interleaved<G: TestGraph>() {
     let mut g = G::new_graph();
     let mut engine: SiftEngineFor<G> = SiftEngine::new();

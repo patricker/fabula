@@ -22,7 +22,7 @@ use std::collections::{HashMap, HashSet};
 /// let mut pivot = PivotDetector::new();
 /// // Tick 1: mostly peaceful events
 /// pivot.push("trade"); pivot.push("trade"); pivot.push("talk");
-/// let _ = pivot.end_tick(); // first tick has no previous — returns 0
+/// let _ = pivot.end_tick(); // first tick has no previous -- returns 0
 ///
 /// // Tick 2: sudden violence
 /// pivot.push("attack"); pivot.push("attack"); pivot.push("harm");
@@ -61,11 +61,11 @@ impl PivotDetector {
     /// Returns the JSD value in [0, 1]. First tick returns 0.0 (no previous).
     ///
     /// Empty ticks (no events pushed) return 0.0 and leave the previous
-    /// distribution unchanged — the next non-empty tick compares against the
+    /// distribution unchanged -- the next non-empty tick compares against the
     /// last non-empty tick's distribution.
     pub fn end_tick(&mut self) -> f64 {
         if self.current_total == 0 {
-            // Empty tick — no events, no pivot
+            // Empty tick -- no events, no pivot
             self.history.push(0.0);
             return 0.0;
         }
@@ -78,7 +78,7 @@ impl PivotDetector {
             .collect();
 
         let jsd = if self.prev_distribution.is_empty() {
-            0.0 // First tick — no previous to compare
+            0.0 // First tick -- no previous to compare
         } else {
             jensen_shannon_divergence(&self.prev_distribution, &current_dist)
         };

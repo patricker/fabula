@@ -1,4 +1,4 @@
-//! Incremental matching scenarios — on_edge_added, drain_completed, negation kills.
+//! Incremental matching scenarios -- on_edge_added, drain_completed, negation kills.
 
 use crate::TestGraph;
 use fabula::prelude::*;
@@ -171,7 +171,7 @@ pub fn incremental_unrelated_leave_no_kill<G: TestGraph>() {
         &Interval::open(2),
     );
 
-    // Charlie leaves — should NOT kill
+    // Charlie leaves -- should NOT kill
     g.add_str_edge("ev_leave", "eventType", "leaveTown", 3);
     g.add_ref_edge("ev_leave", "actor", "charlie", 3);
     g.set_current_time(3);
@@ -399,7 +399,7 @@ pub fn incremental_dead_and_complete_inert<G: TestGraph>() {
     // Drain the completed match
     engine.drain_completed();
 
-    // Add more harm edges — the completed PM should not emit new events
+    // Add more harm edges -- the completed PM should not emit new events
     g.add_str_edge("ev2", "eventType", "harm", 2);
     g.add_ref_edge("ev2", "actor", "charlie", 2);
     g.set_current_time(2);
@@ -411,7 +411,7 @@ pub fn incremental_dead_and_complete_inert<G: TestGraph>() {
         &Interval::open(2),
     );
     // A new PM will be created and completed for this pattern (it's a single-stage pattern
-    // that matches new events). This is correct behavior — the pattern template stays active.
+    // that matches new events). This is correct behavior -- the pattern template stays active.
     // The key point is that the *old* completed PM doesn't emit duplicate events.
     let completed_count = ev
         .iter()
@@ -543,7 +543,7 @@ pub fn incremental_negation_only_when_window_open<G: TestGraph>() {
         &Interval::open(4),
     );
 
-    // The drained completed match is still valid — not retroactively invalidated
+    // The drained completed match is still valid -- not retroactively invalidated
     assert_eq!(
         completed[0].pattern, "violation_of_hospitality",
         "the already-drained completed match is unaffected"

@@ -1,4 +1,4 @@
-//! Two impulsive betrayals pattern — character with trait "impulsive" betrays twice.
+//! Two impulsive betrayals pattern -- character with trait "impulsive" betrays twice.
 //!
 //! Pattern: stage1 (eventType=betray, actor=?char, ?char has trait=impulsive),
 //! stage2 (eventType=betray, actor=?char), unless_global (any action by ?char between).

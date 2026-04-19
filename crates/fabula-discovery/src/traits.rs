@@ -11,7 +11,7 @@ use fabula::pattern::Pattern;
 
 /// Proposes candidate patterns. Receives scored feedback to guide the next round.
 ///
-/// Generators maintain internal state across rounds — a population of
+/// Generators maintain internal state across rounds -- a population of
 /// high-scoring patterns, frequency tables, or conversation history with an LLM.
 pub trait CandidateGenerator {
     /// Propose up to `budget` candidate patterns from the corpus.

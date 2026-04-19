@@ -241,7 +241,7 @@ fn pairwise_relations_all_shared_node_variants() {
 
 #[test]
 fn pairwise_relations_open_ended_skipped() {
-    // Two open-ended intervals sharing a node — Allen relation is undefined (None),
+    // Two open-ended intervals sharing a node -- Allen relation is undefined (None),
     // so pairwise_relations should return no hits.
     let trace_edges = vec![
         (

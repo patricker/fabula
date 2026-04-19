@@ -48,7 +48,7 @@ fn memgraph_weighted_labels() {
 
 #[test]
 fn memgraph_respects_temporal_order() {
-    // a -> b at time 5, b -> c at time 3 — out of order, should not form a chain
+    // a -> b at time 5, b -> c at time 3 -- out of order, should not form a chain
     let mut g = MemGraph::new();
     g.add_ref("a", "causes", "b", 5);
     g.add_ref("b", "causes", "c", 3);

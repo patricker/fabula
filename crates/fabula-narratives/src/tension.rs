@@ -4,7 +4,7 @@
 //! (rising, falling, plateau, peak, valley). Based on Left 4 Dead's AI
 //! Director (Booth 2009) and Ely/Frankel/Kamenica (2015) suspense model.
 //!
-//! The tracker does NOT query the DataSource directly — the caller provides
+//! The tracker does NOT query the DataSource directly -- the caller provides
 //! samples. This keeps it DataSource-agnostic.
 
 use std::collections::VecDeque;

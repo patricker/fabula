@@ -75,7 +75,7 @@ pub fn gap_partially_matched_stage<G: TestGraph>() {
     assert_eq!(analysis.stages.len(), 1, "should analyze first stage");
     // The stage should be partially matched (some clauses ok, some not)
     // Note: why_not doesn't propagate bindings, so source var is unbound.
-    // The first stage analysis depends on implementation — it might be Unmatched
+    // The first stage analysis depends on implementation -- it might be Unmatched
     // because the source var for the first clause is unbound in why_not.
     assert!(
         !analysis.stages[0].clauses.is_empty(),

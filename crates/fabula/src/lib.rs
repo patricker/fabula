@@ -9,11 +9,11 @@
 //!
 //! ## Crate Structure
 //!
-//! - **`fabula`** (this crate) — core library with zero dependencies. Pattern types,
+//! - **`fabula`** (this crate) -- core library with zero dependencies. Pattern types,
 //!   the `DataSource` trait, Allen interval algebra, the `SiftEngine`.
-//! - **`fabula-memory`** — `MemGraph`, a simple in-memory `DataSource` for testing.
-//! - **`fabula-petgraph`** — `DataSource` adapter wrapping `petgraph::StableGraph`.
-//! - **`fabula-grafeo`** — `DataSource` adapter for the Grafeo graph database.
+//! - **`fabula-memory`** -- `MemGraph`, a simple in-memory `DataSource` for testing.
+//! - **`fabula-petgraph`** -- `DataSource` adapter wrapping `petgraph::StableGraph`.
+//! - **`fabula-grafeo`** -- `DataSource` adapter for the Grafeo graph database.
 //!
 //! ## Quick Start
 //!

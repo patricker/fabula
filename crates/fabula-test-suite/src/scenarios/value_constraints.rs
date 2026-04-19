@@ -1,4 +1,4 @@
-//! Value constraint scenarios — Lt, Gt, Between on numeric edges.
+//! Value constraint scenarios -- Lt, Gt, Between on numeric edges.
 
 use crate::TestGraph;
 use fabula::prelude::*;
@@ -156,7 +156,7 @@ pub fn batch_value_eq_string<G: TestGraph>() {
     );
 }
 
-/// Batch: value constraint in negation — negation fires when loyalty < 0.5.
+/// Batch: value constraint in negation -- negation fires when loyalty < 0.5.
 pub fn batch_value_constraint_in_negation<G: TestGraph>() {
     // Pattern: promise -> fulfill, unless low loyalty (< 0.5) event between
     let pattern = PatternBuilder::new("loyal_promise")

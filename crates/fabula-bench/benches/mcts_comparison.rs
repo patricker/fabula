@@ -30,7 +30,7 @@ fn main() {
 }
 
 // ---------------------------------------------------------------------------
-// Narrative "game" for MCTS — single-player optimization over intervention choices
+// Narrative "game" for MCTS -- single-player optimization over intervention choices
 // ---------------------------------------------------------------------------
 
 const BRANCHING_FACTOR: usize = 5;
@@ -292,7 +292,7 @@ mod puct_vs_gumbel {
     }
 }
 
-/// Character count scaling — answers the Gumbel question directly.
+/// Character count scaling -- answers the Gumbel question directly.
 /// At what character count does PUCT-1000 exceed 16ms, making Gumbel's
 /// fewer-simulation advantage relevant?
 mod character_scaling {

@@ -366,7 +366,7 @@ fn negation_at_exact_window_boundary() {
     assert_eq!(
         matches.len(),
         1,
-        "event at exact window start is outside exclusive window — match succeeds"
+        "event at exact window start is outside exclusive window -- match succeeds"
     );
 
     // But a pardon at t=2 (strictly between 1 and 3) DOES block:
@@ -376,6 +376,6 @@ fn negation_at_exact_window_boundary() {
     assert_eq!(
         matches2.len(),
         0,
-        "pardon at t=2 is strictly between 1 and 3 — blocks match"
+        "pardon at t=2 is strictly between 1 and 3 -- blocks match"
     );
 }

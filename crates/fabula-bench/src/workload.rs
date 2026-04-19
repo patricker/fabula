@@ -1,8 +1,8 @@
 //! Workload generators for benchmarking and profiling.
 //!
 //! Two entry points:
-//! - [`build_isolated_workload`] — pre-built graph + engine + pending edges for divan
-//! - [`build_gm_workload`] — 200-tick realistic GM simulation for profiling
+//! - [`build_isolated_workload`] -- pre-built graph + engine + pending edges for divan
+//! - [`build_gm_workload`] -- 200-tick realistic GM simulation for profiling
 
 use fabula::prelude::*;
 use fabula_test_suite::TestGraph;
@@ -77,7 +77,7 @@ impl PendingEdge {
 }
 
 // ---------------------------------------------------------------------------
-// Seeded PRNG (minimal xorshift64 — no external dep)
+// Seeded PRNG (minimal xorshift64 -- no external dep)
 // ---------------------------------------------------------------------------
 
 struct Rng(u64);
@@ -170,7 +170,7 @@ fn gen_pattern<G: TestGraph>(
     builder.build()
 }
 
-/// Generate a single-stage pattern (high fanout — matches many edges).
+/// Generate a single-stage pattern (high fanout -- matches many edges).
 fn gen_single_stage_pattern<G: TestGraph>(name: &str, event_type: &str) -> Pattern<String, G::V> {
     PatternBuilder::<String, G::V>::new(name)
         .stage("e0", |s| {

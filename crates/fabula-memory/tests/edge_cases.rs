@@ -1,4 +1,4 @@
-//! Edge case tests — adversarial inputs, boundary conditions, and
+//! Edge case tests -- adversarial inputs, boundary conditions, and
 //! batch-vs-incremental consistency checks.
 //!
 //! Each test documents the scenario, expected behavior, and whether
@@ -41,7 +41,7 @@ fn empty_stage_no_clauses() {
         .stage("e1", |s| {
             s.edge("e1", "eventType".into(), MemValue::Str("harm".into()))
         })
-        .stage("e2", |s| s) // empty stage — no clauses
+        .stage("e2", |s| s) // empty stage -- no clauses
         .build();
     engine.register(pattern);
     assert_eq!(
@@ -260,7 +260,7 @@ fn single_stage_with_unless_after_incremental_consistency() {
         .any(|e| matches!(e, SiftEvent::Completed { .. }));
     assert!(
         !completed2,
-        "pardon exists — negation should block completion"
+        "pardon exists -- negation should block completion"
     );
 }
 
@@ -483,7 +483,7 @@ fn ten_stage_pattern() {
 
 #[test]
 fn distinct_events_create_distinct_pms() {
-    // 100 different source nodes at different timestamps — all unique fingerprints.
+    // 100 different source nodes at different timestamps -- all unique fingerprints.
     // These are legitimately distinct PMs (different bindings + intervals).
     let mut g = MemGraph::new();
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
@@ -556,4 +556,4 @@ fn large_graph_batch_evaluation() {
 }
 
 // ===========================================================================
-// 5b. Dedup — tests that demonstrate the accumulation bug (before fix)
+// 5b. Dedup -- tests that demonstrate the accumulation bug (before fix)

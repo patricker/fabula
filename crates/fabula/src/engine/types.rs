@@ -19,7 +19,7 @@ pub(super) type MatchCandidate<N, V, T> = (
 // Matches and events
 // ---------------------------------------------------------------------------
 
-/// A complete match — all stages satisfied, temporal constraints met,
+/// A complete match -- all stages satisfied, temporal constraints met,
 /// negation windows clear.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
@@ -67,13 +67,13 @@ where
     }
 }
 
-/// A value bound to a variable — either a node reference or a data value.
+/// A value bound to a variable -- either a node reference or a data value.
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub enum BoundValue<N: Debug, V: Debug> {
     /// A graph node (can be followed as a source in subsequent clauses).
     Node(N),
-    /// A data value (string, number, boolean — not traversable).
+    /// A data value (string, number, boolean -- not traversable).
     Value(V),
 }
 
@@ -108,7 +108,7 @@ impl<N: Debug + PartialEq, V: Debug + PartialEq> BoundValue<N, V> {
     }
 }
 
-/// A partial match — some stages satisfied, waiting for more events.
+/// A partial match -- some stages satisfied, waiting for more events.
 #[derive(Debug, Clone)]
 pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
     /// Index of the pattern in the engine's pattern list.
@@ -148,7 +148,7 @@ pub struct PartialMatch<N: Debug + Clone, V: Debug + Clone, T: Clone> {
 pub enum MatchState {
     /// Waiting for the next stage to match.
     Active,
-    /// All stages matched — this is a complete match.
+    /// All stages matched -- this is a complete match.
     Complete,
     /// Killed by a negation window.
     Dead,
@@ -181,7 +181,7 @@ pub enum SiftEvent<N: Debug, V: Debug> {
         trigger_source: N,
         metadata: HashMap<String, String>,
     },
-    /// A partial match expired — its pattern's deadline was exceeded.
+    /// A partial match expired -- its pattern's deadline was exceeded.
     Expired {
         pattern: String,
         match_id: usize,
@@ -198,7 +198,7 @@ pub enum SiftEvent<N: Debug, V: Debug> {
 // Gap analysis
 // ---------------------------------------------------------------------------
 
-/// Result of `why_not` — clause-by-clause analysis of why a pattern didn't match.
+/// Result of `why_not` -- clause-by-clause analysis of why a pattern didn't match.
 #[derive(Debug)]
 #[cfg_attr(feature = "serde", derive(serde::Serialize, serde::Deserialize))]
 pub struct GapAnalysis<L, V> {

@@ -344,7 +344,7 @@ fn bare_source_is_literal() {
             }
         }
     "#;
-    // "alice" is a literal node name — no error
+    // "alice" is a literal node name -- no error
     let pattern = parse_pattern(dsl).unwrap();
     assert_eq!(pattern.stages[0].clauses.len(), 2);
 }
@@ -1122,7 +1122,7 @@ fn private_pattern_with_nonexclusive_choice() {
 }
 
 // ===========================================================================
-// Value disjunction — in [...] syntax
+// Value disjunction -- in [...] syntax
 // ===========================================================================
 
 #[test]
