@@ -51,6 +51,16 @@ The key behavior here: **the original partial match survives**. When the engine 
 
 **Repeat-range looping**: For patterns created with `compose::repeat_range()` (DSL `* N..M` or `* N..`), when a PM advances past the last stage of the looping segment, the engine creates a completion snapshot (if min repetitions are met) AND a new Active PM that loops back to the start of the segment with incremented `repetition_count`. Non-shared bindings from the looping segment are cleared so stage anchors can match fresh events. Intervals are preserved for temporal ordering between iterations.
 
+### Fork vs consume: the `advance_in_place` tradeoff
+
+By default, when a PM advances from stage S to stage S+1, the engine clones it: the new stage-(S+1) PM is added, and the original stage-S PM stays alive so future edges can still match stage S with the same prefix. This "original survives" invariant is what lets a single prefix spawn multiple distinct matches -- one "enter" can match several later "leave" events, producing one completed match per pairing.
+
+For patterns where that multiplicity is unwanted -- the typical case when sifting "the betrayal after the grudge" style narratives -- the cloned originals accumulate as stage-N PMs that are never useful and never cleaned up until the pattern terminates. In a 200-actor crowd, 200 enters followed by 200 leaves produce roughly 40,000 PMs with the default behavior.
+
+Setting [`advance_in_place`](../reference/patterns#advance_in_place) on a pattern opts the engine into a simpler rule: after a PM advances strictly forward, the original is marked Dead and cleaned up at the end of the tick. The Complete and Advanced events still fire as usual. Only the PM table is smaller.
+
+The Winnow paper (Kreminski 2021 §4.2) identifies this as a common sifting optimization once all non-event variables are bound. Fabula exposes it as a per-pattern opt-in rather than an automatic detection, because the tradeoff is author intent: occasionally you DO want multiple forward matches from one prefix.
+
 ### Phase 4: Cleanup
 
 Dead partial matches (killed by negation in Phase 1) are removed from storage. New partial matches from Phases 2 and 3 are added.

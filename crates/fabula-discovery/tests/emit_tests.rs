@@ -330,6 +330,7 @@ fn emit_unless_global() {
         unordered_groups: Vec::new(),
         private: false,
         importance: 1.0,
+        advance_in_place: false,
     };
 
     let dsl = pattern_to_dsl(&pattern);

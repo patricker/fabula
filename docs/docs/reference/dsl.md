@@ -58,6 +58,26 @@ pattern climax importance 10.0 {
 
 Maps to `PatternBuilder::importance(weight)`.
 
+### `advance_in_place`
+
+Pattern-level modifier. Written as a keyword preceding `pattern`:
+
+```
+advance_in_place pattern my_pattern {
+    stage a { a.type = "enter" }
+    stage b { b.type = "leave" }
+}
+```
+
+Equivalent to calling `PatternBuilder::advance_in_place()` from Rust. See the [patterns reference](./patterns#advance_in_place) for full semantics.
+
+Composes with `private`: both keywords may appear in any order before `pattern`.
+
+```
+private advance_in_place pattern internal_fast { ... }
+advance_in_place private pattern internal_fast { ... }
+```
+
 :::note
 `inactivity_threshold` (auto-prune PMs after N idle ticks) has no DSL syntax. Set it via the builder API: `PatternBuilder::inactivity_threshold(ticks)`. See [Pattern reference](/reference/patterns#inactivity_threshold).
 :::

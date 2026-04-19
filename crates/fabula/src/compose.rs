@@ -139,6 +139,7 @@ pub fn rename_vars<L: Clone, V: Clone>(
         unordered_groups: pattern.unordered_groups.clone(),
         private: pattern.private,
         importance: pattern.importance,
+        advance_in_place: pattern.advance_in_place,
     }
 }
 
@@ -198,6 +199,9 @@ pub fn sequence<L: Clone, V: Clone>(
         repeat_range: None,
         unordered_groups,
         private: false,
+        // Preserve advance_in_place if either input opts in -- silently
+        // dropping the flag during composition would surprise authors.
+        advance_in_place: a.advance_in_place || b.advance_in_place,
         importance: 1.0,
     }
 }
@@ -294,6 +298,8 @@ pub fn repeat<L: Clone, V: Clone>(
         repeat_range: None,
         unordered_groups,
         private: false,
+        // Preserve the opt-in from the source pattern.
+        advance_in_place: pattern.advance_in_place,
         importance: 1.0,
     }
 }
@@ -370,6 +376,8 @@ pub fn repeat_range<L: Clone, V: Clone>(
         }),
         unordered_groups,
         private: false,
+        // Preserve the opt-in from the source pattern.
+        advance_in_place: pattern.advance_in_place,
         importance: 1.0,
     }
 }

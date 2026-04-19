@@ -1075,6 +1075,90 @@ fn parse_private_pattern() {
 }
 
 #[test]
+fn parse_advance_in_place_pattern() {
+    let src = r#"
+        advance_in_place pattern fast_path {
+            stage e1 { e1.type = "enter" }
+            stage e2 { e2.type = "leave" }
+        }
+        pattern default_path {
+            stage e1 { e1.type = "enter" }
+            stage e2 { e2.type = "leave" }
+        }
+    "#;
+    let doc = fabula_dsl::parse_document(src).unwrap();
+    assert_eq!(doc.patterns.len(), 2);
+
+    let fast = doc.patterns.iter().find(|p| p.name == "fast_path").unwrap();
+    assert!(
+        fast.advance_in_place,
+        "fast_path should opt into advance_in_place"
+    );
+
+    let default_p = doc
+        .patterns
+        .iter()
+        .find(|p| p.name == "default_path")
+        .unwrap();
+    assert!(
+        !default_p.advance_in_place,
+        "default_path should keep the classic fork behavior"
+    );
+}
+
+#[test]
+fn parse_advance_in_place_composes_with_private() {
+    // `private` first
+    let src = r#"
+        private advance_in_place pattern internal_fast {
+            stage e1 { e1.type = "enter" }
+            stage e2 { e2.type = "leave" }
+        }
+    "#;
+    let doc = fabula_dsl::parse_document(src).unwrap();
+    let p = &doc.patterns[0];
+    assert!(p.private);
+    assert!(p.advance_in_place);
+
+    // Reverse order
+    let src = r#"
+        advance_in_place private pattern internal_fast_rev {
+            stage e1 { e1.type = "enter" }
+            stage e2 { e2.type = "leave" }
+        }
+    "#;
+    let doc = fabula_dsl::parse_document(src).unwrap();
+    let p = &doc.patterns[0];
+    assert!(p.private);
+    assert!(p.advance_in_place);
+}
+
+#[test]
+fn parse_duplicate_modifier_is_error() {
+    let dup_private = r#"
+        private private pattern foo {
+            stage e1 { e1.type = "enter" }
+        }
+    "#;
+    let err = fabula_dsl::parse_document(dup_private).unwrap_err();
+    assert!(
+        err.to_string().contains("duplicate 'private'"),
+        "expected duplicate-private error, got: {err}"
+    );
+
+    let dup_advance = r#"
+        advance_in_place advance_in_place pattern foo {
+            stage e1 { e1.type = "enter" }
+        }
+    "#;
+    let err = fabula_dsl::parse_document(dup_advance).unwrap_err();
+    assert!(
+        err.to_string().contains("duplicate 'advance_in_place'"),
+        "expected duplicate-advance_in_place error, got: {err}"
+    );
+}
+
+#[test]
 fn parse_compose_choice_exclusive_default() {
     let src = r#"
         pattern war { stage e1 { e1.type = "war" } }

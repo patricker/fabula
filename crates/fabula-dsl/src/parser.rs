@@ -56,14 +56,40 @@ impl Parser {
 
         while !self.at_eof() {
             match &self.peek().kind {
-                TokenKind::Ident(ref s) if s == "private" => {
-                    self.advance(); // consume "private"
-                                    // Next token must be "pattern"
-                    if !self.check(TokenKind::Pattern) {
-                        return Err(self.error("expected 'pattern' after 'private'"));
+                TokenKind::Ident(ref s) if s == "private" || s == "advance_in_place" => {
+                    // Collect any combination of `private` and `advance_in_place`
+                    // modifiers in any order before `pattern`.
+                    let mut want_private = false;
+                    let mut want_advance_in_place = false;
+                    loop {
+                        match &self.peek().kind {
+                            TokenKind::Ident(ref s) if s == "private" => {
+                                if want_private {
+                                    return Err(self.error("duplicate 'private' modifier"));
+                                }
+                                self.advance();
+                                want_private = true;
+                            }
+                            TokenKind::Ident(ref s) if s == "advance_in_place" => {
+                                if want_advance_in_place {
+                                    return Err(
+                                        self.error("duplicate 'advance_in_place' modifier")
+                                    );
+                                }
+                                self.advance();
+                                want_advance_in_place = true;
+                            }
+                            TokenKind::Pattern => break,
+                            _ => {
+                                return Err(self.error(
+                                    "expected 'pattern' or another modifier (private, advance_in_place)",
+                                ))
+                            }
+                        }
                     }
                     let mut pat = self.parse_pattern()?;
-                    pat.private = true;
+                    pat.private = want_private;
+                    pat.advance_in_place = want_advance_in_place;
                     items.push(DocumentItem::Pattern(pat));
                 }
                 TokenKind::Pattern => items.push(DocumentItem::Pattern(self.parse_pattern()?)),
@@ -122,6 +148,7 @@ impl Parser {
             unordered_groups: body.unordered_groups,
             private: false,
             importance,
+            advance_in_place: false,
         })
     }
 
@@ -197,6 +224,7 @@ impl Parser {
             unordered_groups,
             private: false,
             importance: 1.0,
+            advance_in_place: false,
         })
     }
 

@@ -207,6 +207,8 @@ where
         // Phase 3: Try to advance existing active partial matches.
         // For unordered groups: try all unmatched stages in the group.
         let mut advanced = Vec::new();
+        // IDs of PMs to mark Dead after the loop (advance_in_place + strict-forward push).
+        let mut consume_ids: std::collections::HashSet<usize> = std::collections::HashSet::new();
         for pm in &self.partial_matches {
             if pm.state != MatchState::Active {
                 continue;
@@ -302,6 +304,9 @@ where
                                     if seen.insert(cfp) {
                                         let cid = self.next_match_id;
                                         self.next_match_id += 1;
+                                        if pattern.advance_in_place {
+                                            consume_ids.insert(pm.id);
+                                        }
                                         advanced.push(PartialMatch {
                                             pattern_idx: pm.pattern_idx,
                                             bindings: merged_bindings.clone(),
@@ -440,8 +445,25 @@ where
                                 metadata: pattern.metadata.clone(),
                             });
                         }
+                        // advance_in_place: consume the original PM when this push
+                        // represents strict-forward progress (past the current stage,
+                        // not a within-group rematch).
+                        if pattern.advance_in_place && next > pm.next_stage {
+                            consume_ids.insert(pm.id);
+                        }
                         advanced.push(new_pm);
                     }
+                }
+            }
+        }
+
+        // Apply advance_in_place: mark the scheduled originals Dead so Phase 4's
+        // retain() removes them. The freshly-pushed `advanced` PMs have new ids
+        // and are not affected.
+        if !consume_ids.is_empty() {
+            for pm in self.partial_matches.iter_mut() {
+                if consume_ids.contains(&pm.id) {
+                    pm.state = MatchState::Dead;
                 }
             }
         }

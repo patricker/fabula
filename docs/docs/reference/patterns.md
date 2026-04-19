@@ -179,6 +179,9 @@ pub struct Pattern<L, V> {
     pub repeat_range: Option<RepeatRange>,
     pub unordered_groups: Vec<Vec<usize>>,
     pub private: bool,
+    pub importance: f64,
+    pub inactivity_threshold: Option<u64>,
+    pub advance_in_place: bool,
 }
 ```
 
@@ -196,6 +199,7 @@ pub struct Pattern<L, V> {
 | `private` | `bool` | If true, this pattern's matches and events are suppressed from engine output (`evaluate()`, `drain_completed()`, `on_edge_added()`). The engine still evaluates the pattern internally for composition and exclusive group handling. Default `false`. Set by `PatternBuilder::private()` or DSL `private pattern`. |
 | `importance` | `f64` | Relative weight for narrative scoring. Higher values cause this pattern's matches to be weighted more heavily in composite scores. Default `1.0`. Set by `PatternBuilder::importance()` or DSL `pattern name importance 10.0 { ... }`. |
 | `inactivity_threshold` | `Option<u64>` | If set, active PMs that don't advance for this many ticks are auto-pruned in `end_tick()`. Unlike `deadline_ticks` (which measures total PM lifetime), this measures ticks since the PM's last advancement. Default `None`. Set by `PatternBuilder::inactivity_threshold()`. |
+| `advance_in_place` | `bool` | If true, when a PM advances strictly forward to a higher stage index, the original PM is marked Dead and cleaned up at the end of the tick. This reduces PM accumulation in crowded simulations where each prefix spawns many forward matches. Default `false`. Set by `PatternBuilder::advance_in_place()`. |
 
 #### Methods
 
@@ -494,6 +498,28 @@ pub fn inactivity_threshold(self, ticks: u64) -> Self
 | `ticks` | `u64` | yes | -- | Maximum ticks without advancement before pruning. |
 
 **Returns:** `PatternBuilder<L, V>` (chainable)
+
+---
+
+#### `advance_in_place`
+
+Marks a PM as Dead immediately after it advances strictly forward (to a higher stage index). This prevents the stage-N residue that accumulates in crowded simulations, where the default fork semantics keep the pre-advancement PM alive to match more edges.
+
+```rust
+pub fn advance_in_place(self) -> Self
+```
+
+**Returns:** `PatternBuilder<L, V>` (chainable)
+
+**When to use:** patterns where each binding prefix is expected to match exactly one forward sequence -- the common case in narrative sifting. A `betrayal after grudge` pattern typically does not want the same grudge event to fork into a new match for every subsequent betrayal edge.
+
+**When NOT to use:** patterns where the same prefix should spawn multiple downstream matches (e.g., "the first insult by a character triggers many subsequent reactions").
+
+**Interaction with unordered groups:** within-group advancement (stage_idx unchanged, `matched_stages` mask enriched) does NOT consume the original PM. Only strict-forward advancement (`next > pm.next_stage`) triggers consumption. This preserves the group's ability to match remaining members.
+
+**Interaction with repeat ranges:** the complete-at-end arm consumes the original; the loop-back arm inherits the prefix normally. Repeat-range patterns can safely enable this flag.
+
+**Events unchanged:** `SiftEvent::Advanced` and `SiftEvent::Completed` fire identically whether or not the flag is set. Only the internal `partial_matches` set is smaller.
 
 ---
 
