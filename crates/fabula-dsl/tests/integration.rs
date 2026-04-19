@@ -1134,6 +1134,31 @@ fn parse_advance_in_place_composes_with_private() {
 }
 
 #[test]
+fn parse_duplicate_modifier_is_error() {
+    let dup_private = r#"
+        private private pattern foo {
+            stage e1 { e1.type = "enter" }
+        }
+    "#;
+    let err = fabula_dsl::parse_document(dup_private).unwrap_err();
+    assert!(
+        err.to_string().contains("duplicate 'private'"),
+        "expected duplicate-private error, got: {err}"
+    );
+
+    let dup_advance = r#"
+        advance_in_place advance_in_place pattern foo {
+            stage e1 { e1.type = "enter" }
+        }
+    "#;
+    let err = fabula_dsl::parse_document(dup_advance).unwrap_err();
+    assert!(
+        err.to_string().contains("duplicate 'advance_in_place'"),
+        "expected duplicate-advance_in_place error, got: {err}"
+    );
+}
+
+#[test]
 fn parse_compose_choice_exclusive_default() {
     let src = r#"
         pattern war { stage e1 { e1.type = "war" } }

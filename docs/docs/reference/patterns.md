@@ -179,6 +179,9 @@ pub struct Pattern<L, V> {
     pub repeat_range: Option<RepeatRange>,
     pub unordered_groups: Vec<Vec<usize>>,
     pub private: bool,
+    pub importance: f64,
+    pub inactivity_threshold: Option<u64>,
+    pub advance_in_place: bool,
 }
 ```
 
@@ -804,5 +807,3 @@ pub fn edge_constrained(
 | `constraint` | `ValueConstraint<V>` | yes | -- | Value constraint the target must satisfy. |
 
 **Returns:** `NegationBuilder<L, V>` (chainable)
-
-TEST_APPEND_LINE

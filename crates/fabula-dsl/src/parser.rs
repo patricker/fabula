@@ -64,10 +64,18 @@ impl Parser {
                     loop {
                         match &self.peek().kind {
                             TokenKind::Ident(ref s) if s == "private" => {
+                                if want_private {
+                                    return Err(self.error("duplicate 'private' modifier"));
+                                }
                                 self.advance();
                                 want_private = true;
                             }
                             TokenKind::Ident(ref s) if s == "advance_in_place" => {
+                                if want_advance_in_place {
+                                    return Err(
+                                        self.error("duplicate 'advance_in_place' modifier")
+                                    );
+                                }
                                 self.advance();
                                 want_advance_in_place = true;
                             }
