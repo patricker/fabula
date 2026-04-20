@@ -119,6 +119,52 @@ Then run the golden tests against your adapter. See [Golden Tests](./golden-test
 
 **`PartialOrd` implementation for your value type.** `ValueConstraint::Lt`, `Gt`, `Lte`, `Gte`, and `Between` use `PartialOrd`. If your value type's ordering is not meaningful for numeric comparisons (e.g., comparing a node ref to a string), these constraints may produce unexpected results. Consider implementing `PartialOrd` to return `None` for incomparable types.
 
+## Benchmarking your adapter
+
+Once the golden tests pass, benchmark your adapter against PetGraph to catch performance regressions or surface indexing opportunities.
+
+### Quick comparison
+
+The easiest path is to reuse the existing `WorkloadConfig` harness from `fabula-bench`. Because `YourAdapter` must already implement `TestGraph` (from Step 5), `build_isolated_workload` will accept it directly:
+
+```rust
+use fabula_bench::{build_isolated_workload, WorkloadConfig};
+use std::time::Instant;
+
+let config = WorkloadConfig { pattern_count: 30, ..Default::default() };
+let mut workload = build_isolated_workload::<YourAdapter>(&config);
+
+// Insert all edges first so secondary clauses in multi-clause stages
+// can see edges arriving in the same tick.
+let edges: Vec<_> = workload.pending_edges.drain(..).collect();
+for edge in &edges {
+    edge.insert(&mut workload.graph);
+}
+let start = Instant::now();
+for edge in &edges {
+    edge.notify(&workload.graph, &mut workload.engine);
+}
+let elapsed = start.elapsed();
+println!("avg per edge: {:?}", elapsed / edges.len().max(1) as u32);
+```
+
+Compare against the published baseline: **~28 microseconds per `on_edge_added` on PetGraph at GM-scale**. If you're more than 3-5x slower, your `edges_from` or `scan` implementation is probably the hot path.
+
+### What to measure
+
+- **Per-edge latency** (incremental): the time taken by one `on_edge_added` call averaged over a realistic stream. This is the number users care about.
+- **`edges_from` latency in isolation**: benchmark the method directly against a graph of 1K, 10K, 100K edges. It should be O(degree) or better; if it's O(E), you need an index.
+- **Batch throughput**: `engine.evaluate(&graph)` for one-shot queries. This calls `scan` heavily.
+- **Memory**: peak active PMs. The engine's working set reflects the adapter's ability to prune stale partial matches during `end_tick()`.
+
+### Common bottlenecks
+
+- **Linear scans in `edges_from`.** Add a `HashMap<(Node, Label), Vec<Edge>>` index on insert.
+- **Clone-heavy `Edge` construction.** Returning `Edge` by value is fine, but if your values are expensive (`String`, `HashMap`), consider interning or `Arc`.
+- **Allocating `Vec` on every query.** Pre-allocate or reuse via a `&mut Vec` parameter if your hot path repeats the same query shape.
+
+See [Performance -- Benchmarking your workload](./performance#benchmarking-your-workload) for the full benchmark suite layout.
+
 ## Verification checklist
 
 After implementing `DataSource` and `TestGraph`, verify:

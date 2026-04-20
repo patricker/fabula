@@ -6,7 +6,7 @@ description: Using fabula from JavaScript, Python, C, and other languages
 
 # Language Integration
 
-Fabula's core is a Rust library. If your project uses a different language, this page explains your options.
+Fabula's core is a Rust library. This page explains your options for integrating it from other languages -- the tradeoffs between WASM, FFI, service wrappers, and embedded DSL -- and walks through a concrete WASM quickstart so you can see at least one path end-to-end.
 
 ## Quick Summary
 
@@ -17,6 +17,31 @@ Fabula's core is a Rust library. If your project uses a different language, this
 | **PyO3** | Python | Planned | Data science, Jupyter notebooks, scripting |
 | **Embedded DSL** | Any language with a text parser | Available now | Define patterns as `.fabula` text files, evaluate via WASM or FFI |
 | **Service wrapper** | Any language via HTTP/gRPC | Roll your own | Microservice architecture, language-agnostic |
+
+## WASM quickstart (5 minutes)
+
+The fastest way to use fabula from JavaScript:
+
+1. **Install the WASM target** (once):
+   ```bash
+   rustup target add wasm32-unknown-unknown
+   cargo install wasm-pack
+   ```
+2. **Build the fabula-wasm crate** from the repo root:
+   ```bash
+   wasm-pack build --target web crates/fabula-wasm
+   ```
+   This produces `crates/fabula-wasm/pkg/` with `.wasm`, `.js`, and `.d.ts` files.
+3. **Import and call from your JS app:**
+   ```javascript
+   import init, { evaluate_batch } from './pkg/fabula_wasm.js';
+   await init();
+   const result = JSON.parse(evaluate_batch(patternDsl, graphDsl));
+   console.log(result.matches);
+   ```
+4. **Verify against a known pattern.** Use one from the [interactive playground](/docs/playground/pattern-playground) -- if you get the same matches in your JS app, the WASM build is wired correctly.
+
+That's enough to prototype. For Node.js, swap `--target web` for `--target nodejs` and import from `fabula_wasm.js` the same way. Performance, limitations, and production considerations are discussed below.
 
 ## WASM (JavaScript / TypeScript)
 
