@@ -23,7 +23,7 @@ Three scenarios that account for most fabula support questions. For debugging an
 2. Run `why_not(...)` on the missing match for a clause-by-clause breakdown.
 3. Confirm `now()` advances monotonically by logging it before each `on_edge_added` call.
 
-**Fix:** Feed edges chronologically by interval start time, call `end_tick()` between simulation phases, and advance `now()` with simulation time. See [How the Engine Works](../concepts/how-the-engine-works) and [DataSource Reference](../reference/datasource) for `now()` semantics.
+**Fix:** Feed edges chronologically by interval start time, call `end_tick()` between simulation phases, and advance `now()` with simulation time. See [Why negation runs before advancement](../concepts/how-the-engine-works#why-negation-runs-before-advancement) and [DataSource Reference](../reference/datasource) for `now()` semantics.
 
 ## Scenario 2: Performance regressed after a recent change
 
