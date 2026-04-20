@@ -45,9 +45,9 @@ If fabula is slower than you want, work through these in order. Most real-world 
 1. **Check your adapter.** MemGraph is O(E) per query and becomes O(E^2) in batch at 1K+ edges. Use PetGraph for production. See [Adapter comparison](#adapter-comparison).
 2. **Drain completed matches.** Call `drain_completed()` every tick or every N ticks. Complete PMs accumulate until drained. See [Controlling memory growth](#controlling-memory-growth).
 3. **Set deadlines or inactivity thresholds on long-lived patterns.** A deadline kills stuck PMs automatically via `SiftEvent::Expired`. Inactivity prunes PMs that haven't advanced. See [Pattern Reference -- deadline](../reference/patterns#deadline).
-4. **Disable irrelevant patterns.** `engine.set_pattern_enabled(name, false)` skips the pattern in Phase 2 (initiation) entirely. Re-enable when relevant.
+4. **Disable irrelevant patterns.** `engine.set_pattern_enabled(idx, false)` skips the pattern at that index in Phase 2 (initiation) entirely. Re-enable when relevant.
 5. **Use `advance_in_place` for crowded patterns.** When a pattern's prefix shouldn't fork on every advancement -- typical in high-actor-count simulations -- `advance_in_place` prevents exponential PM accumulation. See [Pattern Reference -- advance_in_place](../reference/patterns#advance_in_place).
-6. **Batch vs incremental.** For one-shot queries on a complete dataset, use `evaluate()`. For streaming, use `on_edge_added` + `end_tick()`. Mixing modes on the same engine is not supported.
+6. **Batch vs incremental.** For one-shot queries on a complete dataset, use `evaluate()`. For streaming, use `on_edge_added` + `end_tick()`. See [How the Engine Works -- Batch vs incremental](../concepts/how-the-engine-works#batch-vs-incremental-when-to-use-each) for a full comparison.
 7. **Profile before optimizing further.** Run `cargo run --release --bin fabula-profile` for engine metrics; use `samply` or `dhat-heap` for deeper analysis. See [Profiling binaries](#profiling-binaries).
 
 If after this your workload is still tight, file an issue with a `WorkloadConfig` snippet that reproduces the slowness.
