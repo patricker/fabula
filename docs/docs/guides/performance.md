@@ -310,7 +310,7 @@ Both summaries print average per-call microseconds to stderr.
 | **MemGraph** | Testing and prototyping | Vec-backed linear scan | Comparable at small scale | O(E^2) at 1K+ edges |
 | **GrafeoGraph** | Persistent storage | Database-backed queries | Depends on storage backend | Depends on storage backend |
 
-**Recommendation:** Use PetGraph for anything performance-sensitive. Use MemGraph for unit tests and golden tests where simplicity matters more than speed. Use GrafeoGraph when you need persistent graph storage across process restarts.
+**Recommendation:** Use PetGraph for anything performance-sensitive. Use MemGraph for unit tests and golden tests where simplicity matters more than speed. Use GrafeoGraph when you need persistent graph storage across process restarts. If you're implementing your own adapter, see [Benchmarking your adapter](./custom-adapter#benchmarking-your-adapter) for measurement tactics and common bottlenecks.
 
 ### Why MemGraph is slower at scale
 
