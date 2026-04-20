@@ -80,6 +80,7 @@ const sidebars: SidebarsConfig = {
         'guides/performance',
         'guides/tracing-causal-chains',
         'guides/detecting-surprising-events',
+        'guides/troubleshooting',
       ],
     },
     {

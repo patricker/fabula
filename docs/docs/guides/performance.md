@@ -165,6 +165,8 @@ All of these workloads fit comfortably within budget on a single thread. For the
 
 Partial matches are the primary memory consumer. Each `PartialMatch` holds a `HashMap<String, BoundValue>` of variable bindings plus metadata (fingerprint, state, stage index, timestamps). In a typical GM-scale workload, you will see 100-300 active partial matches at steady state.
 
+If you're diagnosing a regression, see [Troubleshooting Scenario 2](./troubleshooting#scenario-2-performance-regressed-after-a-recent-change).
+
 ### Controlling memory growth
 
 **`drain_completed()`.** Call this after each tick (or every N ticks) to move completed matches out of the engine. The profiling binary drains every 10 ticks, which is a reasonable default. The returned `Vec<Match>` gives you the results; the engine forgets them.

@@ -77,3 +77,4 @@ This shows you exactly where each partial match is stuck.
 
 - [Step-Through Debugger](../playground/step-through) -- watch incremental matching unfold visually, step by step.
 - [Pattern Cookbook](./pattern-cookbook) -- worked recipes with `why_not` output for each failure case.
+- [Troubleshooting](./troubleshooting) -- common operational issues beyond single-pattern debugging.
