@@ -41,7 +41,7 @@ Three scenarios that account for most fabula support questions. For debugging an
 2. Call `stale_patterns(threshold)` to find patterns that are accumulating PMs but never completing.
 3. Re-run `cargo bench -p fabula-bench --bench engine` and diff against the previous baseline to localize the regression.
 
-**Fix:** See the [Performance tuning checklist](./performance#memory) for the standard remediations -- `drain_completed`, `set_pattern_enabled(false)`, deadlines, and adapter choice.
+**Fix:** See the [Performance tuning checklist](./performance#controlling-memory-growth) for the standard remediations -- `drain_completed`, `set_pattern_enabled(false)`, deadlines, and adapter choice.
 
 ## Scenario 3: Pattern stopped matching after a fabula upgrade
 
