@@ -133,15 +133,19 @@ use std::time::Instant;
 
 let config = WorkloadConfig { pattern_count: 30, ..Default::default() };
 let mut workload = build_isolated_workload::<YourAdapter>(&config);
-let pending_count = workload.pending_edges.len();
 
-let start = Instant::now();
-for edge in workload.pending_edges.drain(..) {
+// Insert all edges first so secondary clauses in multi-clause stages
+// can see edges arriving in the same tick.
+let edges: Vec<_> = workload.pending_edges.drain(..).collect();
+for edge in &edges {
     edge.insert(&mut workload.graph);
+}
+let start = Instant::now();
+for edge in &edges {
     edge.notify(&workload.graph, &mut workload.engine);
 }
 let elapsed = start.elapsed();
-println!("avg per edge: {:?}", elapsed / pending_count as u32);
+println!("avg per edge: {:?}", elapsed / edges.len().max(1) as u32);
 ```
 
 Compare against the published baseline: **~28 microseconds per `on_edge_added` on PetGraph at GM-scale**. If you're more than 3-5x slower, your `edges_from` or `scan` implementation is probably the hot path.
