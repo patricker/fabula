@@ -78,9 +78,15 @@ const sidebars: SidebarsConfig = {
         'guides/golden-tests',
         'guides/language-integration',
         'guides/performance',
-        'guides/tracing-causal-chains',
-        'guides/detecting-surprising-events',
         'guides/troubleshooting',
+        {
+          type: 'category',
+          label: 'Causality',
+          items: [
+            'guides/tracing-causal-chains',
+            'guides/detecting-surprising-events',
+          ],
+        },
       ],
     },
     {
