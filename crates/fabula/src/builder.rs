@@ -269,6 +269,7 @@ impl<L: Clone, V: Clone> PatternBuilder<L, V> {
 pub struct StageBuilder<L, V> {
     anchor: String,
     clauses: Vec<Clause<L, V>>,
+    let_bindings: Vec<crate::expr::ComputedBinding<V>>,
 }
 
 impl<L: Clone, V: Clone> StageBuilder<L, V> {
@@ -276,6 +277,7 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
         Self {
             anchor,
             clauses: Vec::new(),
+            let_bindings: Vec::new(),
         }
     }
 
@@ -435,11 +437,24 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
         self
     }
 
+    /// Add a computed binding (`let name = expr`) to this stage. The expression
+    /// is evaluated after this stage's clauses match; the result is bound to
+    /// `name` and visible to all subsequent stages, negations, and lets.
+    pub fn let_binding(
+        mut self,
+        name: impl Into<String>,
+        expr: crate::expr::Expr<V>,
+    ) -> Self {
+        self.let_bindings
+            .push(crate::expr::ComputedBinding::new(name, expr));
+        self
+    }
+
     fn build(self) -> Stage<L, V> {
         Stage {
             anchor: Var::new(self.anchor),
             clauses: self.clauses,
-            let_bindings: Vec::new(),
+            let_bindings: self.let_bindings,
         }
     }
 }
@@ -599,5 +614,46 @@ mod tests {
             }
             other => panic!("Expected Target::Constraint(ValueConstraint::OneOf(..)), got {:?}", other),
         }
+    }
+}
+
+#[cfg(test)]
+mod let_binding_tests {
+    use super::*;
+    use crate::expr::{BinOp, Expr};
+
+    #[test]
+    fn builder_let_binding_appends_to_stage() {
+        let pattern = PatternBuilder::<String, String>::new("t")
+            .stage("e1", |s| {
+                s.edge_bind("e1", "ts".into(), "anchor")
+                    .let_binding(
+                        "deadline",
+                        Expr::bin(BinOp::Add, Expr::var("anchor"), Expr::lit("5".to_string())),
+                    )
+            })
+            .build();
+        assert_eq!(pattern.stages[0].let_bindings.len(), 1);
+        assert_eq!(pattern.stages[0].let_bindings[0].name, "deadline");
+    }
+
+    #[test]
+    fn builder_multiple_let_bindings_preserve_order() {
+        let pattern = PatternBuilder::<String, String>::new("t")
+            .stage("e1", |s| {
+                s.edge_bind("e1", "ts".into(), "anchor")
+                    .let_binding(
+                        "a",
+                        Expr::bin(BinOp::Add, Expr::var("anchor"), Expr::lit("1".to_string())),
+                    )
+                    .let_binding(
+                        "b",
+                        Expr::bin(BinOp::Add, Expr::var("anchor"), Expr::lit("2".to_string())),
+                    )
+            })
+            .build();
+        assert_eq!(pattern.stages[0].let_bindings.len(), 2);
+        assert_eq!(pattern.stages[0].let_bindings[0].name, "a");
+        assert_eq!(pattern.stages[0].let_bindings[1].name, "b");
     }
 }
