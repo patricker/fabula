@@ -214,6 +214,7 @@ In this pattern, after `e1` matches, both `e2` and `e3` must match (in either or
 - Temporal ordering within a concurrent group is relaxed — stages in the same group are not required to be time-ordered relative to each other.
 - `unless between` cannot use two anchors that are both inside the same concurrent group (undefined temporal ordering). The compiler rejects this with an error.
 - Variables bound in any stage of a concurrent group are visible to all sibling stages in the same group (symmetric scoping).
+- `let` statements cannot appear inside a `concurrent { }` block — only stages are permitted. The Rust API (`PatternBuilder::unordered_group`) does not enforce this; lets attached to grouped stages have order-sensitive semantics. See [Computed Bindings — Concurrent groups](../guides/computed-bindings#concurrent-groups).
 
 Maps to `PatternBuilder::unordered_group()` in the Rust builder API.
 
@@ -443,6 +444,8 @@ Bindings available in repeat-range matches:
 - `last_*` — variables from the most recent match (overwritten each iteration)
 - Shared variables — unprefixed, consistent across all iterations
 - `repetition_count` — available on the `PartialMatch` for inspection
+
+`let` bindings inside a repeat-range looping segment are re-evaluated on each iteration; non-shared let results do not persist across iterations.
 
 ### Rules
 

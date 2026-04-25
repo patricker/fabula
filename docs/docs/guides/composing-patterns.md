@@ -230,6 +230,8 @@ Every `compose` renames non-shared variables to prevent collisions between sub-p
 
 Variables listed in `sharing(...)` are exempt from renaming. Use `sharing` when the same entity must appear across sub-patterns (same character, same account, same region). Omit it when sub-patterns are independent.
 
+[`let`](./computed-bindings) binding names and the variable references inside their expressions are renamed under the same scheme — a `let deadline = ?ts + 5` in pattern `a` becomes `let a_deadline = ?a_ts + 5` after `sequence("seq", &a, &b, &[])`. Lets referencing shared variables keep those references unprefixed.
+
 ---
 
 ## Next steps

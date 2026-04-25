@@ -15,6 +15,8 @@ Batch evaluation works as a stage cascade with filtering.
 
 **Stage cascade.** The engine processes stages left to right. For stage 1, it scans the graph for all edges matching the first clause, building a set of candidate binding maps. For each subsequent stage, it extends each existing candidate with new bindings from that stage. Candidates that fail a clause are dropped.
 
+After a stage's clauses match, any [`let` bindings](../guides/computed-bindings) attached to that stage are evaluated against the current binding map. A failed evaluation (unbound variable, type mismatch, division by zero) silently drops the candidate, the same as a failed clause. Successful let results merge into the binding map and are visible to subsequent stages, negations, and lets.
+
 This is a nested-loop join. If stage 1 produces 50 candidates and stage 2 produces 3 matches per candidate, you get 150 candidates going into stage 3.
 
 **Temporal filter.** After the stage cascade, the engine filters candidates by temporal ordering. Implicit ordering requires that each stage's anchor interval starts strictly before the next stage's anchor interval. Explicit Allen constraints (if any) are checked against the full interval bounds.
