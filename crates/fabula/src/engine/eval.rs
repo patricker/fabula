@@ -25,7 +25,7 @@ impl<N, L, V, T> SiftEngine<N, L, V, T>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
 {
     /// Batch evaluation: find all complete matches in the current graph state.

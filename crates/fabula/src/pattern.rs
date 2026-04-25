@@ -200,6 +200,11 @@ pub struct Stage<L, V> {
     pub anchor: Var,
     /// Clauses that constrain this event/node.
     pub clauses: Vec<Clause<L, V>>,
+    /// Computed bindings (`let name = expr`) evaluated after this stage's
+    /// clauses match. Successful results are merged into the binding map
+    /// before subsequent stages run.
+    #[cfg_attr(feature = "serde", serde(default = "Vec::new"))]
+    pub let_bindings: Vec<crate::expr::ComputedBinding<V>>,
 }
 
 impl<V> Target<V> {
@@ -242,6 +247,11 @@ impl<L, V> Stage<L, V> {
                 .clauses
                 .iter()
                 .map(|c| c.map_types(label_fn, value_fn))
+                .collect(),
+            let_bindings: self
+                .let_bindings
+                .iter()
+                .map(|cb| cb.map(value_fn))
                 .collect(),
         }
     }
@@ -516,5 +526,37 @@ mod tests {
 
         let mapped = pattern.map_types(|l| l.to_uppercase(), |v| v.to_uppercase());
         assert_eq!(mapped.metadata.get("key").unwrap(), "value");
+    }
+
+    #[test]
+    fn stage_default_let_bindings_is_empty() {
+        let pattern = PatternBuilder::<String, String>::new("test")
+            .stage("e1", |s| s.edge("e1", "type".into(), "x".into()))
+            .build();
+        assert!(pattern.stages[0].let_bindings.is_empty());
+    }
+
+    #[test]
+    fn stage_map_types_preserves_let_bindings() {
+        use crate::expr::{BinOp, ComputedBinding, Expr};
+
+        // Construct manually since the builder API for lets ships in Task 3.
+        let mut pattern = PatternBuilder::<String, String>::new("t")
+            .stage("e1", |s| s.edge("e1", "type".into(), "x".into()))
+            .build();
+        pattern.stages[0].let_bindings.push(ComputedBinding::new(
+            "deadline",
+            Expr::bin(BinOp::Add, Expr::var("ts"), Expr::lit("abc".to_string())),
+        ));
+
+        let mapped = pattern.map_types(|l| l.to_uppercase(), |v| v.to_uppercase());
+        assert_eq!(mapped.stages[0].let_bindings.len(), 1);
+        assert_eq!(mapped.stages[0].let_bindings[0].name, "deadline");
+        match &mapped.stages[0].let_bindings[0].expr {
+            Expr::BinOp(BinOp::Add, _, r) => {
+                assert!(matches!(**r, Expr::Literal(ref v) if v == "ABC"));
+            }
+            _ => panic!("expected BinOp"),
+        }
     }
 }

@@ -54,6 +54,32 @@ fn extract_value<'a, N: Debug, V: Debug>(
     }
 }
 
+/// Evaluate a stage's `let_bindings` against the merged binding map and merge
+/// successful results back in. Returns `false` if any let fails to evaluate or
+/// shadows an existing binding (defense in depth -- the DSL compiler should
+/// already reject shadowing at compile time).
+pub(super) fn eval_stage_lets<N, L, V>(
+    stage: &Stage<L, V>,
+    bindings: &mut HashMap<String, BoundValue<N, V>>,
+) -> bool
+where
+    N: Eq + Hash + Clone + Debug,
+    V: crate::expr::ArithmeticValue + Clone + Debug,
+{
+    for cb in &stage.let_bindings {
+        if bindings.contains_key(&cb.name) {
+            return false;
+        }
+        match cb.expr.eval(bindings) {
+            Some(v) => {
+                bindings.insert(cb.name.clone(), BoundValue::Value(v));
+            }
+            None => return false,
+        }
+    }
+    true
+}
+
 /// Resolve `*Var` constraints in a Target, returning the resolved target.
 /// Returns `None` if a `*Var` constraint cannot be resolved.
 fn resolve_target<N: Debug, V: Clone + PartialEq + PartialOrd + Debug>(
@@ -86,7 +112,7 @@ pub fn evaluate_pattern<N, L, V, T>(
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
 {
     let now = ds.now();
@@ -104,7 +130,7 @@ pub fn evaluate_pattern_first<N, L, V, T>(
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
 {
     let now = ds.now();
@@ -126,7 +152,7 @@ pub fn evaluate_pattern_limit<N, L, V, T>(
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
 {
     if max == 0 || pattern.stages.is_empty() {
@@ -223,7 +249,7 @@ pub fn evaluate_pattern_at<N, L, V, T>(
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
 {
     if pattern.stages.is_empty() {
@@ -409,7 +435,7 @@ fn expand_unordered_group<N, L, V, T>(
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
     T: Ord + Clone + Debug + Hash,
 {
     let mut result = Vec::new();
@@ -448,7 +474,7 @@ pub(super) fn find_stage_matches<N, L, V, T>(
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
     T: Ord + Clone + Debug + Hash,
 {
     if stage.clauses.is_empty() {
@@ -531,6 +557,21 @@ where
             }
         }
         if all_ok {
+            // Re-merge any bindings added during the clause loop into `merged`,
+            // since clause bindings written into `b` may not have been mirrored.
+            for (k, v) in b.iter() {
+                merged.entry(k.clone()).or_insert_with(|| v.clone());
+            }
+            if !eval_stage_lets(stage, &mut merged) {
+                continue;
+            }
+            // Surface let-derived bindings into the candidate's `b` so callers
+            // (which extend their own bindings with `b`) see them.
+            for cb in &stage.let_bindings {
+                if let Some(bv) = merged.get(&cb.name) {
+                    b.insert(cb.name.clone(), bv.clone());
+                }
+            }
             result.push((b, iv));
         }
     }
@@ -904,7 +945,7 @@ pub(super) fn try_match_stage<N, L, V, T>(
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
     T: Ord + Clone + Debug + Hash,
 {
     let first = stage.clauses.first()?;
@@ -1005,6 +1046,16 @@ where
 
     let mut intervals = HashMap::new();
     intervals.insert(stage.anchor.0.clone(), interval.clone());
+
+    // Evaluate stage lets against the merged map and surface results back.
+    if !eval_stage_lets(stage, &mut merged) {
+        return None;
+    }
+    for cb in &stage.let_bindings {
+        if let Some(bv) = merged.get(&cb.name) {
+            bindings.insert(cb.name.clone(), bv.clone());
+        }
+    }
 
     Some(vec![(bindings, intervals)])
 }

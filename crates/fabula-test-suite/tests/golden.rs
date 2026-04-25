@@ -170,6 +170,11 @@ golden_tests! {
     batch_repeat_different_actors_no_match,
     private_pattern_suppresses_events,
 
+    // --- Computed bindings (let in stage) ---
+    batch_computed_bindings_deadline,
+    batch_computed_bindings_deadline_no_match,
+    incremental_computed_bindings_deadline,
+
     // --- Cross-stage value comparison ---
     batch_cross_stage_gt_matches,
     batch_cross_stage_gt_no_match,

@@ -114,6 +114,7 @@ pub struct PatternBody {
 pub struct StageAst {
     pub anchor: String,
     pub clauses: Vec<ClauseAst>,
+    pub let_bindings: Vec<LetAst>,
 }
 
 /// Whether a clause source is a variable reference or a literal node name.
@@ -176,6 +177,32 @@ pub enum ConstraintOp {
 pub enum ConstraintValue {
     Num(f64),
     Str(String),
+}
+
+/// An expression in a `let` binding. Mirrors `fabula::expr::Expr` but uses
+/// `ConstraintValue` for literals so the parser stays type-agnostic and the
+/// compiler converts via `TypeMapper`.
+#[derive(Debug, Clone)]
+pub enum ExprAst {
+    Literal(ConstraintValue),
+    Var(String),
+    BinOp(ExprBinOp, Box<ExprAst>, Box<ExprAst>),
+}
+
+/// Binary operator for expression AST. Mirrors `fabula::expr::BinOp`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum ExprBinOp {
+    Add,
+    Sub,
+    Mul,
+    Div,
+}
+
+/// A `let name = expr` declaration attached to a stage.
+#[derive(Debug, Clone)]
+pub struct LetAst {
+    pub name: String,
+    pub expr: ExprAst,
 }
 
 /// A negation block.

@@ -21,6 +21,7 @@ pub enum TokenKind {
     Concurrent, // concurrent
     In,         // in
     Importance, // importance
+    Let,        // let
 
     // Symbols
     LBrace,    // {
@@ -39,6 +40,7 @@ pub enum TokenKind {
     GtGt,      // >>
     Pipe,      // |
     Star,      // *
+    Slash,     // /
     LParen,    // (
     RParen,    // )
     LBracket,  // [
@@ -317,6 +319,18 @@ impl<'a> Lexer<'a> {
                     len: 1,
                 })
             }
+            b'/' => {
+                // Note: `//` line comments are consumed by skip_whitespace_and_comments
+                // before reaching next_token, so a bare `/` here is always division.
+                self.advance();
+                Ok(Token {
+                    kind: TokenKind::Slash,
+                    line,
+                    column: col,
+                    offset: start,
+                    len: 1,
+                })
+            }
             b':' => {
                 self.advance();
                 Ok(Token {
@@ -550,6 +564,7 @@ impl<'a> Lexer<'a> {
             "concurrent" => TokenKind::Concurrent,
             "in" => TokenKind::In,
             "importance" => TokenKind::Importance,
+            "let" => TokenKind::Let,
             _ => TokenKind::Ident(word.to_string()),
         };
         Ok(Token {
@@ -669,6 +684,34 @@ world""""#;
         let src = r#""""has ""two"" inside""""#;
         let tokens = Lexer::new(src).tokenize().unwrap();
         assert!(matches!(tokens[0].kind, TokenKind::String(ref s) if s == r#"has ""two"" inside"#));
+    }
+
+    #[test]
+    fn lexes_let_keyword() {
+        let tokens = Lexer::new("let deadline = ?ts + 5").tokenize().unwrap();
+        assert!(
+            matches!(tokens[0].kind, TokenKind::Let),
+            "first token: {:?}",
+            tokens[0].kind
+        );
+    }
+
+    #[test]
+    fn lexes_slash_operator() {
+        let tokens = Lexer::new("a / b").tokenize().unwrap();
+        assert!(
+            tokens.iter().any(|t| matches!(t.kind, TokenKind::Slash)),
+            "expected Slash token, got: {:?}",
+            tokens.iter().map(|t| &t.kind).collect::<Vec<_>>()
+        );
+    }
+
+    #[test]
+    fn let_as_identifier_prefix_is_still_let_keyword() {
+        // "letter" is an identifier (not a keyword); "let" alone is a keyword.
+        let tokens = Lexer::new("let letter").tokenize().unwrap();
+        assert!(matches!(tokens[0].kind, TokenKind::Let));
+        assert!(matches!(tokens[1].kind, TokenKind::Ident(ref s) if s == "letter"));
     }
 
     #[test]

@@ -37,6 +37,34 @@ impl Hash for GrafeoValue {
     }
 }
 
+impl fabula::expr::ArithmeticValue for GrafeoValue {
+    fn try_add(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (GrafeoValue::Num(a), GrafeoValue::Num(b)) => Some(GrafeoValue::Num(a + b)),
+            _ => None,
+        }
+    }
+    fn try_sub(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (GrafeoValue::Num(a), GrafeoValue::Num(b)) => Some(GrafeoValue::Num(a - b)),
+            _ => None,
+        }
+    }
+    fn try_mul(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (GrafeoValue::Num(a), GrafeoValue::Num(b)) => Some(GrafeoValue::Num(a * b)),
+            _ => None,
+        }
+    }
+    fn try_div(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (GrafeoValue::Num(_), GrafeoValue::Num(b)) if *b == 0.0 => None,
+            (GrafeoValue::Num(a), GrafeoValue::Num(b)) => Some(GrafeoValue::Num(a / b)),
+            _ => None,
+        }
+    }
+}
+
 impl GrafeoValue {
     fn to_grafeo(&self) -> GValue {
         match self {
@@ -415,6 +443,36 @@ mod tests {
         assert!(
             ev.iter().any(|e| matches!(e, SiftEvent::Completed { .. })),
             "single-stage should complete on Grafeo"
+        );
+    }
+}
+
+#[cfg(test)]
+mod arith_tests {
+    use super::*;
+    use fabula::expr::ArithmeticValue;
+
+    #[test]
+    fn grafeo_num_plus_num() {
+        assert_eq!(
+            GrafeoValue::Num(2.0).try_add(&GrafeoValue::Num(3.0)),
+            Some(GrafeoValue::Num(5.0))
+        );
+    }
+
+    #[test]
+    fn grafeo_div_zero_is_none() {
+        assert_eq!(
+            GrafeoValue::Num(1.0).try_div(&GrafeoValue::Num(0.0)),
+            None
+        );
+    }
+
+    #[test]
+    fn grafeo_node_arith_is_none() {
+        assert_eq!(
+            GrafeoValue::Node("a".into()).try_sub(&GrafeoValue::Node("b".into())),
+            None
         );
     }
 }

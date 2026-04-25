@@ -187,6 +187,7 @@ fn build_pattern(idx: usize, round: usize, stats: &PairStats) -> Pattern<String,
             target: Target::Bind(Var::new(target_a)),
             negated: false,
         }],
+        let_bindings: Vec::new(),
     };
 
     let stage_b = Stage {
@@ -197,6 +198,7 @@ fn build_pattern(idx: usize, round: usize, stats: &PairStats) -> Pattern<String,
             target: Target::Bind(Var::new(target_b)),
             negated: false,
         }],
+        let_bindings: Vec::new(),
     };
 
     Pattern {
