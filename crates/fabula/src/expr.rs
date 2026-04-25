@@ -52,9 +52,12 @@ pub trait ArithmeticValue: Sized {
     fn try_div(&self, other: &Self) -> Option<Self>;
 }
 
-/// `String` carries no arithmetic semantics in `fabula`; this no-op impl exists
-/// so adapters with `V = String` (typically test fixtures or label-only graphs)
-/// satisfy the [`DataSource::V`] bound without manual boilerplate.
+/// `String` carries no arithmetic semantics in `fabula`; this no-op impl returns
+/// `None` from every operation. It exists so adapters and test fixtures that use
+/// `V = String` (e.g. label-only graphs, the test suite) satisfy the per-site
+/// `V: ArithmeticValue` bound on engine methods without manual boilerplate. Any
+/// pattern that tries to evaluate a `let` against `V = String` will simply fail
+/// the binding (and the partial match) rather than compute a value.
 impl ArithmeticValue for String {
     fn try_add(&self, _: &Self) -> Option<Self> {
         None

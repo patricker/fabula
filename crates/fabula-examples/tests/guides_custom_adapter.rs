@@ -36,9 +36,10 @@ impl fmt::Display for MyValue {
     }
 }
 
-// `ArithmeticValue` is required by `DataSource::V` so the engine can evaluate
-// `let` computed bindings. Adapters with non-numeric values can return `None`
-// for unsupported operand combinations.
+// `ArithmeticValue` is required at engine call-sites that evaluate `let`
+// computed bindings. Adapters with non-numeric values can return `None`
+// for unsupported operand combinations; only adapters used with `let`-bearing
+// patterns need to implement it.
 impl fabula::expr::ArithmeticValue for MyValue {
     fn try_add(&self, other: &Self) -> Option<Self> {
         match (self, other) {

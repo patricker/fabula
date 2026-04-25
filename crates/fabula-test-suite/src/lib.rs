@@ -32,7 +32,9 @@ pub type PetGraph = PetTemporalGraph<String, String, PetValue<String>, i64>;
 /// Each adapter implements this trait once (in this crate, satisfying orphan
 /// rules since TestGraph is local). Scenario functions are generic over
 /// `TestGraph` and call these methods.
-pub trait TestGraph: DataSource<N = String, L = String, T = i64> + Sized {
+pub trait TestGraph:
+    DataSource<N = String, L = String, T = i64, V: fabula::expr::ArithmeticValue> + Sized
+{
     /// Create a new empty graph.
     fn new_graph() -> Self;
 
