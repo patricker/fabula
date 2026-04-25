@@ -203,7 +203,7 @@ pub struct Stage<L, V> {
     /// Computed bindings (`let name = expr`) evaluated after this stage's
     /// clauses match. Successful results are merged into the binding map
     /// before subsequent stages run.
-    #[cfg_attr(feature = "serde", serde(default))]
+    #[cfg_attr(feature = "serde", serde(default = "Vec::new"))]
     pub let_bindings: Vec<crate::expr::ComputedBinding<V>>,
 }
 
@@ -546,7 +546,7 @@ mod tests {
             .build();
         pattern.stages[0].let_bindings.push(ComputedBinding::new(
             "deadline",
-            Expr::bin(BinOp::Add, Expr::var("ts"), Expr::lit("5".to_string())),
+            Expr::bin(BinOp::Add, Expr::var("ts"), Expr::lit("abc".to_string())),
         ));
 
         let mapped = pattern.map_types(|l| l.to_uppercase(), |v| v.to_uppercase());
@@ -554,7 +554,7 @@ mod tests {
         assert_eq!(mapped.stages[0].let_bindings[0].name, "deadline");
         match &mapped.stages[0].let_bindings[0].expr {
             Expr::BinOp(BinOp::Add, _, r) => {
-                assert!(matches!(**r, Expr::Literal(ref v) if v == "5"));
+                assert!(matches!(**r, Expr::Literal(ref v) if v == "ABC"));
             }
             _ => panic!("expected BinOp"),
         }
