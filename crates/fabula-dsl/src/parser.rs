@@ -270,7 +270,11 @@ impl Parser {
         }
 
         self.expect(TokenKind::RBrace)?;
-        Ok(StageAst { anchor, clauses })
+        Ok(StageAst {
+            anchor,
+            clauses,
+            let_bindings: Vec::new(),
+        })
     }
 
     /// Parse an `unless [between|after] ... { clauses }` negation block.
