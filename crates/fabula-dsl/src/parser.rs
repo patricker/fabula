@@ -209,8 +209,15 @@ impl Parser {
                     self.advance();
                     deadline = Some(self.expect_number()?);
                 }
+                TokenKind::Let => {
+                    let lb = self.parse_let()?;
+                    let last = stages.last_mut().ok_or_else(|| {
+                        self.error("'let' must follow a 'stage' block")
+                    })?;
+                    last.let_bindings.push(lb);
+                }
                 _ => return Err(self.error(
-                    "expected 'stage', 'unless', 'temporal', 'concurrent', 'meta', or 'deadline'",
+                    "expected 'stage', 'unless', 'temporal', 'concurrent', 'meta', 'deadline', or 'let'",
                 )),
             }
         }
@@ -328,6 +335,76 @@ impl Parser {
             gap_min,
             gap_max,
         })
+    }
+
+    /// Parse a `let name = expr` declaration. Returns the LetAst; the caller
+    /// is responsible for attaching it to a stage.
+    fn parse_let(&mut self) -> Result<crate::ast::LetAst, ParseError> {
+        self.expect(TokenKind::Let)?;
+        let name = self.expect_ident()?;
+        self.expect(TokenKind::Eq)?;
+        let expr = self.parse_expr()?;
+        Ok(crate::ast::LetAst { name, expr })
+    }
+
+    /// Parse an arithmetic expression with operator precedence:
+    ///   expr   = term { ("+" | "-") term }*
+    ///   term   = factor { ("*" | "/") factor }*
+    ///   factor = number | string | "?" ident | "(" expr ")"
+    fn parse_expr(&mut self) -> Result<crate::ast::ExprAst, ParseError> {
+        let mut left = self.parse_term()?;
+        loop {
+            let op = match self.peek().kind {
+                TokenKind::Plus => crate::ast::ExprBinOp::Add,
+                TokenKind::Minus => crate::ast::ExprBinOp::Sub,
+                _ => break,
+            };
+            self.advance();
+            let right = self.parse_term()?;
+            left = crate::ast::ExprAst::BinOp(op, Box::new(left), Box::new(right));
+        }
+        Ok(left)
+    }
+
+    fn parse_term(&mut self) -> Result<crate::ast::ExprAst, ParseError> {
+        let mut left = self.parse_factor()?;
+        loop {
+            let op = match self.peek().kind {
+                TokenKind::Star => crate::ast::ExprBinOp::Mul,
+                TokenKind::Slash => crate::ast::ExprBinOp::Div,
+                _ => break,
+            };
+            self.advance();
+            let right = self.parse_factor()?;
+            left = crate::ast::ExprAst::BinOp(op, Box::new(left), Box::new(right));
+        }
+        Ok(left)
+    }
+
+    fn parse_factor(&mut self) -> Result<crate::ast::ExprAst, ParseError> {
+        if self.check(TokenKind::LParen) {
+            self.advance();
+            let inner = self.parse_expr()?;
+            self.expect(TokenKind::RParen)?;
+            return Ok(inner);
+        }
+        if self.check(TokenKind::Question) {
+            self.advance();
+            let name = self.expect_ident()?;
+            return Ok(crate::ast::ExprAst::Var(name));
+        }
+        // Number literal -- expect_number handles an optional leading minus.
+        if matches!(self.peek().kind, TokenKind::Number(_) | TokenKind::Minus) {
+            let n = self.expect_number()?;
+            return Ok(crate::ast::ExprAst::Literal(crate::ast::ConstraintValue::Num(n)));
+        }
+        // String literal
+        if matches!(self.peek().kind, TokenKind::String(_)) {
+            if let TokenKind::String(s) = self.advance().kind.clone() {
+                return Ok(crate::ast::ExprAst::Literal(crate::ast::ConstraintValue::Str(s)));
+            }
+        }
+        Err(self.error("expected number, string, ?var, or '('"))
     }
 
     fn parse_gap_range(&mut self) -> Result<(Option<f64>, Option<f64>), ParseError> {
