@@ -41,9 +41,12 @@ pub mod causality;
 pub mod compose;
 pub mod datasource;
 pub mod engine;
+pub mod expr;
 pub mod interval;
 pub mod pattern;
 pub mod scoring;
+
+pub use expr::{ArithmeticValue, BinOp, ComputedBinding, Expr};
 
 /// Convenience re-exports for common usage.
 pub mod prelude {
