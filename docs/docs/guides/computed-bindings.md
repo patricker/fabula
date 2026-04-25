@@ -44,7 +44,13 @@ Failures are silent: the stage simply doesn't match, the same as any other unsat
 
 ## Composition
 
-Lets compose with `sequence`, `choice`, and `repeat` operators. Variable namespacing applies: a let named `deadline` in pattern `a` becomes `a_deadline` after `sequence("seq", &a, &b, &[])`. Var references inside the let's expression are renamed alongside.
+Lets compose with `sequence`, `choice`, `repeat`, and `repeat_range`. Variable namespacing applies: a let named `deadline` in pattern `a` becomes `a_deadline` after `sequence("seq", &a, &b, &[])`. Var references inside the let's expression are renamed alongside.
+
+In `repeat_range`, lets in the looping segment are re-evaluated each iteration; their values do not persist across iterations.
+
+## Concurrent groups
+
+The DSL forbids `let` inside a `concurrent { }` block (only stages are allowed there). At the Rust API, `PatternBuilder::unordered_group` does not enforce this -- if you attach a `let` to a stage inside an unordered group, evaluation order depends on which sibling matches first, so a let that references a sibling's bindings may succeed or fail nondeterministically. Either keep lets out of grouped stages, or only reference variables bound outside the group.
 
 ## Rust builder API
 

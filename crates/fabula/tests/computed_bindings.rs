@@ -268,3 +268,70 @@ fn let_in_incremental_evaluation_matches_deadline() {
         .count();
     assert_eq!(completed, 1, "expected one Completed event");
 }
+
+/// Regression: a `let` inside a `repeat_range` looping segment must re-evaluate
+/// each iteration. Before the fix, the prior iteration's let result lingered in
+/// the loop_bindings map, tripping the shadow-check in eval_stage_lets and
+/// killing the next-iteration advancement.
+#[test]
+fn let_inside_repeat_range_reevaluates_each_iteration() {
+    use fabula::compose::repeat_range;
+
+    let sub = PatternBuilder::<String, TestVal>::new("step")
+        .stage("e", |s| {
+            s.edge_bind("e", "v".into(), "raw").let_binding(
+                "doubled",
+                Expr::bin(
+                    BinOp::Mul,
+                    Expr::var("raw"),
+                    Expr::lit(TestVal::Num(2.0)),
+                ),
+            )
+        })
+        .build();
+
+    let looped = repeat_range("looped", &sub, 2, Some(3), &[]);
+
+    let mut g = TestGraph::default();
+    // Three matchable events; pattern should complete after 2 and 3 iterations.
+    g.add("e1", "v", TestVal::Num(1.0), 1);
+    g.add("e2", "v", TestVal::Num(2.0), 2);
+    g.add("e3", "v", TestVal::Num(3.0), 3);
+
+    let mut engine = SiftEngine::<String, String, TestVal, i64>::new();
+    engine.register(looped);
+
+    for (id, t) in [("e1", 1i64), ("e2", 2), ("e3", 3)] {
+        let interval = Interval::open(t);
+        let _ = engine.on_edge_added(
+            &g,
+            &id.to_string(),
+            &"v".to_string(),
+            &TestVal::Num(t as f64),
+            &interval,
+        );
+    }
+
+    let completed: Vec<_> = engine
+        .drain_completed()
+        .into_iter()
+        .filter(|m| m.pattern == "looped")
+        .collect();
+    // Expected completions (e1 prologue, then looping):
+    //   1. e1+e2 advanced to rep=2 (e2 as iter-1 last_e -- wait, rep=1
+    //      transitions to rep=2 only by a SECOND last_e match, so this
+    //      completion's bindings show iter-2's last_e). Trace:
+    //   2. e1+e3 at rep=2 (e1 prologue, e2 then e3 as last_e iterations)
+    //   3. e1+e3 at rep=3 (continuing to a third iteration -- this one only
+    //      happens if the PM survives across iterations)
+    //   4. e2+e3 at rep=2 (e2 prologue PM advancing once)
+    //
+    // Without the fix, completion #3 is missing because the stale let value
+    // from iter-2 trips the shadow check on iter-3's stage match.
+    assert!(
+        completed.len() >= 4,
+        "expected at least 4 completions (iter-3 of e1-prologue PM proves \
+         loop_bindings correctly clears let names), got {}",
+        completed.len()
+    );
+}

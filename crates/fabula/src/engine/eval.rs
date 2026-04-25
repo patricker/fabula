@@ -349,6 +349,11 @@ where
                                                 }
                                             }
                                         }
+                                        for cb in &pattern.stages[si].let_bindings {
+                                            if !rr.shared_vars.contains(&cb.name) {
+                                                loop_bindings.remove(&cb.name);
+                                            }
+                                        }
                                     }
 
                                     self.stats.total_fingerprints += 1;
