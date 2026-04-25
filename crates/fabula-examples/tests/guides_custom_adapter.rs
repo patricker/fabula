@@ -35,6 +35,37 @@ impl fmt::Display for MyValue {
         }
     }
 }
+
+// `ArithmeticValue` is required by `DataSource::V` so the engine can evaluate
+// `let` computed bindings. Adapters with non-numeric values can return `None`
+// for unsupported operand combinations.
+impl fabula::expr::ArithmeticValue for MyValue {
+    fn try_add(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (MyValue::Number(a), MyValue::Number(b)) => Some(MyValue::Number(a + b)),
+            _ => None,
+        }
+    }
+    fn try_sub(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (MyValue::Number(a), MyValue::Number(b)) => Some(MyValue::Number(a - b)),
+            _ => None,
+        }
+    }
+    fn try_mul(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (MyValue::Number(a), MyValue::Number(b)) => Some(MyValue::Number(a * b)),
+            _ => None,
+        }
+    }
+    fn try_div(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (MyValue::Number(_), MyValue::Number(b)) if *b == 0.0 => None,
+            (MyValue::Number(a), MyValue::Number(b)) => Some(MyValue::Number(a / b)),
+            _ => None,
+        }
+    }
+}
 // #endregion
 
 // #region graph_struct

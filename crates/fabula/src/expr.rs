@@ -52,6 +52,24 @@ pub trait ArithmeticValue: Sized {
     fn try_div(&self, other: &Self) -> Option<Self>;
 }
 
+/// `String` carries no arithmetic semantics in `fabula`; this no-op impl exists
+/// so adapters with `V = String` (typically test fixtures or label-only graphs)
+/// satisfy the [`DataSource::V`] bound without manual boilerplate.
+impl ArithmeticValue for String {
+    fn try_add(&self, _: &Self) -> Option<Self> {
+        None
+    }
+    fn try_sub(&self, _: &Self) -> Option<Self> {
+        None
+    }
+    fn try_mul(&self, _: &Self) -> Option<Self> {
+        None
+    }
+    fn try_div(&self, _: &Self) -> Option<Self> {
+        None
+    }
+}
+
 impl<V> Expr<V> {
     /// Convenience constructor for `Expr::Var`.
     pub fn var(name: impl Into<String>) -> Self {

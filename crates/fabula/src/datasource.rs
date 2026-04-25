@@ -152,7 +152,12 @@ pub trait DataSource {
     /// Edge label type.
     type L: Eq + Hash + Clone + Debug;
     /// Value type (edge targets -- can be nodes, strings, numbers, booleans).
-    type V: PartialEq + PartialOrd + Clone + Debug + Hash;
+    ///
+    /// Must implement [`ArithmeticValue`](crate::expr::ArithmeticValue) so the
+    /// engine can evaluate `let` computed bindings. Adapters whose values
+    /// don't naturally support arithmetic should return `None` from all four
+    /// `try_*` methods.
+    type V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue;
     /// Time type.
     type T: Ord + Clone + Debug + Hash;
 
