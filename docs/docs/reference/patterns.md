@@ -99,6 +99,7 @@ A group of clauses anchored to a single event/node variable. Stages are the unit
 pub struct Stage<L, V> {
     pub anchor: Var,
     pub clauses: Vec<Clause<L, V>>,
+    pub let_bindings: Vec<ComputedBinding<V>>,
 }
 ```
 
@@ -106,10 +107,110 @@ pub struct Stage<L, V> {
 |-------|------|-------------|
 | `anchor` | `Var` | The event/node variable this stage is anchored to. |
 | `clauses` | `Vec<Clause<L, V>>` | Clauses that constrain this event/node. |
+| `let_bindings` | `Vec<ComputedBinding<V>>` | Computed bindings (`let name = expr`) evaluated after this stage's clauses match. Successful results merge into the binding map and are visible to subsequent stages, negations, and lets. A failed evaluation (unbound var, type mismatch, division by zero) causes the stage match to fail. See [`ComputedBinding`](#computedbinding) and [`Expr`](#expr). |
 
 #### Trait implementations
 
 `Debug`, `Clone`.
+
+---
+
+### `ComputedBinding<V>`
+
+A named expression evaluated after a stage's clauses match. The result is inserted into the binding map under `name`.
+
+```rust
+pub struct ComputedBinding<V> {
+    pub name: String,
+    pub expr: Expr<V>,
+}
+```
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `name` | `String` | Variable name to bind. Cannot shadow any already-bound variable; the DSL compiler rejects shadowing at compile time. |
+| `expr` | `Expr<V>` | Expression evaluated against the current binding map. |
+
+#### Trait implementations
+
+`Debug`, `Clone`, `PartialEq`.
+
+---
+
+### `Expr<V>`
+
+A small arithmetic AST evaluated against a binding map to produce a derived value.
+
+```rust
+pub enum Expr<V> {
+    Literal(V),
+    Var(String),
+    BinOp(BinOp, Box<Expr<V>>, Box<Expr<V>>),
+}
+```
+
+| Variant | Description |
+|---|---|
+| `Literal(V)` | A literal value of the pattern's value type. |
+| `Var(String)` | Reference to a previously bound variable. Evaluates to its value if the variable is bound to a value; `None` if unbound or bound to a node. |
+| `BinOp(BinOp, _, _)` | Binary operation applied via [`ArithmeticValue::try_*`](#arithmeticvalue). |
+
+#### Constructors
+
+- `Expr::lit(v)` -- `Expr::Literal(v)`
+- `Expr::var(name)` -- `Expr::Var(name.into())`
+- `Expr::bin(op, l, r)` -- boxed `Expr::BinOp(op, Box::new(l), Box::new(r))`
+
+#### Methods
+
+- `eval(&self, bindings: &HashMap<String, BoundValue<N, V>>) -> Option<V>` (requires `V: ArithmeticValue + Clone + Debug`) -- evaluate against a binding map. Returns `None` if any referenced var is unbound or bound to a node, or if any operation returns `None`.
+- `vars(&self) -> Vec<&str>` -- all variable names referenced in this expression (in tree-traversal order, with duplicates).
+- `map<V2>(&self, f: &impl Fn(&V) -> V2) -> Expr<V2>` -- transform the value type.
+- `rename_vars(&mut self, f: &impl Fn(&str) -> Option<String>)` -- in-place rename of `Var` references; the function returns `Some(new_name)` to rename or `None` to keep.
+
+#### Trait implementations
+
+`Debug`, `Clone`, `PartialEq`.
+
+---
+
+### `BinOp`
+
+Binary arithmetic operator.
+
+```rust
+pub enum BinOp { Add, Sub, Mul, Div }
+```
+
+#### Trait implementations
+
+`Debug`, `Clone`, `Copy`, `PartialEq`, `Eq`, `Hash`.
+
+---
+
+### `ArithmeticValue`
+
+Trait implemented by value types that participate in computed bindings. Each method returns `None` for unsupported operand combinations (e.g., string + number) or numeric failures (e.g., division by zero).
+
+```rust
+pub trait ArithmeticValue: Sized {
+    fn try_add(&self, other: &Self) -> Option<Self>;
+    fn try_sub(&self, other: &Self) -> Option<Self>;
+    fn try_mul(&self, other: &Self) -> Option<Self>;
+    fn try_div(&self, other: &Self) -> Option<Self>;
+}
+```
+
+In-tree adapter value types implement this for their numeric variants:
+
+| Type | Crate |
+|---|---|
+| `MemValue` | `fabula-memory` |
+| `PetValue<N>` | `fabula-petgraph` |
+| `GrafeoValue` | `fabula-grafeo` |
+| `String` | `fabula` (no-op opt-out: every method returns `None`) |
+
+Custom value types must add an impl. Non-numeric `V` types can return `None` for every method to opt out of let evaluation while still satisfying the trait bound on engine methods that evaluate lets.
 
 ---
 

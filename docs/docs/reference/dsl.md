@@ -141,6 +141,44 @@ e1.eventType in ["attack", "betray", "steal"]
 ! e1.status in ["resolved", "dismissed"]
 ```
 
+### Computed Bindings (`let`)
+
+Declare a derived variable from already-bound variables and literals. The let attaches to the most recently parsed `stage` block and evaluates after that stage's clauses match.
+
+```fab
+pattern arrival_with_deadline {
+    stage e1 {
+        e1.type = "world"
+        e1.pulse_count -> ?ts
+    }
+    let deadline = ?ts + 5
+    stage e2 {
+        e2.type = "world"
+        e2.pulse_count = ?deadline
+    }
+}
+```
+
+#### Grammar
+
+```
+let_stmt = "let" ident "=" expr
+expr     = term { ("+" | "-") term }*
+term     = factor { ("*" | "/") factor }*
+factor   = number | string | "?" ident | "(" expr ")"
+```
+
+`*` and `/` bind tighter than `+` and `-`. Parentheses override precedence. All operators are left-associative.
+
+#### Rules
+
+- A let must follow at least one `stage` block within the pattern body. A let before any stage is a parse error.
+- Every `?var` reference must already be bound -- by an earlier stage's clauses (`-> ?var`), by the let's own stage's clauses (the let evaluates after the stage's clauses match), or by an earlier let on the same stage.
+- A let cannot reuse the name of any already-bound variable (no shadowing).
+- If the expression cannot be evaluated at runtime (unbound var, type mismatch, division by zero), the enclosing stage match fails silently -- the same behavior as any other unsatisfied clause.
+
+See also: [Computed Bindings how-to guide](/guides/computed-bindings).
+
 ### Concurrent Groups
 
 Stages inside a `concurrent { }` block can match in any order. The engine tracks which stages in the group have been satisfied using a bitmask and advances the pattern past the group when all stages are matched.

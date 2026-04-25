@@ -71,6 +71,7 @@ const sidebars: SidebarsConfig = {
         'guides/incremental-integration',
         'guides/scoring-matches',
         'guides/composing-patterns',
+        'guides/computed-bindings',
         'guides/forking-for-mcts',
         'guides/dsl-in-rust',
         'guides/debugging-patterns',
