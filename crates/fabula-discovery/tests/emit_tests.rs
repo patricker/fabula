@@ -299,6 +299,7 @@ fn emit_unless_global() {
                     target: Target::Bind(Var::new("target")),
                     negated: false,
                 }],
+                let_bindings: Vec::new(),
             },
             Stage {
                 anchor: Var::new("e2"),
@@ -308,6 +309,7 @@ fn emit_unless_global() {
                     target: Target::Bind(Var::new("target")),
                     negated: false,
                 }],
+                let_bindings: Vec::new(),
             },
         ],
         temporal: vec![],

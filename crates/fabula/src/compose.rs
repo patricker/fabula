@@ -100,6 +100,7 @@ pub fn rename_vars<L: Clone, V: Clone>(
         .map(|s| Stage {
             anchor: rename(&s.anchor),
             clauses: s.clauses.iter().map(&rename_clause).collect(),
+            let_bindings: s.let_bindings.clone(),
         })
         .collect();
 

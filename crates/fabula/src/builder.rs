@@ -439,6 +439,7 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
         Stage {
             anchor: Var::new(self.anchor),
             clauses: self.clauses,
+            let_bindings: Vec::new(),
         }
     }
 }
