@@ -197,8 +197,54 @@ pub fn compile_pattern_with<M: TypeMapper>(
         // Stage anchor is bound for subsequent stages
         bound_vars.insert(anchor.clone());
 
+        // Validate and compile this stage's let bindings.
+        // Lets see clause-bound vars from this stage and all prior bindings.
+        let mut compiled_lets: Vec<fabula::expr::ComputedBinding<M::V>> = Vec::new();
+        for la in &stage.let_bindings {
+            // Reject shadowing of any already-bound var (clause vars, anchor,
+            // earlier lets, or vars from prior stages).
+            if bound_vars.contains(&la.name) {
+                return Err(ParseError {
+                    line: 0,
+                    column: 0,
+                    span: (0, 0),
+                    message: format!(
+                        "let '{}' shadows an already-bound variable",
+                        la.name
+                    ),
+                });
+            }
+            let expr = compile_expr(&la.expr, mapper)?;
+            // Validate every Var reference in the expression is bound.
+            for v in expr.vars() {
+                if !bound_vars.contains(v) {
+                    return Err(ParseError {
+                        line: 0,
+                        column: 0,
+                        span: (0, 0),
+                        message: format!(
+                            "let '{}' references unbound variable ?{}",
+                            la.name, v
+                        ),
+                    });
+                }
+            }
+            // The let's name becomes available to subsequent lets and stages.
+            bound_vars.insert(la.name.clone());
+            compiled_lets.push(fabula::expr::ComputedBinding::new(la.name.clone(), expr));
+        }
+
         let clauses = stage.clauses.clone();
-        builder = builder.stage(&anchor, |s| build_stage(s, &clauses, mapper));
+        let lets = compiled_lets;
+        builder = builder.stage(&anchor, move |mut s| {
+            for clause in &clauses {
+                s = add_clause_to_stage(s, clause, mapper);
+            }
+            for cb in &lets {
+                s = s.let_binding(cb.name.clone(), cb.expr.clone());
+            }
+            s
+        });
     }
 
     for neg in &ast.negations {
@@ -366,17 +412,6 @@ fn validate_clause_sources(
 // Stage and clause compilation (generic over TypeMapper)
 // ---------------------------------------------------------------------------
 
-fn build_stage<M: TypeMapper>(
-    mut s: StageBuilder<M::L, M::V>,
-    clauses: &[ClauseAst],
-    mapper: &M,
-) -> StageBuilder<M::L, M::V> {
-    for clause in clauses {
-        s = add_clause_to_stage(s, clause, mapper);
-    }
-    s
-}
-
 fn add_clause_to_stage<M: TypeMapper>(
     s: StageBuilder<M::L, M::V>,
     clause: &ClauseAst,
@@ -516,6 +551,45 @@ fn add_clause_to_negation<M: TypeMapper>(
                 })
                 .collect();
             n.edge_constrained(source, label, ValueConstraint::OneOf(mapped))
+        }
+    }
+}
+
+fn compile_expr<M: TypeMapper>(
+    ast: &ExprAst,
+    mapper: &M,
+) -> Result<fabula::expr::Expr<M::V>, ParseError> {
+    use fabula::expr::{BinOp, Expr};
+    match ast {
+        ExprAst::Literal(ConstraintValue::Num(n)) => mapper
+            .num_value(*n)
+            .map(Expr::Literal)
+            .map_err(|m| ParseError {
+                line: 0,
+                column: 0,
+                span: (0, 0),
+                message: m,
+            }),
+        ExprAst::Literal(ConstraintValue::Str(s)) => mapper
+            .string_value(s)
+            .map(Expr::Literal)
+            .map_err(|m| ParseError {
+                line: 0,
+                column: 0,
+                span: (0, 0),
+                message: m,
+            }),
+        ExprAst::Var(name) => Ok(Expr::Var(name.clone())),
+        ExprAst::BinOp(op, l, r) => {
+            let lo = compile_expr(l, mapper)?;
+            let ro = compile_expr(r, mapper)?;
+            let bop = match op {
+                ExprBinOp::Add => BinOp::Add,
+                ExprBinOp::Sub => BinOp::Sub,
+                ExprBinOp::Mul => BinOp::Mul,
+                ExprBinOp::Div => BinOp::Div,
+            };
+            Ok(Expr::BinOp(bop, Box::new(lo), Box::new(ro)))
         }
     }
 }

@@ -144,3 +144,102 @@ fn string_literal_in_let_expr() {
     let e = &ast.stages[0].let_bindings[0].expr;
     assert!(matches!(e, ExprAst::Literal(ConstraintValue::Str(ref s)) if s == "hello"));
 }
+
+// ---------------------------------------------------------------------------
+// Task 10: compiler -- translate ExprAst -> Expr<V>, validate references
+// ---------------------------------------------------------------------------
+
+use fabula_dsl::compiler::compile_pattern;
+
+#[test]
+fn compile_let_to_pattern() {
+    let src = r#"
+        pattern foo {
+            stage e1 {
+                e1.type = "world"
+                e1.pulse_count -> ?ts
+            }
+            let deadline = ?ts + 5
+            stage e2 {
+                e2.pulse_count = ?deadline
+            }
+        }
+    "#;
+    let ast = parse_pattern(src);
+    let pattern = compile_pattern(&ast).expect("compile failed");
+    let lb = &pattern.stages[0].let_bindings[0];
+    assert_eq!(lb.name, "deadline");
+}
+
+#[test]
+fn compile_rejects_let_referencing_unbound_var() {
+    let src = r#"
+        pattern bad {
+            stage e1 {
+                e1.x -> ?a
+            }
+            let z = ?ghost + 1
+        }
+    "#;
+    let ast = parse_pattern(src);
+    let err = compile_pattern(&ast).expect_err("should reject unbound ref");
+    let msg = format!("{:?}", err);
+    assert!(
+        msg.contains("ghost") || msg.contains("not bound"),
+        "msg: {msg}"
+    );
+}
+
+#[test]
+fn compile_rejects_let_shadowing_clause_var() {
+    let src = r#"
+        pattern bad {
+            stage e1 {
+                e1.x -> ?a
+            }
+            let a = 1 + 2
+        }
+    "#;
+    let ast = parse_pattern(src);
+    let err = compile_pattern(&ast).expect_err("should reject shadowing");
+    let msg = format!("{:?}", err);
+    assert!(msg.contains("a") && (msg.contains("shadow") || msg.contains("already")), "msg: {msg}");
+}
+
+#[test]
+fn compile_rejects_forward_reference_to_later_stage_var() {
+    // ?future is bound by stage e2 but referenced by a let on stage e1.
+    let src = r#"
+        pattern bad {
+            stage e1 {
+                e1.x -> ?a
+            }
+            let z = ?future + 1
+            stage e2 {
+                e2.y -> ?future
+            }
+        }
+    "#;
+    let ast = parse_pattern(src);
+    let err = compile_pattern(&ast).expect_err("should reject forward ref");
+    let msg = format!("{:?}", err);
+    assert!(msg.contains("future") || msg.contains("not bound"), "msg: {msg}");
+}
+
+#[test]
+fn compile_let_referencing_earlier_let_works() {
+    let src = r#"
+        pattern foo {
+            stage e1 {
+                e1.x -> ?a
+            }
+            let b = ?a + 1
+            let c = ?b + 1
+        }
+    "#;
+    let ast = parse_pattern(src);
+    let pattern = compile_pattern(&ast).expect("compile failed");
+    assert_eq!(pattern.stages[0].let_bindings.len(), 2);
+    assert_eq!(pattern.stages[0].let_bindings[0].name, "b");
+    assert_eq!(pattern.stages[0].let_bindings[1].name, "c");
+}
