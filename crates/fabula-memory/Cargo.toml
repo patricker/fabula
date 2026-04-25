@@ -1,6 +1,6 @@
 [package]
 name = "fabula-memory"
-version = "0.1.0"
+version = "0.1.1"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -10,7 +10,7 @@ keywords = ["graph", "pattern-matching", "temporal", "sifting", "narrative"]
 categories = ["algorithms", "data-structures"]
 
 [dependencies]
-fabula = { path = "../fabula", version = "0.1" }
+fabula = { path = "../fabula", version = "0.2" }
 
 [dev-dependencies]
-fabula = { path = "../fabula", version = "0.1" }
+fabula = { path = "../fabula", version = "0.2" }
