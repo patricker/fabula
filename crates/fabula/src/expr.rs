@@ -115,6 +115,24 @@ impl<V> Expr<V> {
             }
         }
     }
+
+    /// In-place rename of all `Var` references using the provided function.
+    /// Used by `compose` to namespace variables across composed sub-patterns.
+    /// The function returns `Some(new_name)` to rename or `None` to keep as-is.
+    pub fn rename_vars(&mut self, f: &impl Fn(&str) -> Option<String>) {
+        match self {
+            Expr::Literal(_) => {}
+            Expr::Var(s) => {
+                if let Some(new) = f(s.as_str()) {
+                    *s = new;
+                }
+            }
+            Expr::BinOp(_, l, r) => {
+                l.rename_vars(f);
+                r.rename_vars(f);
+            }
+        }
+    }
 }
 
 impl<V: ArithmeticValue + Clone + Debug> Expr<V> {
@@ -268,6 +286,36 @@ mod tests {
                 assert!(matches!(*r, Expr::Literal(v) if v == 2.0));
             }
             _ => panic!("expected BinOp"),
+        }
+    }
+
+    #[test]
+    fn rename_vars_renames_only_unmatched_names() {
+        let mut e: Expr<N> = Expr::bin(
+            BinOp::Add,
+            Expr::var("anchor"),
+            Expr::bin(BinOp::Sub, Expr::var("shared"), Expr::lit(N(1.0))),
+        );
+        let shared = std::collections::HashSet::from(["shared"]);
+        e.rename_vars(&|name| {
+            if shared.contains(name) {
+                None
+            } else {
+                Some(format!("a_{name}"))
+            }
+        });
+        // anchor → a_anchor; shared stays; literal untouched
+        match e {
+            Expr::BinOp(BinOp::Add, l, r) => {
+                assert!(matches!(*l, Expr::Var(ref s) if s == "a_anchor"));
+                match *r {
+                    Expr::BinOp(BinOp::Sub, ll, _) => {
+                        assert!(matches!(*ll, Expr::Var(ref s) if s == "shared"));
+                    }
+                    _ => panic!("expected inner Sub"),
+                }
+            }
+            _ => panic!("expected outer Add"),
         }
     }
 }

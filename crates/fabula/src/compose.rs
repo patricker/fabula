@@ -100,7 +100,29 @@ pub fn rename_vars<L: Clone, V: Clone>(
         .map(|s| Stage {
             anchor: rename(&s.anchor),
             clauses: s.clauses.iter().map(&rename_clause).collect(),
-            let_bindings: s.let_bindings.clone(),
+            let_bindings: s
+                .let_bindings
+                .iter()
+                .map(|cb| {
+                    let new_name = if keep.contains(cb.name.as_str()) {
+                        cb.name.clone()
+                    } else {
+                        format!("{}_{}", prefix, cb.name)
+                    };
+                    let mut new_expr = cb.expr.clone();
+                    new_expr.rename_vars(&|name: &str| {
+                        if keep.contains(name) {
+                            None
+                        } else {
+                            Some(format!("{}_{}", prefix, name))
+                        }
+                    });
+                    crate::expr::ComputedBinding {
+                        name: new_name,
+                        expr: new_expr,
+                    }
+                })
+                .collect(),
         })
         .collect();
 
@@ -627,6 +649,61 @@ mod tests {
         match &renamed.stages[0].clauses[0].target {
             Target::Bind(v) => assert_eq!(v.0, "a_base_price"),
             other => panic!("expected Bind, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn rename_vars_renames_let_binding_names_and_var_refs() {
+        use crate::expr::{BinOp, Expr};
+
+        let p = PatternBuilder::<String, String>::new("p")
+            .stage("e1", |s| {
+                s.edge_bind("e1", "ts".into(), "anchor")
+                    .let_binding(
+                        "deadline",
+                        Expr::bin(BinOp::Add, Expr::var("anchor"), Expr::lit("5".into())),
+                    )
+            })
+            .build();
+
+        let renamed = rename_vars(&p, "a", &HashSet::new());
+        let lb = &renamed.stages[0].let_bindings[0];
+        // Name renamed
+        assert_eq!(lb.name, "a_deadline");
+        // Var ref inside the expression renamed
+        match &lb.expr {
+            Expr::BinOp(BinOp::Add, l, _) => {
+                assert!(matches!(**l, Expr::Var(ref s) if s == "a_anchor"));
+            }
+            _ => panic!("expected BinOp"),
+        }
+    }
+
+    #[test]
+    fn rename_vars_keeps_shared_let_names_and_refs() {
+        use crate::expr::{BinOp, Expr};
+
+        let p = PatternBuilder::<String, String>::new("p")
+            .stage("e1", |s| {
+                s.edge_bind("e1", "ts".into(), "shared_anchor")
+                    .let_binding(
+                        "shared_deadline",
+                        Expr::bin(BinOp::Add, Expr::var("shared_anchor"), Expr::lit("5".into())),
+                    )
+            })
+            .build();
+
+        let keep = HashSet::from(["shared_anchor", "shared_deadline"]);
+        let renamed = rename_vars(&p, "a", &keep);
+        let lb = &renamed.stages[0].let_bindings[0];
+        // Name preserved
+        assert_eq!(lb.name, "shared_deadline");
+        // Var ref preserved
+        match &lb.expr {
+            Expr::BinOp(BinOp::Add, l, _) => {
+                assert!(matches!(**l, Expr::Var(ref s) if s == "shared_anchor"));
+            }
+            _ => panic!("expected BinOp"),
         }
     }
 
