@@ -33,6 +33,34 @@ impl Hash for MemValue {
     }
 }
 
+impl fabula::expr::ArithmeticValue for MemValue {
+    fn try_add(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (MemValue::Num(a), MemValue::Num(b)) => Some(MemValue::Num(a + b)),
+            _ => None,
+        }
+    }
+    fn try_sub(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (MemValue::Num(a), MemValue::Num(b)) => Some(MemValue::Num(a - b)),
+            _ => None,
+        }
+    }
+    fn try_mul(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (MemValue::Num(a), MemValue::Num(b)) => Some(MemValue::Num(a * b)),
+            _ => None,
+        }
+    }
+    fn try_div(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (MemValue::Num(_), MemValue::Num(b)) if *b == 0.0 => None,
+            (MemValue::Num(a), MemValue::Num(b)) => Some(MemValue::Num(a / b)),
+            _ => None,
+        }
+    }
+}
+
 impl fmt::Display for MemValue {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -312,5 +340,72 @@ mod tests {
 
         // Total edges: 2 (the closed one + the new one)
         assert_eq!(g.edge_count(), 2);
+    }
+}
+
+#[cfg(test)]
+mod arith_tests {
+    use super::*;
+    use fabula::expr::ArithmeticValue;
+
+    #[test]
+    fn num_plus_num() {
+        assert_eq!(
+            MemValue::Num(2.0).try_add(&MemValue::Num(3.0)),
+            Some(MemValue::Num(5.0))
+        );
+    }
+
+    #[test]
+    fn num_sub_num() {
+        assert_eq!(
+            MemValue::Num(5.0).try_sub(&MemValue::Num(3.0)),
+            Some(MemValue::Num(2.0))
+        );
+    }
+
+    #[test]
+    fn num_mul_num() {
+        assert_eq!(
+            MemValue::Num(4.0).try_mul(&MemValue::Num(2.5)),
+            Some(MemValue::Num(10.0))
+        );
+    }
+
+    #[test]
+    fn num_div_num() {
+        assert_eq!(
+            MemValue::Num(10.0).try_div(&MemValue::Num(4.0)),
+            Some(MemValue::Num(2.5))
+        );
+    }
+
+    #[test]
+    fn num_div_zero_is_none() {
+        assert_eq!(MemValue::Num(1.0).try_div(&MemValue::Num(0.0)), None);
+    }
+
+    #[test]
+    fn str_plus_num_is_none() {
+        assert_eq!(
+            MemValue::Str("x".into()).try_add(&MemValue::Num(1.0)),
+            None
+        );
+    }
+
+    #[test]
+    fn bool_arithmetic_is_none() {
+        assert_eq!(
+            MemValue::Bool(true).try_add(&MemValue::Bool(false)),
+            None
+        );
+    }
+
+    #[test]
+    fn node_arithmetic_is_none() {
+        assert_eq!(
+            MemValue::Node("a".into()).try_sub(&MemValue::Node("b".into())),
+            None
+        );
     }
 }

@@ -147,6 +147,34 @@ impl<N: Debug + Clone + PartialOrd> From<NodeRef<N>> for PetValue<N> {
     }
 }
 
+impl<N: Debug + Clone + PartialOrd> fabula::expr::ArithmeticValue for PetValue<N> {
+    fn try_add(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (PetValue::Num(a), PetValue::Num(b)) => Some(PetValue::Num(a + b)),
+            _ => None,
+        }
+    }
+    fn try_sub(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (PetValue::Num(a), PetValue::Num(b)) => Some(PetValue::Num(a - b)),
+            _ => None,
+        }
+    }
+    fn try_mul(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (PetValue::Num(a), PetValue::Num(b)) => Some(PetValue::Num(a * b)),
+            _ => None,
+        }
+    }
+    fn try_div(&self, other: &Self) -> Option<Self> {
+        match (self, other) {
+            (PetValue::Num(_), PetValue::Num(b)) if *b == 0.0 => None,
+            (PetValue::Num(a), PetValue::Num(b)) => Some(PetValue::Num(a / b)),
+            _ => None,
+        }
+    }
+}
+
 impl<N, L, T> DataSource for PetTemporalGraph<N, L, PetValue<N>, T>
 where
     N: Eq + Hash + Clone + Debug + PartialOrd,
@@ -242,5 +270,32 @@ where
             PetValue::Node(n) => Some(n.clone()),
             _ => None,
         }
+    }
+}
+
+#[cfg(test)]
+mod arith_tests {
+    use super::*;
+    use fabula::expr::ArithmeticValue;
+
+    #[test]
+    fn pet_num_plus_num() {
+        let a: PetValue<String> = PetValue::Num(2.0);
+        let b: PetValue<String> = PetValue::Num(3.0);
+        assert_eq!(a.try_add(&b), Some(PetValue::Num(5.0)));
+    }
+
+    #[test]
+    fn pet_div_zero_is_none() {
+        let a: PetValue<String> = PetValue::Num(1.0);
+        let b: PetValue<String> = PetValue::Num(0.0);
+        assert_eq!(a.try_div(&b), None);
+    }
+
+    #[test]
+    fn pet_str_arith_is_none() {
+        let a: PetValue<String> = PetValue::Str("x".into());
+        let b: PetValue<String> = PetValue::Num(1.0);
+        assert_eq!(a.try_add(&b), None);
     }
 }
