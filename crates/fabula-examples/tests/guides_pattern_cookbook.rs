@@ -505,7 +505,6 @@ fn recipe7_5_pattern_chained() -> Pattern<String, MemValue> {
 
 #[test]
 fn recipe7_5_let_matches_exact_deadline() {
-    // #region r7_5_test
     let pattern = recipe7_5_pattern_with_let();
     let mut g = MemGraph::new();
     g.add_str("e1", "type", "trigger", 1);
@@ -518,7 +517,6 @@ fn recipe7_5_let_matches_exact_deadline() {
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
-    // #endregion
 }
 
 #[test]
