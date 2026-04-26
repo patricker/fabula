@@ -44,9 +44,52 @@ Failures are silent: the stage simply doesn't match, the same as any other unsat
 
 ## Composition
 
-Lets compose with `sequence`, `choice`, `repeat`, and `repeat_range`. Variable namespacing applies: a let named `deadline` in pattern `a` becomes `a_deadline` after `sequence("seq", &a, &b, &[])`. Var references inside the let's expression are renamed alongside.
+When you compose patterns, every non-shared variable gets a per-branch prefix to prevent collisions. Lets follow the same rule -- both the let's *name* and the `?var` references inside its expression are renamed.
 
-In `repeat_range`, lets in the looping segment are re-evaluated each iteration; their values do not persist across iterations.
+```rust
+use fabula::compose::sequence;
+use fabula::builder::PatternBuilder;
+use fabula::expr::{BinOp, Expr};
+use fabula_memory::MemValue;
+
+let arrival = PatternBuilder::<String, MemValue>::new("arrival")
+    .stage("e1", |s| {
+        s.edge("e1", "type".into(), MemValue::Str("arrival".into()))
+            .edge_bind("e1", "pulse_count".into(), "ts")
+            .let_binding(
+                "deadline",
+                Expr::bin(BinOp::Add, Expr::var("ts"), Expr::lit(MemValue::Num(5.0))),
+            )
+    })
+    .build();
+
+let response = PatternBuilder::<String, MemValue>::new("response")
+    .stage("e2", |s| {
+        s.edge("e2", "type".into(), MemValue::Str("response".into()))
+            .edge_eq_var("e2", "pulse_count".into(), "a_deadline")
+    })
+    .build();
+
+let composed = sequence("arrival_then_response", &arrival, &response, &[]);
+```
+
+After `sequence("arrival_then_response", &arrival, &response, &[])`:
+
+- `?ts` becomes `?a_ts`
+- The let's name `deadline` becomes `a_deadline`
+- The `?ts` reference inside the let's expression becomes `?a_ts`
+- Stage `e1` becomes `?a_e1`; stage `e2` becomes `?b_e2`
+- The `edge_eq_var` in pattern B references `a_deadline` directly to bind across the composition boundary
+
+To share a variable across the composition (no rename), pass it in the `shared` argument:
+
+```rust
+let composed = sequence("shared_deadline", &arrival, &response, &["deadline"]);
+```
+
+Now the let's name stays `deadline` in both branches, and pattern B can reference `?deadline` instead of `?a_deadline`. Var references inside the let expression that name a shared variable also stay unprefixed.
+
+In `repeat_range`, lets in the looping segment are re-evaluated each iteration; their values do not persist across iterations. See the next section for a worked iteration trace.
 
 ## Concurrent groups
 
