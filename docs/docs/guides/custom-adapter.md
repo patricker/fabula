@@ -119,6 +119,25 @@ Then run the golden tests against your adapter. See [Golden Tests](./golden-test
 
 **`PartialOrd` implementation for your value type.** `ValueConstraint::Lt`, `Gt`, `Lte`, `Gte`, and `Between` use `PartialOrd`. If your value type's ordering is not meaningful for numeric comparisons (e.g., comparing a node ref to a string), these constraints may produce unexpected results. Consider implementing `PartialOrd` to return `None` for incomparable types.
 
+## Opting out of computed bindings
+
+Engine methods that evaluate [`let` bindings](./computed-bindings) require `V: ArithmeticValue`. If your value type isn't numeric -- or you simply don't intend to use `let` in your patterns -- add a no-op impl that returns `None` from every method:
+
+```rust
+impl fabula::expr::ArithmeticValue for MyValue {
+    fn try_add(&self, _: &Self) -> Option<Self> { None }
+    fn try_sub(&self, _: &Self) -> Option<Self> { None }
+    fn try_mul(&self, _: &Self) -> Option<Self> { None }
+    fn try_div(&self, _: &Self) -> Option<Self> { None }
+}
+```
+
+Patterns that don't use `let` work normally. Patterns that do use `let` will silently fail to match, the same as any unsatisfied clause -- the let's expression evaluates to `None` and the stage match drops.
+
+If your value type *does* have a numeric variant you want to expose, return `Some(MyValue::Num(...))` for the `(Num, Num)` case and `None` otherwise. The in-tree `MemValue`, `PetValue`, and `GrafeoValue` impls follow this pattern -- read them as templates.
+
+See the [`ArithmeticValue` reference](../reference/patterns#arithmeticvalue) for the trait surface and the [Computed Bindings guide](./computed-bindings) for what `let` actually does.
+
 ## Benchmarking your adapter
 
 Once the golden tests pass, benchmark your adapter against PetGraph to catch performance regressions or surface indexing opportunities.
