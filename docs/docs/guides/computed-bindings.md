@@ -47,16 +47,6 @@ Failures are silent: the stage simply doesn't match, the same as any other unsat
 Each of these patterns parses and compiles, but the let returns `None` at evaluation time and the stage match drops:
 
 ```fab
-// Unbound variable: ?ghost is never bound by any clause
-pattern unbound_let {
-    stage e1 { e1.type = "x" }
-    let bad = ?ghost + 1
-}
-```
-
-Wait -- the DSL compiler will reject this at compile time (Task 10's reference validator). Use the Rust builder API to construct a pattern with this shape if you want to observe the runtime drop.
-
-```fab
 // Type mismatch: ?name is bound to a string; arithmetic returns None
 pattern mismatch_let {
     stage e1 { e1.actor -> ?name }
@@ -72,7 +62,9 @@ pattern divzero_let {
 }
 ```
 
-In the type-mismatch and divzero cases, the engine emits no error event -- the stage simply doesn't match. To distinguish "let failed" from "edge missing," use [`why_not`](../reference/engine#why_not) on the pattern; clauses that match individually but produce no overall completion are a let-failure smell. The DSL compiler catches *bound-but-misnamed* references at compile time, but runtime type/value failures are silent by design.
+In both cases, the engine emits no error event -- the stage simply doesn't match. To distinguish "let failed" from "edge missing," use [`why_not`](../reference/engine#why_not) on the pattern; clauses that match individually but produce no overall completion are a let-failure smell.
+
+Unbound `?var` references are a different story: the DSL compiler rejects them at compile time (no chance to fail silently). You can only hit unbound-at-runtime by constructing a pattern through the Rust builder API that bypasses the compiler's reference validator.
 
 ## Composition
 
