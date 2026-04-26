@@ -91,6 +91,48 @@ Now the let's name stays `deadline` in both branches, and pattern B can referenc
 
 In `repeat_range`, lets in the looping segment are re-evaluated each iteration; their values do not persist across iterations. See the next section for a worked iteration trace.
 
+## Repeat-range: re-evaluation by example
+
+In a `repeat_range` pattern, lets attached to stages inside the looping segment are re-evaluated on every iteration. The previous iteration's let values are cleared from the binding map before the next iteration's stage matches; only `shared(...)` variables persist.
+
+Concrete trace -- pattern with one stage that binds `?n` and computes `let doubled = ?n * 2`, looping `2..` times:
+
+```rust
+use fabula::compose::repeat_range;
+use fabula::builder::PatternBuilder;
+use fabula::expr::{BinOp, Expr};
+use fabula_memory::MemValue;
+
+let step = PatternBuilder::<String, MemValue>::new("step")
+    .stage("e", |s| {
+        s.edge_bind("e", "v".into(), "n").let_binding(
+            "doubled",
+            Expr::bin(BinOp::Mul, Expr::var("n"), Expr::lit(MemValue::Num(2.0))),
+        )
+    })
+    .build();
+
+let looped = repeat_range("looped", &step, 2, None, &[]);
+```
+
+Feeding three events with values `1, 2, 3`:
+
+| Iteration | Event matched | `?n` | `?doubled` (let) | Completion emitted? |
+|---|---|---|---|---|
+| 1 | `v=1` | `1.0` | `2.0` | no (rep < min_reps) |
+| 2 | `v=2` | `2.0` | `4.0` | yes (rep == 2) |
+| 3 | `v=3` | `3.0` | `6.0` | yes (rep == 3) |
+
+Each iteration gets a fresh `?doubled` computed against the new `?n`. The previous iteration's `?doubled` is not visible.
+
+To carry a value across iterations, name it in `shared`:
+
+```rust
+let looped = repeat_range("looped", &step, 2, None, &["accumulator"]);
+```
+
+Shared variables persist across iterations and are NOT cleared between loops. (Lets cannot themselves be marked shared in `repeat_range` -- the `shared` slot only retains clause-bound variables. To accumulate across iterations, use a clause-bound shared variable updated by your data source rather than a let.)
+
 ## Concurrent groups
 
 The DSL forbids `let` inside a `concurrent { }` block (only stages are allowed there). At the Rust API, `PatternBuilder::unordered_group` does not enforce this -- if you attach a `let` to a stage inside an unordered group, evaluation order depends on which sibling matches first, so a let that references a sibling's bindings may succeed or fail nondeterministically. Either keep lets out of grouped stages, or only reference variables bound outside the group.
