@@ -42,11 +42,120 @@ The let:
 
 Failures are silent: the stage simply doesn't match, the same as any other unsatisfied clause.
 
+### What silent failure looks like
+
+Each of these patterns parses and compiles, but the let returns `None` at evaluation time and the stage match drops:
+
+```fab
+// Type mismatch: ?name is bound to a string; arithmetic returns None
+pattern mismatch_let {
+    stage e1 { e1.actor -> ?name }
+    let bad = ?name + 1
+}
+```
+
+```fab
+// Division by zero: any divide-by-zero in MemValue's ArithmeticValue returns None
+pattern divzero_let {
+    stage e1 { e1.count -> ?n }
+    let bad = ?n / 0
+}
+```
+
+In both cases, the engine emits no error event -- the stage simply doesn't match. To distinguish "let failed" from "edge missing," use [`why_not`](../reference/engine#why_not) on the pattern; clauses that match individually but produce no overall completion are a let-failure smell.
+
+Unbound `?var` references are a different story: the DSL compiler rejects them at compile time (no chance to fail silently). You can only hit unbound-at-runtime by constructing a pattern through the Rust builder API that bypasses the compiler's reference validator.
+
 ## Composition
 
-Lets compose with `sequence`, `choice`, `repeat`, and `repeat_range`. Variable namespacing applies: a let named `deadline` in pattern `a` becomes `a_deadline` after `sequence("seq", &a, &b, &[])`. Var references inside the let's expression are renamed alongside.
+When you compose patterns, every non-shared variable gets a per-branch prefix to prevent collisions. Lets follow the same rule -- both the let's *name* and the `?var` references inside its expression are renamed.
 
-In `repeat_range`, lets in the looping segment are re-evaluated each iteration; their values do not persist across iterations.
+```rust
+use fabula::compose::sequence;
+use fabula::builder::PatternBuilder;
+use fabula::expr::{BinOp, Expr};
+use fabula_memory::MemValue;
+
+let arrival = PatternBuilder::<String, MemValue>::new("arrival")
+    .stage("e1", |s| {
+        s.edge("e1", "type".into(), MemValue::Str("arrival".into()))
+            .edge_bind("e1", "pulse_count".into(), "ts")
+            .let_binding(
+                "deadline",
+                Expr::bin(BinOp::Add, Expr::var("ts"), Expr::lit(MemValue::Num(5.0))),
+            )
+    })
+    .build();
+
+let response = PatternBuilder::<String, MemValue>::new("response")
+    .stage("e2", |s| {
+        s.edge("e2", "type".into(), MemValue::Str("response".into()))
+            .edge_eq_var("e2", "pulse_count".into(), "a_deadline")
+    })
+    .build();
+
+let composed = sequence("arrival_then_response", &arrival, &response, &[]);
+```
+
+After `sequence("arrival_then_response", &arrival, &response, &[])`:
+
+- `?ts` becomes `?a_ts`
+- The let's name `deadline` becomes `a_deadline`
+- The `?ts` reference inside the let's expression becomes `?a_ts`
+- Stage `e1` becomes `?a_e1`; stage `e2` becomes `?b_e2`
+- The `edge_eq_var` in pattern B references `a_deadline` directly to bind across the composition boundary
+
+To share a variable across the composition (no rename), pass it in the `shared` argument:
+
+```rust
+let composed = sequence("shared_deadline", &arrival, &response, &["deadline"]);
+```
+
+Now the let's name stays `deadline` in both branches, and pattern B can reference `?deadline` instead of `?a_deadline`. Var references inside the let expression that name a shared variable also stay unprefixed.
+
+In `repeat_range`, lets in the looping segment are re-evaluated each iteration; their values do not persist across iterations. See the next section for a worked iteration trace.
+
+## Repeat-range: re-evaluation by example
+
+In a `repeat_range` pattern, lets attached to stages inside the looping segment are re-evaluated on every iteration. The previous iteration's let values are cleared from the binding map before the next iteration's stage matches; only `shared(...)` variables persist.
+
+Concrete trace -- pattern with one stage that binds `?n` and computes `let doubled = ?n * 2`, looping `2..` times:
+
+```rust
+use fabula::compose::repeat_range;
+use fabula::builder::PatternBuilder;
+use fabula::expr::{BinOp, Expr};
+use fabula_memory::MemValue;
+
+let step = PatternBuilder::<String, MemValue>::new("step")
+    .stage("e", |s| {
+        s.edge_bind("e", "v".into(), "n").let_binding(
+            "doubled",
+            Expr::bin(BinOp::Mul, Expr::var("n"), Expr::lit(MemValue::Num(2.0))),
+        )
+    })
+    .build();
+
+let looped = repeat_range("looped", &step, 2, None, &[]);
+```
+
+Feeding three events with values `1, 2, 3`:
+
+| Iteration | Event matched | `?n` | `?doubled` (let) | Completion emitted? |
+|---|---|---|---|---|
+| 1 | `v=1` | `1.0` | `2.0` | no (rep < min_reps) |
+| 2 | `v=2` | `2.0` | `4.0` | yes (rep == 2) |
+| 3 | `v=3` | `3.0` | `6.0` | yes (rep == 3) |
+
+Each iteration gets a fresh `?doubled` computed against the new `?n`. The previous iteration's `?doubled` is not visible.
+
+To carry a value across iterations, name it in `shared`:
+
+```rust
+let looped = repeat_range("looped", &step, 2, None, &["accumulator"]);
+```
+
+Shared variables persist across iterations and are NOT cleared between loops. To accumulate a value across iterations, use a clause-bound shared variable updated by your data source rather than a let. (Naming a let in `shared` is not currently useful -- the prior iteration's value is retained, but the next iteration's stage match then fails the no-shadow check on that name. Recompute via clause-bound vars instead.)
 
 ## Concurrent groups
 

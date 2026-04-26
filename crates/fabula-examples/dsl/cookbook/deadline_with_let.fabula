@@ -1,0 +1,11 @@
+pattern deadline_match_with_let {
+    stage e1 {
+        e1.type = "trigger"
+        e1.pulse_count -> ?ts
+    }
+    let deadline = ?ts + 5
+    stage e2 {
+        e2.type = "response"
+        e2.pulse_count = ?deadline
+    }
+}

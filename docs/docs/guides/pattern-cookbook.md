@@ -194,6 +194,39 @@ Combine two cross-stage constraints for range checks:
 
 This matches when `low < value < high`, where `low` and `high` were bound in a prior stage.
 
+## Recipe 7.5: Exact deadline using `let`
+
+**Problem:** Detect when a response event's `pulse_count` is *exactly* `?ts + 5`, where `?ts` came from a prior trigger event. This is a deadline match, not a window match.
+
+### Pattern (with `let`)
+
+```rust reference file=tests/guides_pattern_cookbook.rs#r7_5_pattern_with_let
+```
+
+The let on stage `e1` computes `?deadline = ?ts + 5` after the stage's clauses bind `?ts`. Stage `e2` references `?deadline` via `edge_eq_var` and matches only when the response's `pulse_count` equals the deadline exactly.
+
+### DSL equivalent
+
+```fabula reference file=dsl/cookbook/deadline_with_let.fabula
+```
+
+### Pre-`let` alternative (window-only)
+
+```rust reference file=tests/guides_pattern_cookbook.rs#r7_5_pattern_chained
+```
+
+Without `let`, you can express a *window* (`pulse_count > ?ts`) but not an *exact-deadline* match. Materializing `?ts + 5` as a graph edge would require simulation-side help. `let` collapses the workaround into one expression.
+
+### When to migrate
+
+| Pattern shape | Use `let` | Stick with `*Var` |
+|---|---|---|
+| `value = ?prior + offset` (or any arithmetic) | yes | -- |
+| `value > ?prior` (window, no arithmetic) | -- | yes (`edge_gt_var`) |
+| `value` referenced in negation / temporal | yes if computing | -- |
+
+Migration is mechanical for the first row -- replace the auxiliary `*Var` constraint with `let` + `edge_eq_var` against the let.
+
 ## Recipe 8: Threshold detection with repeat range
 
 **Problem:** Detect 3 or more failed logins from the same account — brute force detection.

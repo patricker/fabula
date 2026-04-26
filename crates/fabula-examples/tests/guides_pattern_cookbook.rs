@@ -1,3 +1,4 @@
+use fabula::expr::{BinOp, Expr};
 use fabula::prelude::*;
 use fabula_memory::{MemGraph, MemValue};
 
@@ -460,6 +461,94 @@ fn recipe7_range_check() {
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
+}
+
+// ── Recipe 7.5: Exact deadline using let ─────────────────────────────────
+
+fn recipe7_5_pattern_with_let() -> Pattern<String, MemValue> {
+    // #region r7_5_pattern_with_let
+    PatternBuilder::<String, MemValue>::new("deadline_match_with_let")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("trigger".into()))
+                .edge_bind("e1", "pulse_count".into(), "ts")
+                .let_binding(
+                    "deadline",
+                    Expr::bin(BinOp::Add, Expr::var("ts"), Expr::lit(MemValue::Num(5.0))),
+                )
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("response".into()))
+                .edge_eq_var("e2", "pulse_count".into(), "deadline")
+        })
+        .build()
+    // #endregion
+}
+
+fn recipe7_5_pattern_chained() -> Pattern<String, MemValue> {
+    // #region r7_5_pattern_chained
+    // The pre-`let` shape -- requires a separate "offset event" or a
+    // simulation-side helper to materialize `ts + 5` as an edge value.
+    // Without that, the chained-constraint version cannot express the
+    // same "exact-deadline" predicate; the closest it gets is a window:
+    PatternBuilder::<String, MemValue>::new("deadline_window_chained")
+        .stage("e1", |s| {
+            s.edge("e1", "type".into(), MemValue::Str("trigger".into()))
+                .edge_bind("e1", "pulse_count".into(), "ts")
+        })
+        .stage("e2", |s| {
+            s.edge("e2", "type".into(), MemValue::Str("response".into()))
+                .edge_gt_var("e2", "pulse_count".into(), "ts")
+        })
+        .build()
+    // #endregion
+}
+
+#[test]
+fn recipe7_5_let_matches_exact_deadline() {
+    let pattern = recipe7_5_pattern_with_let();
+    let mut g = MemGraph::new();
+    g.add_str("e1", "type", "trigger", 1);
+    g.add_num("e1", "pulse_count", 3.0, 1);
+    g.add_str("e2", "type", "response", 5);
+    g.add_num("e2", "pulse_count", 8.0, 5);
+    g.set_time(10);
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    let matches = engine.evaluate(&g);
+    assert_eq!(matches.len(), 1);
+}
+
+#[test]
+fn recipe7_5_let_misses_off_deadline() {
+    let pattern = recipe7_5_pattern_with_let();
+    let mut g = MemGraph::new();
+    g.add_str("e1", "type", "trigger", 1);
+    g.add_num("e1", "pulse_count", 3.0, 1);
+    g.add_str("e2", "type", "response", 5);
+    g.add_num("e2", "pulse_count", 99.0, 5); // not 3 + 5 = 8
+    g.set_time(10);
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    assert_eq!(engine.evaluate(&g).len(), 0);
+}
+
+#[test]
+fn recipe7_5_chained_window_is_loose() {
+    // The chained-constraint version matches *any* response with a pulse_count
+    // strictly greater than the trigger's -- it cannot pin down "exactly +5".
+    let pattern = recipe7_5_pattern_chained();
+    let mut g = MemGraph::new();
+    g.add_str("e1", "type", "trigger", 1);
+    g.add_num("e1", "pulse_count", 3.0, 1);
+    g.add_str("e2", "type", "response", 5);
+    g.add_num("e2", "pulse_count", 99.0, 5); // off-deadline, but still > 3
+    g.set_time(10);
+
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    engine.register(pattern);
+    assert_eq!(engine.evaluate(&g).len(), 1);
 }
 
 // ── Recipe 8: Threshold detection with repeat range ────────────────────────
