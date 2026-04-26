@@ -131,7 +131,7 @@ To carry a value across iterations, name it in `shared`:
 let looped = repeat_range("looped", &step, 2, None, &["accumulator"]);
 ```
 
-Shared variables persist across iterations and are NOT cleared between loops. (Lets cannot themselves be marked shared in `repeat_range` -- the `shared` slot only retains clause-bound variables. To accumulate across iterations, use a clause-bound shared variable updated by your data source rather than a let.)
+Shared variables persist across iterations and are NOT cleared between loops. To accumulate a value across iterations, use a clause-bound shared variable updated by your data source rather than a let. (Naming a let in `shared` is not currently useful -- the prior iteration's value is retained, but the next iteration's stage match then fails the no-shadow check on that name. Recompute via clause-bound vars instead.)
 
 ## Concurrent groups
 
