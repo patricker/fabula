@@ -21,6 +21,12 @@ const config: Config = {
 
   onBrokenLinks: 'throw',
 
+  headTags: [
+    {tagName: 'link', attributes: {rel: 'apple-touch-icon', sizes: '180x180', href: '/img/apple-touch-icon.png'}},
+    {tagName: 'link', attributes: {rel: 'icon', type: 'image/png', sizes: '32x32', href: '/img/favicon-32x32.png'}},
+    {tagName: 'link', attributes: {rel: 'icon', type: 'image/png', sizes: '16x16', href: '/img/favicon-16x16.png'}},
+  ],
+
   i18n: {
     defaultLocale: 'en',
     locales: ['en'],
@@ -48,7 +54,12 @@ const config: Config = {
       respectPrefersColorScheme: true,
     },
     navbar: {
-      title: 'Fabula',
+      title: '',
+      logo: {
+        alt: 'Fabula',
+        src: 'img/wordmark.svg',
+        srcDark: 'img/wordmark-dark.svg',
+      },
       items: [
         {
           type: 'docSidebar',
