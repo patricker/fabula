@@ -110,4 +110,11 @@ mod tests {
         let result = DefaultLetEvaluator.evaluate(&expr, &bindings);
         assert_eq!(result, None);
     }
+
+    #[test]
+    fn default_let_evaluator_unbound_var_returns_none() {
+        let bindings: HashMap<String, BoundValue<String, Num>> = HashMap::new();
+        let expr: Expr<Num> = Expr::var("missing");
+        assert_eq!(DefaultLetEvaluator.evaluate(&expr, &bindings), None);
+    }
 }
