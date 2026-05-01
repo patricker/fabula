@@ -92,6 +92,23 @@ fn custom_evaluator_does_arithmetic_over_foreign_v() {
 }
 
 #[test]
+fn custom_evaluator_returns_none_for_non_numeric_bindings() {
+    // Demonstrates the failure mode: when a let expression references a
+    // var bound to a non-numeric variant, the custom evaluator returns
+    // None, which would cause the partial match to be discarded.
+    let mut bindings: HashMap<String, BoundValue<String, OpaqueValue>> = HashMap::new();
+    bindings.insert(
+        "x".into(),
+        BoundValue::Value(OpaqueValue::Str("not a number".into())),
+    );
+
+    let expr: Expr<OpaqueValue> =
+        Expr::bin(BinOp::Add, Expr::var("x"), Expr::lit(OpaqueValue::Num(5)));
+
+    assert_eq!(OpaqueValueLetEvaluator.evaluate(&expr, &bindings), None);
+}
+
+#[test]
 fn engine_uses_custom_evaluator_for_foreign_v() {
     let _engine: SiftEngine<String, String, OpaqueValue, i64, OpaqueValueLetEvaluator> =
         SiftEngine::new(OpaqueValueLetEvaluator);
