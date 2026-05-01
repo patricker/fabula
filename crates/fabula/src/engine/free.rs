@@ -164,11 +164,11 @@ where
     let steps = build_stage_steps(pattern);
     let mut candidates: Vec<MatchCandidate<N, V, T>> = match &steps[0] {
         StageStep::Single(idx) => {
-            find_stage_matches(ds, &pattern.stages[*idx], &HashMap::new(), at)
+            find_stage_matches(ds, &pattern.stages[*idx], &HashMap::new(), at, &super::DefaultLetEvaluator)
         }
         StageStep::Unordered(indices) => {
             let init = vec![(HashMap::new(), HashMap::new())];
-            expand_unordered_group(ds, pattern, &init, indices, at)
+            expand_unordered_group(ds, pattern, &init, indices, at, &super::DefaultLetEvaluator)
         }
     };
 
@@ -178,7 +178,7 @@ where
                 let mut next = Vec::new();
                 for (bindings, intervals) in &candidates {
                     for (new_b, new_i) in
-                        find_stage_matches(ds, &pattern.stages[*idx], bindings, at)
+                        find_stage_matches(ds, &pattern.stages[*idx], bindings, at, &super::DefaultLetEvaluator)
                     {
                         let mut merged_b = bindings.clone();
                         merged_b.extend(new_b);
@@ -190,7 +190,7 @@ where
                 candidates = next;
             }
             StageStep::Unordered(indices) => {
-                candidates = expand_unordered_group(ds, pattern, &candidates, indices, at);
+                candidates = expand_unordered_group(ds, pattern, &candidates, indices, at, &super::DefaultLetEvaluator);
             }
         }
     }
@@ -266,11 +266,11 @@ where
     // Process first step
     let mut candidates: Vec<MatchCandidate<N, V, T>> = match &steps[0] {
         StageStep::Single(idx) => {
-            find_stage_matches(ds, &pattern.stages[*idx], &HashMap::new(), now)
+            find_stage_matches(ds, &pattern.stages[*idx], &HashMap::new(), now, &super::DefaultLetEvaluator)
         }
         StageStep::Unordered(indices) => {
             let init = vec![(HashMap::new(), HashMap::new())];
-            expand_unordered_group(ds, pattern, &init, indices, now)
+            expand_unordered_group(ds, pattern, &init, indices, now, &super::DefaultLetEvaluator)
         }
     };
 
@@ -281,7 +281,7 @@ where
                 let mut next = Vec::new();
                 for (bindings, intervals) in &candidates {
                     for (new_b, new_i) in
-                        find_stage_matches(ds, &pattern.stages[*idx], bindings, now)
+                        find_stage_matches(ds, &pattern.stages[*idx], bindings, now, &super::DefaultLetEvaluator)
                     {
                         let mut merged_b = bindings.clone();
                         merged_b.extend(new_b);
@@ -293,7 +293,7 @@ where
                 candidates = next;
             }
             StageStep::Unordered(indices) => {
-                candidates = expand_unordered_group(ds, pattern, &candidates, indices, now);
+                candidates = expand_unordered_group(ds, pattern, &candidates, indices, now, &super::DefaultLetEvaluator);
             }
         }
     }
@@ -427,18 +427,20 @@ fn build_stage_steps<L, V>(pattern: &Pattern<L, V>) -> Vec<StageStep> {
 /// ensure consistent results regardless of matching order since bindings
 /// accumulate across stages and `find_stage_matches` handles both bound and
 /// unbound variables.
-fn expand_unordered_group<N, L, V, T>(
+fn expand_unordered_group<N, L, V, T, E>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
     pattern: &Pattern<L, V>,
     candidates: &[MatchCandidate<N, V, T>],
     group_indices: &[usize],
     now: &T,
+    evaluator: &E,
 ) -> Vec<MatchCandidate<N, V, T>>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
     T: Ord + Clone + Debug + Hash,
+    E: super::LetEvaluator<N, V>,
 {
     let mut result = Vec::new();
     for (bindings, intervals) in candidates {
@@ -452,7 +454,7 @@ where
         for &si in group_indices {
             let mut next_partial = Vec::new();
             for (b, iv) in &partial {
-                for (new_b, new_iv) in find_stage_matches(ds, &pattern.stages[si], b, now) {
+                for (new_b, new_iv) in find_stage_matches(ds, &pattern.stages[si], b, now, evaluator) {
                     let mut merged_b = b.clone();
                     merged_b.extend(new_b);
                     let mut merged_iv = iv.clone();
@@ -467,17 +469,19 @@ where
     result
 }
 
-pub(super) fn find_stage_matches<N, L, V, T>(
+pub(super) fn find_stage_matches<N, L, V, T, E>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
     stage: &Stage<L, V>,
     existing: &HashMap<String, BoundValue<N, V>>,
     now: &T,
+    evaluator: &E,
 ) -> Vec<MatchCandidate<N, V, T>>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
     T: Ord + Clone + Debug + Hash,
+    E: super::LetEvaluator<N, V>,
 {
     if stage.clauses.is_empty() {
         return Vec::new();
@@ -564,7 +568,7 @@ where
             for (k, v) in b.iter() {
                 merged.entry(k.clone()).or_insert_with(|| v.clone());
             }
-            if !eval_stage_lets(stage, &mut merged, &super::DefaultLetEvaluator) {
+            if !eval_stage_lets(stage, &mut merged, evaluator) {
                 continue;
             }
             // Surface let-derived bindings into the candidate's `b` so callers
