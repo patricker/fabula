@@ -670,6 +670,15 @@ where
     }
 }
 
+/// Constructs an engine using `E::default()` as the let evaluator.
+///
+/// **Choose your evaluator deliberately.** `SiftEngine::default()` over
+/// `NoLetEvaluator` produces an engine that silently drops every
+/// let-bearing pattern (lets always evaluate to `None`, killing the
+/// partial match). For let-free use this is the intended behavior, but
+/// for arithmetic V types you almost certainly want
+/// `SiftEngine::<_, _, _, _, DefaultLetEvaluator>::default()` — or
+/// better, the explicit `SiftEngine::new(DefaultLetEvaluator)`.
 impl<N, L, V, T, E> Default for SiftEngine<N, L, V, T, E>
 where
     N: Eq + Hash + Clone + Debug,

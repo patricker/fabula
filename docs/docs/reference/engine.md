@@ -7,9 +7,9 @@ title: SiftEngine
 
 `fabula::engine` -- pattern registration, batch evaluation, incremental matching, gap analysis, and pattern lifecycle management.
 
-## `SiftEngine<N, L, V, T>`
+## `SiftEngine<N, L, V, T, E>`
 
-The sift engine, generic over four independent type parameters. Maintains registered patterns and partial match state. Decoupled from `DataSource` -- the engine stores patterns and partial matches using the type parameters directly. Methods that need graph access take `&impl DataSource` as a parameter.
+The sift engine, generic over five independent type parameters. Maintains registered patterns and partial match state. Decoupled from `DataSource` -- the engine stores patterns and partial matches using the type parameters directly. Methods that need graph access take `&impl DataSource` as a parameter.
 
 ```rust reference file=tests/reference_engine.rs#engine_creation
 ```
@@ -22,23 +22,27 @@ The sift engine, generic over four independent type parameters. Maintains regist
 | `L` | `Eq + Hash + Clone + Debug` | same | Edge label type |
 | `V` | `PartialEq + PartialOrd + Clone + Debug + Hash` | same | Value type |
 | `T` | `Ord + Clone + Debug + Hash` | `+ Sub<Output=T> + NumericTime` | Time type |
+| `E` | (none on the struct) | `LetEvaluator<N, V>` | Let-binding evaluator |
 
-Lifecycle methods (register, tick, enable/disable) require the lighter bounds. Evaluation methods (evaluate, on_edge_added, why_not) additionally require `T: Sub<Output=T> + NumericTime` for metric gap computation.
+Lifecycle methods (register, tick, enable/disable) require the lighter bounds. Evaluation methods (evaluate, on_edge_added, why_not) additionally require `T: Sub<Output=T> + NumericTime` for metric gap computation and `E: LetEvaluator<N, V>` for let-binding evaluation.
 
-### `SiftEngineFor<DS>` alias
+Note: `V` is **not** required to implement `ArithmeticValue`. That bound lives only on `DefaultLetEvaluator`'s impl. Consumers with foreign `V` types (which they cannot add `ArithmeticValue` to under Rust's orphan rule) can use `NoLetEvaluator` (for let-free patterns) or supply their own `LetEvaluator` impl.
 
-Convenience type alias that extracts type parameters from a `DataSource` implementation:
+### `SiftEngineFor<DS, E>` alias
+
+Convenience type alias that extracts type parameters from a `DataSource` implementation. Defaults `E` to `DefaultLetEvaluator`:
 
 ```rust
-pub type SiftEngineFor<DS> = SiftEngine<
+pub type SiftEngineFor<DS, E = DefaultLetEvaluator> = SiftEngine<
     <DS as DataSource>::N,
     <DS as DataSource>::L,
     <DS as DataSource>::V,
     <DS as DataSource>::T,
+    E,
 >;
 ```
 
-Use this when you have a specific `DataSource` type and want terser declarations.
+Use this when you have a specific `DataSource` type and want terser declarations. Override the second type parameter to choose a different evaluator: `SiftEngineFor<MyGraph, NoLetEvaluator>`.
 
 ---
 
@@ -48,13 +52,19 @@ These methods require only the lighter type bounds (no `Sub` or `NumericTime`).
 
 #### `SiftEngine::new`
 
-Creates a new empty engine with no patterns and no partial matches.
+Creates a new empty engine with the supplied let evaluator. No patterns, no partial matches.
 
 ```rust
-pub fn new() -> Self
+pub fn new(let_evaluator: E) -> Self
 ```
 
-**Returns:** `SiftEngine<N, L, V, T>`
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `let_evaluator` | `E` | The let-binding evaluator. Pick `DefaultLetEvaluator` if your `V` implements `ArithmeticValue`, `NoLetEvaluator` for let-free patterns, or supply your own `LetEvaluator` impl for foreign V. |
+
+**Returns:** `SiftEngine<N, L, V, T, E>`
+
+The choice of evaluator is explicit at every call site — there is no parameterless `new()`. If you want a `Default::default()` shortcut, use `SiftEngine::<_, _, _, _, DefaultLetEvaluator>::default()` (requires `V: ArithmeticValue`).
 
 ---
 

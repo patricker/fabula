@@ -354,7 +354,7 @@ A character acts against their own values, then gets criticized by an opponent. 
 - Allen interval algebra with all 13 relations (generic over time type)
 - Metric temporal constraints (STN-style gap bounds on Allen relations via `gap min..max`)
 - DataSource trait (generic over N, L, V, T)
-- `SiftEngine<N, L, V, T>` -- decoupled from DataSource, with `SiftEngineFor<DS>` alias
+- `SiftEngine<N, L, V, T, E>` -- decoupled from DataSource (with `SiftEngineFor<DS, E = DefaultLetEvaluator>` alias). `E` is a pluggable `LetEvaluator<N, V>`; `V: ArithmeticValue` is no longer required by the engine API.
 - Batch evaluation (`evaluate`), incremental matching (`on_edge_added`), gap analysis (`why_not`)
 - Drain completed matches (`drain_completed`)
 - BoundValue generic over `<N, V>` with closure-based matching (decoupled from DataSource)

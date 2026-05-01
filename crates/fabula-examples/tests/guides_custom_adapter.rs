@@ -36,10 +36,15 @@ impl fmt::Display for MyValue {
     }
 }
 
-// `ArithmeticValue` is required at engine call-sites that evaluate `let`
-// computed bindings. Adapters with non-numeric values can return `None`
-// for unsupported operand combinations; only adapters used with `let`-bearing
-// patterns need to implement it.
+// `ArithmeticValue` is NOT required by the engine API itself — fabula
+// dispatches let-binding evaluation through a separate `LetEvaluator`.
+// Implementing it here means consumers can use the built-in
+// `DefaultLetEvaluator` (which requires `V: ArithmeticValue`). If your
+// `V` type is foreign (e.g., from another crate you don't own and the
+// orphan rule blocks adding this impl), you can instead supply a custom
+// `LetEvaluator` impl on a fresh evaluator type, or use `NoLetEvaluator`
+// for let-free patterns. Adapters with non-numeric values can return
+// `None` for unsupported operand combinations.
 impl fabula::expr::ArithmeticValue for MyValue {
     fn try_add(&self, other: &Self) -> Option<Self> {
         match (self, other) {
