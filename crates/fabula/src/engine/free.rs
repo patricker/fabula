@@ -938,8 +938,8 @@ where
     None
 }
 
-#[allow(clippy::type_complexity)]
-pub(super) fn try_match_stage<N, L, V, T>(
+#[allow(clippy::type_complexity, clippy::too_many_arguments)]
+pub(super) fn try_match_stage<N, L, V, T, E>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
     stage: &Stage<L, V>,
     source: &N,
@@ -947,12 +947,14 @@ pub(super) fn try_match_stage<N, L, V, T>(
     value: &V,
     interval: &Interval<T>,
     existing: &HashMap<String, BoundValue<N, V>>,
+    evaluator: &E,
 ) -> Option<Vec<MatchCandidate<N, V, T>>>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
     T: Ord + Clone + Debug + Hash,
+    E: super::LetEvaluator<N, V>,
 {
     let first = stage.clauses.first()?;
 
@@ -1054,7 +1056,7 @@ where
     intervals.insert(stage.anchor.0.clone(), interval.clone());
 
     // Evaluate stage lets against the merged map and surface results back.
-    if !eval_stage_lets(stage, &mut merged, &super::DefaultLetEvaluator) {
+    if !eval_stage_lets(stage, &mut merged, evaluator) {
         return None;
     }
     for cb in &stage.let_bindings {

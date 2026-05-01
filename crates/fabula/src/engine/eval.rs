@@ -124,6 +124,7 @@ where
                     value,
                     interval,
                     &HashMap::new(),
+                    &super::DefaultLetEvaluator,
                 ) {
                     for (bindings, intervals) in match_results {
                         // Determine next_stage and matched_stages based on group membership
@@ -238,7 +239,7 @@ where
             for &try_idx in &try_stages {
                 let stage = &pattern.stages[try_idx];
                 if let Some(match_results) =
-                    free::try_match_stage(ds, stage, source, label, value, interval, &pm.bindings)
+                    free::try_match_stage(ds, stage, source, label, value, interval, &pm.bindings, &super::DefaultLetEvaluator)
                 {
                     for (new_bindings, new_intervals) in match_results {
                         // Temporal check: new edge must come after all previously matched
