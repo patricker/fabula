@@ -396,12 +396,16 @@ impl Parser {
         // Number literal -- expect_number handles an optional leading minus.
         if matches!(self.peek().kind, TokenKind::Number(_) | TokenKind::Minus) {
             let n = self.expect_number()?;
-            return Ok(crate::ast::ExprAst::Literal(crate::ast::ConstraintValue::Num(n)));
+            return Ok(crate::ast::ExprAst::Literal(
+                crate::ast::ConstraintValue::Num(n),
+            ));
         }
         // String literal
         if matches!(self.peek().kind, TokenKind::String(_)) {
             if let TokenKind::String(s) = self.advance().kind.clone() {
-                return Ok(crate::ast::ExprAst::Literal(crate::ast::ConstraintValue::Str(s)));
+                return Ok(crate::ast::ExprAst::Literal(
+                    crate::ast::ConstraintValue::Str(s),
+                ));
             }
         }
         Err(self.error("expected number, string, ?var, or '('"))

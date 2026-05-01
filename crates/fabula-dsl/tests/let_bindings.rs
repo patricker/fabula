@@ -126,7 +126,10 @@ fn let_before_first_stage_is_error() {
     let tokens = Lexer::new(src).tokenize().expect("lex failed");
     let mut p = Parser::new(tokens);
     let result = p.parse_pattern_only();
-    assert!(result.is_err(), "expected parse error for let before any stage");
+    assert!(
+        result.is_err(),
+        "expected parse error for let before any stage"
+    );
 }
 
 #[test]
@@ -203,7 +206,10 @@ fn compile_rejects_let_shadowing_clause_var() {
     let ast = parse_pattern(src);
     let err = compile_pattern(&ast).expect_err("should reject shadowing");
     let msg = format!("{:?}", err);
-    assert!(msg.contains("a") && (msg.contains("shadow") || msg.contains("already")), "msg: {msg}");
+    assert!(
+        msg.contains("a") && (msg.contains("shadow") || msg.contains("already")),
+        "msg: {msg}"
+    );
 }
 
 #[test]
@@ -223,7 +229,10 @@ fn compile_rejects_forward_reference_to_later_stage_var() {
     let ast = parse_pattern(src);
     let err = compile_pattern(&ast).expect_err("should reject forward ref");
     let msg = format!("{:?}", err);
-    assert!(msg.contains("future") || msg.contains("not bound"), "msg: {msg}");
+    assert!(
+        msg.contains("future") || msg.contains("not bound"),
+        "msg: {msg}"
+    );
 }
 
 #[test]

@@ -86,7 +86,11 @@ fn memgraph_confidence_is_weakest_link() {
         .find(|p| p.nodes.len() == 3)
         .expect("expected the a->b->c chain");
     // Weakest link is 0.3 (weakly_suggests), not the mean of 0.65.
-    assert!((full.confidence - 0.3).abs() < 1e-9, "got {}", full.confidence);
+    assert!(
+        (full.confidence - 0.3).abs() < 1e-9,
+        "got {}",
+        full.confidence
+    );
 }
 
 #[test]
@@ -110,7 +114,11 @@ fn datasource_predecessors_default_impl() {
     g.add_ref("d", "enables", "target", 4);
 
     let preds = g.predecessors(&"target".to_string(), &"causes".to_string());
-    assert_eq!(preds.len(), 2, "two edges labeled 'causes' point at 'target'");
+    assert_eq!(
+        preds.len(),
+        2,
+        "two edges labeled 'causes' point at 'target'"
+    );
     let sources: Vec<String> = preds.into_iter().map(|e| e.source).collect();
     assert!(sources.contains(&"a".to_string()));
     assert!(sources.contains(&"b".to_string()));
@@ -128,12 +136,7 @@ fn datasource_predecessors_default_impl() {
 #[test]
 fn memgraph_surprise_no_cause() {
     let g = MemGraph::new();
-    let s = fabula::causality::event_causal_surprise(
-        &g,
-        &"orphan_event".to_string(),
-        3,
-        &labels(),
-    );
+    let s = fabula::causality::event_causal_surprise(&g, &"orphan_event".to_string(), 3, &labels());
     assert!((s - 1.0).abs() < 1e-9);
 }
 
@@ -141,12 +144,7 @@ fn memgraph_surprise_no_cause() {
 fn memgraph_surprise_clean_chain_is_low() {
     let mut g = MemGraph::new();
     g.add_ref("cause", "causes", "effect", 1);
-    let s = fabula::causality::event_causal_surprise(
-        &g,
-        &"effect".to_string(),
-        3,
-        &labels(),
-    );
+    let s = fabula::causality::event_causal_surprise(&g, &"effect".to_string(), 3, &labels());
     // Single pred, weight 1.0, no gap, no divergence → cleanliness 1.0, surprise 0.0.
     assert!(s.abs() < 1e-9, "got {}", s);
 }
@@ -155,13 +153,8 @@ fn memgraph_surprise_clean_chain_is_low() {
 fn memgraph_surprise_batch_matches_individual_calls() {
     let mut g = MemGraph::new();
     g.add_ref("a", "causes", "b", 1);
-    let events = vec![
-        "b".to_string(),
-        "unrelated".to_string(),
-    ];
-    let batch = fabula::causality::event_causal_surprise_batch(
-        &g, &events, 3, &labels(),
-    );
+    let events = vec!["b".to_string(), "unrelated".to_string()];
+    let batch = fabula::causality::event_causal_surprise_batch(&g, &events, 3, &labels());
     let individual: Vec<f64> = events
         .iter()
         .map(|e| fabula::causality::event_causal_surprise(&g, e, 3, &labels()))

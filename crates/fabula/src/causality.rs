@@ -55,11 +55,7 @@ pub struct CausalEdge<V, T> {
 /// the only one.
 ///
 /// Returns a score in `[0.0, 1.0]`. Empty weights → `0.0`.
-pub fn cleanliness_score(
-    weights: &[f64],
-    total_gap: f64,
-    divergent_branches: usize,
-) -> f64 {
+pub fn cleanliness_score(weights: &[f64], total_gap: f64, divergent_branches: usize) -> f64 {
     if weights.is_empty() {
         return 0.0;
     }
@@ -308,8 +304,7 @@ mod bfs_tests {
     }
     impl ToyGraph {
         fn add(&mut self, src: &str, label: &str, tgt: &str, t: i64) {
-            self.edges
-                .push((src.into(), label.into(), tgt.into(), t));
+            self.edges.push((src.into(), label.into(), tgt.into(), t));
         }
     }
     impl DataSource for ToyGraph {
@@ -390,7 +385,10 @@ mod bfs_tests {
         g.add("a", "causes", "b", 1);
         g.add("b", "causes", "c", 2);
         let paths = causal_paths(&g, &"c".to_string(), 5, &causal_labels());
-        let long_path = paths.iter().find(|p| p.nodes.len() == 3).expect("need chain");
+        let long_path = paths
+            .iter()
+            .find(|p| p.nodes.len() == 3)
+            .expect("need chain");
         assert_eq!(
             long_path.nodes,
             vec!["a".to_string(), "b".to_string(), "c".to_string()]
@@ -474,8 +472,7 @@ mod surprise_tests {
     }
     impl ToyGraph {
         fn add(&mut self, src: &str, label: &str, tgt: &str, t: i64) {
-            self.edges
-                .push((src.into(), label.into(), tgt.into(), t));
+            self.edges.push((src.into(), label.into(), tgt.into(), t));
         }
     }
     impl DataSource for ToyGraph {
@@ -616,7 +613,13 @@ mod surprise_tests {
 
         assert_eq!(scores.len(), 3);
         assert!(scores[0].abs() < 1e-9, "b should be unsurprising");
-        assert!((scores[1] - 1.0).abs() < 1e-9, "c has no cause, maximally surprising");
-        assert!((scores[2] - 0.8).abs() < 1e-9, "d has weight-0.2 cause, surprise 0.8");
+        assert!(
+            (scores[1] - 1.0).abs() < 1e-9,
+            "c has no cause, maximally surprising"
+        );
+        assert!(
+            (scores[2] - 0.8).abs() < 1e-9,
+            "d has weight-0.2 cause, surprise 0.8"
+        );
     }
 }

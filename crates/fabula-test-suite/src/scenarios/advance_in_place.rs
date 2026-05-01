@@ -10,8 +10,12 @@ fn two_stage_pattern<G: TestGraph>(
     advance_in_place: bool,
 ) -> fabula::pattern::Pattern<String, G::V> {
     let mut b = PatternBuilder::<String, G::V>::new("enter_then_leave")
-        .stage("a", |s| s.edge("a", "eventType".into(), G::str_val("enter")))
-        .stage("b", |s| s.edge("b", "eventType".into(), G::str_val("leave")));
+        .stage("a", |s| {
+            s.edge("a", "eventType".into(), G::str_val("enter"))
+        })
+        .stage("b", |s| {
+            s.edge("b", "eventType".into(), G::str_val("leave"))
+        });
     if advance_in_place {
         b = b.advance_in_place();
     }

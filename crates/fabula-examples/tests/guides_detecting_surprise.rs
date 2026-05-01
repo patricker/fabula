@@ -36,7 +36,11 @@ fn guide_weak_cause_is_medium_surprise() {
     g.add_ref("rumor", "enables", "betrayal", 2);
     let s = event_causal_surprise(&g, &"betrayal".to_string(), 5, &causal_labels());
     // weight 0.6, single predecessor, gap 0 → cleanliness = 0.6, surprise = 0.4.
-    assert!((s - 0.4).abs() < 0.01, "weak cause → surprise ~0.4, got {}", s);
+    assert!(
+        (s - 0.4).abs() < 0.01,
+        "weak cause → surprise ~0.4, got {}",
+        s
+    );
 }
 
 #[test]
@@ -49,7 +53,11 @@ fn guide_divergent_causes_produce_half_surprise() {
     g.add_ref("cause_a", "causes", "effect", 1);
     g.add_ref("cause_b", "causes", "effect", 1);
     let s = event_causal_surprise(&g, &"effect".to_string(), 5, &causal_labels());
-    assert!((s - 0.5).abs() < 0.01, "divergent causes → surprise ~0.5, got {}", s);
+    assert!(
+        (s - 0.5).abs() < 0.01,
+        "divergent causes → surprise ~0.5, got {}",
+        s
+    );
 }
 
 #[test]

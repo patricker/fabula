@@ -103,7 +103,8 @@ pub fn incremental_computed_bindings_deadline<G: TestGraph>() {
         .filter(|e| matches!(e, SiftEvent::Completed { .. }))
         .count();
     assert_eq!(
-        completed, 1,
+        completed,
+        1,
         "{}: expected one Completed event",
         std::any::type_name::<G>()
     );

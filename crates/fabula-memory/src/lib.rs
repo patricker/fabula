@@ -387,18 +387,12 @@ mod arith_tests {
 
     #[test]
     fn str_plus_num_is_none() {
-        assert_eq!(
-            MemValue::Str("x".into()).try_add(&MemValue::Num(1.0)),
-            None
-        );
+        assert_eq!(MemValue::Str("x".into()).try_add(&MemValue::Num(1.0)), None);
     }
 
     #[test]
     fn bool_arithmetic_is_none() {
-        assert_eq!(
-            MemValue::Bool(true).try_add(&MemValue::Bool(false)),
-            None
-        );
+        assert_eq!(MemValue::Bool(true).try_add(&MemValue::Bool(false)), None);
     }
 
     #[test]

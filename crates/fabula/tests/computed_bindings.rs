@@ -281,11 +281,7 @@ fn let_inside_repeat_range_reevaluates_each_iteration() {
         .stage("e", |s| {
             s.edge_bind("e", "v".into(), "raw").let_binding(
                 "doubled",
-                Expr::bin(
-                    BinOp::Mul,
-                    Expr::var("raw"),
-                    Expr::lit(TestVal::Num(2.0)),
-                ),
+                Expr::bin(BinOp::Mul, Expr::var("raw"), Expr::lit(TestVal::Num(2.0))),
             )
         })
         .build();

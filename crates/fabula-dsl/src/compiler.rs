@@ -208,10 +208,7 @@ pub fn compile_pattern_with<M: TypeMapper>(
                     line: 0,
                     column: 0,
                     span: (0, 0),
-                    message: format!(
-                        "let '{}' shadows an already-bound variable",
-                        la.name
-                    ),
+                    message: format!("let '{}' shadows an already-bound variable", la.name),
                 });
             }
             let expr = compile_expr(&la.expr, mapper)?;
@@ -222,10 +219,7 @@ pub fn compile_pattern_with<M: TypeMapper>(
                         line: 0,
                         column: 0,
                         span: (0, 0),
-                        message: format!(
-                            "let '{}' references unbound variable ?{}",
-                            la.name, v
-                        ),
+                        message: format!("let '{}' references unbound variable ?{}", la.name, v),
                     });
                 }
             }

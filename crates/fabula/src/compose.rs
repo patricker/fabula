@@ -658,11 +658,10 @@ mod tests {
 
         let p = PatternBuilder::<String, String>::new("p")
             .stage("e1", |s| {
-                s.edge_bind("e1", "ts".into(), "anchor")
-                    .let_binding(
-                        "deadline",
-                        Expr::bin(BinOp::Add, Expr::var("anchor"), Expr::lit("5".into())),
-                    )
+                s.edge_bind("e1", "ts".into(), "anchor").let_binding(
+                    "deadline",
+                    Expr::bin(BinOp::Add, Expr::var("anchor"), Expr::lit("5".into())),
+                )
             })
             .build();
 
@@ -685,11 +684,14 @@ mod tests {
 
         let p = PatternBuilder::<String, String>::new("p")
             .stage("e1", |s| {
-                s.edge_bind("e1", "ts".into(), "shared_anchor")
-                    .let_binding(
-                        "shared_deadline",
-                        Expr::bin(BinOp::Add, Expr::var("shared_anchor"), Expr::lit("5".into())),
-                    )
+                s.edge_bind("e1", "ts".into(), "shared_anchor").let_binding(
+                    "shared_deadline",
+                    Expr::bin(
+                        BinOp::Add,
+                        Expr::var("shared_anchor"),
+                        Expr::lit("5".into()),
+                    ),
+                )
             })
             .build();
 

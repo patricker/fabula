@@ -462,10 +462,7 @@ mod arith_tests {
 
     #[test]
     fn grafeo_div_zero_is_none() {
-        assert_eq!(
-            GrafeoValue::Num(1.0).try_div(&GrafeoValue::Num(0.0)),
-            None
-        );
+        assert_eq!(GrafeoValue::Num(1.0).try_div(&GrafeoValue::Num(0.0)), None);
     }
 
     #[test]

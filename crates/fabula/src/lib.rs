@@ -52,8 +52,8 @@ pub use expr::{ArithmeticValue, BinOp, ComputedBinding, Expr};
 pub mod prelude {
     pub use crate::builder::PatternBuilder;
     pub use crate::causality::{
-        causal_paths, cleanliness_score, event_causal_surprise,
-        event_causal_surprise_batch, CausalEdge, CausalPath,
+        causal_paths, cleanliness_score, event_causal_surprise, event_causal_surprise_batch,
+        CausalEdge, CausalPath,
     };
     pub use crate::datasource::{DataSource, Label, NodeId, Val, ValueConstraint};
     pub use crate::engine::{

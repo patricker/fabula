@@ -145,7 +145,11 @@ fn petgraph_batch_negation_blocks() {
 
     let mut engine: SiftEngineFor<Graph> = SiftEngine::new();
     engine.register(violation_of_hospitality());
-    assert_eq!(engine.evaluate(&g).len(), 0, "guest left -- negation blocks");
+    assert_eq!(
+        engine.evaluate(&g).len(),
+        0,
+        "guest left -- negation blocks"
+    );
 }
 
 #[test]

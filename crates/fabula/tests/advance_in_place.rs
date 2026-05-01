@@ -47,11 +47,7 @@ impl DataSource for ToyGraph {
             })
             .collect()
     }
-    fn edges_from_any_time(
-        &self,
-        node: &String,
-        label: &String,
-    ) -> Vec<Edge<String, String, i64>> {
+    fn edges_from_any_time(&self, node: &String, label: &String) -> Vec<Edge<String, String, i64>> {
         self.edges_from(node, label, &0)
     }
     fn scan(

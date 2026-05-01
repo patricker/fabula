@@ -26,7 +26,11 @@ fn guide_example_produces_sorted_paths() {
 
     // Every depth from 1 hop (proximate cause) to 3 hops (full root-cause chain)
     // is emitted for each of the two causal branches: six paths total.
-    assert_eq!(paths.len(), 6, "expected 6 paths across 2 branches × 3 depths");
+    assert_eq!(
+        paths.len(),
+        6,
+        "expected 6 paths across 2 branches × 3 depths"
+    );
 
     for w in paths.windows(2) {
         assert!(w[0].cleanliness >= w[1].cleanliness);
@@ -34,8 +38,15 @@ fn guide_example_produces_sorted_paths() {
 
     // Top path is the proximate cause: grudge_event directly causes betrayal.
     let top = &paths[0];
-    assert_eq!(top.nodes, vec!["grudge_event".to_string(), "betrayal_event".to_string()]);
-    assert!((top.cleanliness - 0.500).abs() < 0.01, "top cleanliness ~0.500, got {}", top.cleanliness);
+    assert_eq!(
+        top.nodes,
+        vec!["grudge_event".to_string(), "betrayal_event".to_string()]
+    );
+    assert!(
+        (top.cleanliness - 0.500).abs() < 0.01,
+        "top cleanliness ~0.500, got {}",
+        top.cleanliness
+    );
 
     // The full three-hop chain from the highest-weight branch is also present.
     let full_chain = paths

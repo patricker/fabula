@@ -440,11 +440,7 @@ impl<L: Clone, V: Clone> StageBuilder<L, V> {
     /// Add a computed binding (`let name = expr`) to this stage. The expression
     /// is evaluated after this stage's clauses match; the result is bound to
     /// `name` and visible to all subsequent stages, negations, and lets.
-    pub fn let_binding(
-        mut self,
-        name: impl Into<String>,
-        expr: crate::expr::Expr<V>,
-    ) -> Self {
+    pub fn let_binding(mut self, name: impl Into<String>, expr: crate::expr::Expr<V>) -> Self {
         self.let_bindings
             .push(crate::expr::ComputedBinding::new(name, expr));
         self
@@ -586,7 +582,10 @@ mod tests {
                     ]
                 );
             }
-            other => panic!("Expected Target::Constraint(ValueConstraint::OneOf(..)), got {:?}", other),
+            other => panic!(
+                "Expected Target::Constraint(ValueConstraint::OneOf(..)), got {:?}",
+                other
+            ),
         }
     }
 
@@ -607,12 +606,12 @@ mod tests {
         assert!(clause.negated);
         match &clause.target {
             Target::Constraint(ValueConstraint::OneOf(values)) => {
-                assert_eq!(
-                    values,
-                    &vec!["closed".to_string(), "archived".to_string()]
-                );
+                assert_eq!(values, &vec!["closed".to_string(), "archived".to_string()]);
             }
-            other => panic!("Expected Target::Constraint(ValueConstraint::OneOf(..)), got {:?}", other),
+            other => panic!(
+                "Expected Target::Constraint(ValueConstraint::OneOf(..)), got {:?}",
+                other
+            ),
         }
     }
 }
@@ -626,11 +625,10 @@ mod let_binding_tests {
     fn builder_let_binding_appends_to_stage() {
         let pattern = PatternBuilder::<String, String>::new("t")
             .stage("e1", |s| {
-                s.edge_bind("e1", "ts".into(), "anchor")
-                    .let_binding(
-                        "deadline",
-                        Expr::bin(BinOp::Add, Expr::var("anchor"), Expr::lit("5".to_string())),
-                    )
+                s.edge_bind("e1", "ts".into(), "anchor").let_binding(
+                    "deadline",
+                    Expr::bin(BinOp::Add, Expr::var("anchor"), Expr::lit("5".to_string())),
+                )
             })
             .build();
         assert_eq!(pattern.stages[0].let_bindings.len(), 1);

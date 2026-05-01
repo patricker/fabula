@@ -1780,7 +1780,10 @@ fn inactivity_pruning_spares_active_pms() {
         .iter()
         .filter(|e| matches!(e, SiftEvent::Completed { .. }))
         .count();
-    assert_eq!(completed, 1, "PM should complete before inactivity kills it");
+    assert_eq!(
+        completed, 1,
+        "PM should complete before inactivity kills it"
+    );
 }
 
 #[test]
