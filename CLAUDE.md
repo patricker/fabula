@@ -13,7 +13,7 @@ Incremental pattern matching over temporal graphs. A Rust port/extension of Felt
 
 ```bash
 cargo build --workspace                    # build everything
-cargo test --workspace                     # all tests (~650+)
+cargo test --workspace                     # all tests (~890+)
 cargo clippy --workspace -- -D warnings    # lint (CI enforces -D warnings)
 cargo test -p fabula-test-suite            # golden tests only (81 scenarios x 3 adapters)
 cargo test -p fabula -- test_name          # single test in a crate
@@ -48,13 +48,37 @@ wasm-pack build --target web crates/fabula-wasm  # WASM build (needs wasm32-unkn
 
 **`Pattern<L, V>`** (`fabula/src/pattern.rs`): Ordered sequence of `Stage`s with temporal constraints and negation windows. Each stage has `Clause`s that match edges. Variables appearing in multiple stages create joins. Patterns may be marked `private: bool` — private patterns participate in matching (including exclusive choice groups) but their events are filtered from all engine output (`on_edge_added`, `evaluate`, `drain_completed`, `end_tick`, `tick_delta`).
 
-**`SiftEngine<N, L, V, T>`** (`fabula/src/engine/`): The matching engine, parameterized independently from `DataSource`. Key design: engine can outlive any particular data source, enabling MCTS forking (clone engine + fork DataSource, speculate, discard).
+**`SiftEngine<N, L, V, T, E>`** (`fabula/src/engine/`): The matching engine, parameterized independently from `DataSource`. Key design: engine can outlive any particular data source, enabling MCTS forking (clone engine + fork DataSource, speculate, discard).
 
 ### Two evaluation modes
 
 **Batch** — `engine.evaluate(&graph)`: Scans the full graph for all matches in one pass. Used for one-shot queries.
 
 **Incremental** — `engine.on_edge_added(&graph, ...)` + `engine.end_tick()`: Feed edges one at a time. The engine tracks partial matches and emits `SiftEvent`s (Advanced, Completed, Negated). Call `end_tick()` after each batch of edges to finalize the tick — this clears tick accumulators (`tick_advanced`, `tick_completed`, `tick_negated`), increments `tick_counter`, and produces `TickDelta` for the narratives crate.
+
+### Pluggable let evaluation
+
+`Stage::let_bindings` (e.g., `let x = ?a + ?b`) are evaluated by a user-supplied
+`LetEvaluator<N, V>` (in `crates/fabula/src/engine/let_evaluator.rs`). The trait
+sits on a *separate evaluator type* — not on `V` — so consumers with foreign
+`V` types can plug in their own arithmetic without authoring an `ArithmeticValue`
+impl on a type they don't own (Rust orphan rule).
+
+Built-ins:
+- `NoLetEvaluator` — always returns `None`. For let-free patterns or silent
+  let-failure semantics. No bound on V.
+- `DefaultLetEvaluator` — delegates to `Expr::eval`, requires `V: ArithmeticValue`
+  on its impl. Use this when your V supports arithmetic (all built-in adapters do).
+
+The engine constructor takes the evaluator: `SiftEngine::new(evaluator)`. The
+generic param `E: LetEvaluator<N, V>` has no default on `SiftEngine` itself —
+every call site picks explicitly. The `SiftEngineFor<DS>` type alias does
+default to `DefaultLetEvaluator` for ergonomic convenience.
+
+Free-function eval APIs (`evaluate_pattern`, `evaluate_pattern_first`,
+`evaluate_pattern_limit`, `evaluate_pattern_at`) take an `evaluator: &E`
+parameter as their final argument. `gap_analysis` and `gap_analysis_at` do NOT
+take an evaluator (they don't evaluate lets).
 
 ### Engine evaluation (4-phase algorithm, in `engine/eval.rs`)
 
@@ -109,7 +133,7 @@ Generated test names: `mem__my_scenario`, `pet__my_scenario`, `grafeo__my_scenar
 ## Design Constraints
 
 - **`fabula` core must remain zero-dependency.** New features that need external crates go in adapter or extension crates.
-- **Engine is decoupled from DataSource.** `SiftEngine<N,L,V,T>` takes `&impl DataSource` in method calls, not as a field. This is intentional for MCTS forking.
+- **Engine is decoupled from DataSource.** `SiftEngine<N,L,V,T,E>` takes `&impl DataSource` in method calls, not as a field. This is intentional for MCTS forking.
 - **`fabula-narratives` is DataSource-agnostic.** It works on engine output (`TickDelta`, `SiftEvent`), not graph queries.
 - **Variable scoping is strict.** All `?var` references in DSL / `edge_bind` calls must be bound by an earlier clause. The DSL compiler validates this at compile time.
 - **Sifting only, no action system.** Fabula deliberately excludes Felt's action/effect machinery. The simulation layer is upstream.

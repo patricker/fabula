@@ -35,6 +35,22 @@
 //! ```
 //!
 //! For full evaluation examples, see `fabula-memory` which provides `MemGraph`.
+//!
+//! ## Foreign value types
+//!
+//! If your `V` type comes from a crate you don't own (orphan rule prevents
+//! adding [`ArithmeticValue`] to it), the engine still works. Pass either
+//! [`NoLetEvaluator`](crate::engine::NoLetEvaluator) (for let-free patterns)
+//! or your own [`LetEvaluator`](crate::engine::LetEvaluator) impl to
+//! `SiftEngine::new`:
+//!
+//! ```rust,ignore
+//! use fabula::engine::{NoLetEvaluator, SiftEngine};
+//!
+//! let mut engine: SiftEngine<String, String, my_crate::Value, i64, NoLetEvaluator>
+//!     = SiftEngine::new(NoLetEvaluator);
+//! ```
+//!
 
 pub mod builder;
 pub mod causality;

@@ -43,8 +43,17 @@ pub struct ComputedBinding<V> {
 
 /// Trait for value types that support arithmetic. Returns `None` for unsupported
 /// operand combinations (e.g., string + number) or numeric failures (e.g., div
-/// by zero). Adapters implement this once per `V` type; the trait bound
-/// propagates to engine methods that evaluate lets.
+/// by zero).
+///
+/// # Relationship to engine bounds
+///
+/// `ArithmeticValue` is **not** required by fabula's engine API. It is required
+/// only by [`DefaultLetEvaluator`](crate::engine::DefaultLetEvaluator), the
+/// built-in evaluator that delegates to [`Expr::eval`]. Consumers whose `V`
+/// type cannot implement `ArithmeticValue` (e.g., a foreign type subject to
+/// the orphan rule) should use [`NoLetEvaluator`](crate::engine::NoLetEvaluator)
+/// for let-free patterns, or supply their own
+/// [`LetEvaluator`](crate::engine::LetEvaluator) implementation.
 pub trait ArithmeticValue: Sized {
     fn try_add(&self, other: &Self) -> Option<Self>;
     fn try_sub(&self, other: &Self) -> Option<Self>;
