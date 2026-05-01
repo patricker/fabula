@@ -5,7 +5,7 @@ use std::collections::HashMap;
 #[test]
 fn step1_surprise_scorer() {
     // #region step1_surprise
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let alliance_idx = engine.register(
         PatternBuilder::new("alliance")

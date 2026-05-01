@@ -254,7 +254,7 @@ pub fn build_isolated_workload<G: TestGraph>(config: &WorkloadConfig) -> Isolate
     let mut rng = Rng::new(config.seed);
     let events = all_events();
     let mut graph = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
 
     // Register patterns
     let patterns_with_neg =
@@ -360,7 +360,7 @@ pub fn build_gm_workload<G: TestGraph>() -> GmWorkload<G> {
     let mut rng = Rng::new(42);
     let events = all_events();
     let graph = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     let character_count = 10;
 
     // -- Category 1: Multi-stage with negation (6 patterns) --

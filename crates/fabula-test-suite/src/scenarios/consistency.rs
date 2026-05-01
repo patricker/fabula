@@ -86,14 +86,14 @@ pub fn batch_incremental_negation_consistency<G: TestGraph>() {
     g_batch.add_ref_edge("ev3", "target", "alice", 4);
     g_batch.set_current_time(10);
 
-    let mut engine_batch: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine_batch: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine_batch.register(voh_pattern::<G>());
     let batch_count = engine_batch.evaluate(&g_batch).len();
     assert_eq!(batch_count, 0, "batch: negation should block");
 
     // Incremental: same events
     let mut g_inc = G::new_graph();
-    let mut engine_inc: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine_inc: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine_inc.register(voh_pattern::<G>());
 
     let events = vec![
@@ -155,14 +155,14 @@ pub fn batch_incremental_multi_match_consistency<G: TestGraph>() {
     g_batch.add_ref_edge("ev6", "target", "dave", 6);
     g_batch.set_current_time(10);
 
-    let mut engine_batch: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine_batch: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine_batch.register(voh_pattern::<G>());
     let batch_count = engine_batch.evaluate(&g_batch).len();
     assert_eq!(batch_count, 2, "batch: should find 2 violations");
 
     // Incremental
     let mut g_inc = G::new_graph();
-    let mut engine_inc: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine_inc: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine_inc.register(voh_pattern::<G>());
 
     let events = vec![
@@ -219,7 +219,7 @@ pub fn batch_incremental_multi_match_consistency<G: TestGraph>() {
 /// drain_completed is idempotent -- second drain returns 0.
 pub fn drain_completed_idempotent<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("find_harm")
             .stage("e", |s| s.edge("e", "eventType".into(), G::str_val("harm")))
@@ -246,7 +246,7 @@ pub fn drain_completed_idempotent<G: TestGraph>() {
 /// drain_completed interleaved -- complete A, drain, complete B, drain.
 pub fn drain_completed_interleaved<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("find_harm")
             .stage("e", |s| s.edge("e", "eventType".into(), G::str_val("harm")))

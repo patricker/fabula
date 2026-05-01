@@ -65,7 +65,7 @@ fn batch_evaluation() {
     let pattern = build_pattern();
 
     // #region batch_eval
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
 
     let matches = engine.evaluate(&graph);
@@ -88,7 +88,7 @@ fn incremental_evaluation() {
     let pattern = build_pattern();
 
     // #region incremental_eval
-    let mut inc_engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut inc_engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     inc_engine.register(pattern);
 
     // Replay the edges into a fresh graph, one event at a time.

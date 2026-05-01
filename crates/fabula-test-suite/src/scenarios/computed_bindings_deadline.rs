@@ -3,7 +3,7 @@
 
 use crate::TestGraph;
 use fabula::builder::PatternBuilder;
-use fabula::engine::{SiftEngine, SiftEngineFor, SiftEvent};
+use fabula::engine::{DefaultLetEvaluator, SiftEngine, SiftEngineFor, SiftEvent};
 use fabula::expr::{BinOp, Expr};
 use fabula::interval::Interval;
 use fabula::pattern::Pattern;
@@ -54,7 +54,7 @@ pub fn batch_computed_bindings_deadline<G: TestGraph>() {
     g.set_current_time(10);
 
     let pattern = deadline_pattern::<G>();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
 
     let matches = engine.evaluate(&g);
@@ -71,7 +71,7 @@ pub fn batch_computed_bindings_deadline<G: TestGraph>() {
 /// the engine emits a single Completed event after stage 2's trigger arrives.
 pub fn incremental_computed_bindings_deadline<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(deadline_pattern::<G>());
 
     // Stage 1 edges. Add the secondary first so it's visible at trigger time.
@@ -119,7 +119,7 @@ pub fn batch_computed_bindings_deadline_no_match<G: TestGraph>() {
     g.add_num_edge("e2", "pulse_count", 99.0, 5); // wrong value
     g.set_current_time(10);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(deadline_pattern::<G>());
 
     let matches = engine.evaluate(&g);

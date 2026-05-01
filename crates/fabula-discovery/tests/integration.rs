@@ -179,7 +179,7 @@ fn discovered_patterns_match_corpus() {
         let mem_pattern = scored
             .pattern
             .map_types(|l| l.clone(), |v| MemValue::Node(v.clone()));
-        let matches = fabula::engine::evaluate_pattern(&graph, &mem_pattern);
+        let matches = fabula::engine::evaluate_pattern(&graph, &mem_pattern, &fabula::engine::DefaultLetEvaluator);
         !matches.is_empty()
     });
 

@@ -30,7 +30,7 @@ fn metric_before_gap_in_range() {
         .build();
 
     // Use incremental: add edges at their respective times
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
 
     g.set_time(3);
@@ -82,7 +82,7 @@ fn metric_before_gap_too_far() {
         )
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     g.set_time(3);
     engine.on_edge_added(
@@ -133,7 +133,7 @@ fn metric_before_gap_too_close() {
         )
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     g.set_time(3);
     engine.on_edge_added(
@@ -187,7 +187,7 @@ fn metric_open_ended_skips_gap_check() {
         )
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     // Open-ended intervals: gap can't be computed (no end point).
     // Metric check skipped. Allen Before fallback (start comparison) passes.
@@ -283,7 +283,7 @@ fn unless_global_single_stage_works() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     // B7 fixed: unless_global on single-stage uses open-ended window → pardon blocks
@@ -320,7 +320,7 @@ fn negation_before_window_start_does_not_block() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     // Pardon at t=0 is before e1 at t=1, so it's outside the window
     assert_eq!(
@@ -358,7 +358,7 @@ fn negation_at_exact_window_boundary() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     // Pardon at t=1, window start is t=1. With exclusive start (>), 1 > 1 is false.

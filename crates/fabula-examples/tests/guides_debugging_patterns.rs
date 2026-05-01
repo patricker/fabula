@@ -3,7 +3,7 @@ use fabula_memory::{MemGraph, MemValue};
 
 #[test]
 fn step1_batch_check() {
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("my_pattern")
             .stage("e", |s| {
@@ -24,7 +24,7 @@ fn step1_batch_check() {
 
 #[test]
 fn step2_why_not() {
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("my_pattern")
             .stage("e", |s| {
@@ -52,7 +52,7 @@ fn step2_why_not() {
 
 #[test]
 fn step4_compare_batch_incremental() {
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("my_pattern")
             .stage("e", |s| {
@@ -77,7 +77,7 @@ fn step4_compare_batch_incremental() {
 
 #[test]
 fn step5_inspect_partial_matches() {
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("two_stage")
             .stage("e1", |s| {

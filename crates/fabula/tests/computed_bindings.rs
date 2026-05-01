@@ -7,7 +7,7 @@
 
 use fabula::builder::PatternBuilder;
 use fabula::datasource::{DataSource, Edge, ValueConstraint};
-use fabula::engine::{evaluate_pattern, SiftEngine, SiftEvent};
+use fabula::engine::{DefaultLetEvaluator, evaluate_pattern, SiftEngine, SiftEvent};
 use fabula::expr::{ArithmeticValue, BinOp, Expr};
 use fabula::interval::Interval;
 use std::hash::{Hash, Hasher};
@@ -162,7 +162,7 @@ fn let_in_batch_evaluation_matches_deadline() {
         })
         .build();
 
-    let matches = evaluate_pattern(&g, &p);
+    let matches = evaluate_pattern(&g, &p, &DefaultLetEvaluator);
     assert_eq!(
         matches.len(),
         1,
@@ -182,7 +182,7 @@ fn let_with_unbound_var_yields_no_match() {
                 )
         })
         .build();
-    let matches = evaluate_pattern(&g, &p);
+    let matches = evaluate_pattern(&g, &p, &DefaultLetEvaluator);
     assert_eq!(matches.len(), 0);
 }
 
@@ -199,7 +199,7 @@ fn let_division_by_zero_yields_no_match() {
                 )
         })
         .build();
-    let matches = evaluate_pattern(&g, &p);
+    let matches = evaluate_pattern(&g, &p, &DefaultLetEvaluator);
     assert_eq!(matches.len(), 0);
 }
 
@@ -221,7 +221,7 @@ fn let_in_incremental_evaluation_matches_deadline() {
         })
         .build();
 
-    let mut engine = SiftEngine::<String, String, TestVal, i64>::new();
+    let mut engine = SiftEngine::<String, String, TestVal, i64, DefaultLetEvaluator>::new(DefaultLetEvaluator);
     engine.register(p);
 
     let interval_e1: Interval<i64> = Interval::open(1);
@@ -294,7 +294,7 @@ fn let_inside_repeat_range_reevaluates_each_iteration() {
     g.add("e2", "v", TestVal::Num(2.0), 2);
     g.add("e3", "v", TestVal::Num(3.0), 3);
 
-    let mut engine = SiftEngine::<String, String, TestVal, i64>::new();
+    let mut engine = SiftEngine::<String, String, TestVal, i64, DefaultLetEvaluator>::new(DefaultLetEvaluator);
     engine.register(looped);
 
     for (id, t) in [("e1", 1i64), ("e2", 2), ("e3", 3)] {

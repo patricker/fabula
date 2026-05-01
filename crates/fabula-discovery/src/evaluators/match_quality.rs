@@ -1,6 +1,6 @@
 use crate::corpus::TraceCorpus;
 use crate::traits::PatternEvaluator;
-use fabula::engine::evaluate_pattern;
+use fabula::engine::{evaluate_pattern, DefaultLetEvaluator};
 use fabula::pattern::Pattern;
 use fabula_memory::{MemGraph, MemValue};
 
@@ -19,7 +19,7 @@ impl PatternEvaluator for MatchQualityEvaluator {
         // Convert Pattern<String, String> to Pattern<String, MemValue> for MemGraph
         let mem_pattern = pattern.map_types(|l| l.clone(), |v| MemValue::Node(v.clone()));
 
-        let matches = evaluate_pattern(&graph, &mem_pattern);
+        let matches = evaluate_pattern(&graph, &mem_pattern, &DefaultLetEvaluator);
 
         let match_count = matches.len();
         if match_count == 0 {

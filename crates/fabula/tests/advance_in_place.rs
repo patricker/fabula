@@ -2,7 +2,7 @@
 
 use fabula::builder::PatternBuilder;
 use fabula::datasource::{DataSource, Edge, ValueConstraint};
-use fabula::engine::{MatchState, SiftEngine, SiftEngineFor, SiftEvent};
+use fabula::engine::{DefaultLetEvaluator, MatchState, SiftEngine, SiftEngineFor, SiftEvent};
 use fabula::interval::Interval;
 
 #[derive(Default)]
@@ -88,7 +88,7 @@ fn two_stage_pattern(advance_in_place: bool) -> fabula::pattern::Pattern<String,
 #[test]
 fn default_behavior_original_survives_advancement() {
     let mut g = ToyGraph::default();
-    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_stage_pattern(false));
 
     g.add_str("ev1", "eventType", "enter", 1);
@@ -130,7 +130,7 @@ fn default_behavior_original_survives_advancement() {
 #[test]
 fn advance_in_place_consumes_original_after_strict_forward_advance() {
     let mut g = ToyGraph::default();
-    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_stage_pattern(true));
 
     g.add_str("ev1", "eventType", "enter", 1);
@@ -169,7 +169,7 @@ fn advance_in_place_consumes_original_after_strict_forward_advance() {
 #[test]
 fn advance_in_place_still_emits_completed_event() {
     let mut g = ToyGraph::default();
-    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_stage_pattern(true));
 
     g.add_str("ev1", "eventType", "enter", 1);
@@ -203,7 +203,7 @@ fn advance_in_place_still_emits_completed_event() {
 #[test]
 fn advance_in_place_prevents_second_stage_one_pm_from_forking() {
     let mut g = ToyGraph::default();
-    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_stage_pattern(true));
 
     g.add_str("ev1", "eventType", "enter", 1);
@@ -259,7 +259,7 @@ fn advance_in_place_prevents_second_stage_one_pm_from_forking() {
 #[test]
 fn advance_in_place_preserves_original_across_within_group_match() {
     let mut g = ToyGraph::default();
-    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new(DefaultLetEvaluator);
     let pattern = PatternBuilder::<String, String>::new("group_then_leave")
         .stage("a", |s| s.edge("a", "eventType".into(), "enter".into()))
         .unordered_group(|b| {
@@ -349,7 +349,7 @@ fn advance_in_place_with_repeat_range_loop_back_survives() {
     use std::collections::HashSet;
 
     let mut g = ToyGraph::default();
-    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<ToyGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let mut pattern = PatternBuilder::<String, String>::new("repeating_step")
         .stage("s", |s| s.edge("s", "eventType".into(), "step".into()))

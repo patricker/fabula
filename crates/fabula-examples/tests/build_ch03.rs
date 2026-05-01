@@ -72,7 +72,7 @@ fn flash_crash_pattern() -> Pattern<String, MemValue> {
 fn incremental_matching() {
     // #region incremental_matching
     let mut graph = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(insider_trading_pattern());
     engine.register(repeated_manipulation_pattern());

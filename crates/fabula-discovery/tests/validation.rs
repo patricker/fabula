@@ -8,7 +8,7 @@
 //! cargo test -p fabula-discovery --test validation -- --nocapture
 //! ```
 
-use fabula::engine::evaluate_pattern;
+use fabula::engine::{evaluate_pattern, DefaultLetEvaluator};
 use fabula::interval::Interval;
 use fabula_discovery::evaluators::{MatchQualityEvaluator, SurpriseEvaluator};
 use fabula_discovery::generators::{MinerfulConfig, MinerfulGenerator};
@@ -376,7 +376,7 @@ fn exp2_holdout_generalization() {
         let mem_pattern = sp
             .pattern
             .map_types(|l| l.clone(), |v| MemValue::Node(v.clone()));
-        let matches = evaluate_pattern(&test_graph, &mem_pattern);
+        let matches = evaluate_pattern(&test_graph, &mem_pattern, &DefaultLetEvaluator);
         let status = if matches.is_empty() {
             "NO MATCHES"
         } else {
@@ -399,7 +399,7 @@ fn exp2_holdout_generalization() {
         let mem_pattern = sp
             .pattern
             .map_types(|l| l.clone(), |v| MemValue::Node(v.clone()));
-        let matches = evaluate_pattern(&train_graph, &mem_pattern);
+        let matches = evaluate_pattern(&train_graph, &mem_pattern, &DefaultLetEvaluator);
         total_train_matches += matches.len();
     }
 
@@ -673,7 +673,7 @@ fn exp5_roundtrip_semantic_fidelity() {
         let orig_mem = sp
             .pattern
             .map_types(|l| l.clone(), |v| MemValue::Node(v.clone()));
-        let orig_matches = evaluate_pattern(&graph, &orig_mem);
+        let orig_matches = evaluate_pattern(&graph, &orig_mem, &DefaultLetEvaluator);
 
         // Round-trip: emit DSL, parse back
         let dsl = pattern_to_dsl(&sp.pattern);
@@ -695,7 +695,7 @@ fn exp5_roundtrip_semantic_fidelity() {
 
         // Evaluate the round-tripped pattern
         let parsed_pattern = &parsed.patterns[0];
-        let parsed_matches = evaluate_pattern(&graph, parsed_pattern);
+        let parsed_matches = evaluate_pattern(&graph, parsed_pattern, &DefaultLetEvaluator);
 
         let (l1, l2) = label_pair(sp);
         if orig_matches.len() == parsed_matches.len() {

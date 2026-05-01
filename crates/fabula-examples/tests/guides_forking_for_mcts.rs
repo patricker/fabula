@@ -6,7 +6,7 @@ use fabula_narratives::tension::Trajectory;
 /// Sets up a base engine with hospitality_violation and forgiveness_arc patterns,
 /// and a graph with two ticks of events. Returns (engine, graph).
 fn setup_base() -> (SiftEngineFor<MemGraph>, MemGraph) {
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let hospitality_idx = engine.register(
         PatternBuilder::new("hospitality_violation")

@@ -25,7 +25,7 @@ pub fn batch_one_of_matches_any<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(
@@ -56,7 +56,7 @@ pub fn batch_one_of_rejects_unlisted<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(
@@ -105,7 +105,7 @@ pub fn batch_one_of_with_variable_join<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(
@@ -118,7 +118,7 @@ pub fn batch_one_of_with_variable_join<G: TestGraph>() {
 /// Incremental: OneOf advances and completes via on_edge_added.
 pub fn incremental_one_of_advances<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
 
     let pattern = PatternBuilder::new("harm_event")
         .stage("e", |s| {

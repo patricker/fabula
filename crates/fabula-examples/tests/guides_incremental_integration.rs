@@ -4,7 +4,7 @@ use fabula_memory::{MemGraph, MemValue};
 #[test]
 fn step1_register_patterns() {
     // #region step1_register
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     // Pattern: betrayal after hospitality
     engine.register(
@@ -45,7 +45,7 @@ fn step1_register_patterns() {
 
 #[test]
 fn step2_feed_events() {
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("violation_of_hospitality")
             .stage("e1", |s| {
@@ -147,7 +147,7 @@ fn step2_feed_events() {
 #[test]
 fn step3_simulation_loop() {
     // #region step3_simulation_loop
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     let mut graph = MemGraph::new();
 
     // Register the hospitality violation pattern
@@ -304,7 +304,7 @@ fn step3_simulation_loop() {
 
 #[test]
 fn tick_deltas_and_scoring() {
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     let mut graph = MemGraph::new();
     engine.register(
         PatternBuilder::new("test_pattern")
@@ -362,7 +362,7 @@ fn narrative_scoring_integration() {
     use fabula_narratives::tension::{TensionTracker, Trajectory};
     use fabula_narratives::thread::ThreadTracker;
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     let graph = MemGraph::new();
 
     // Register patterns (elided -- see Step 1 above)

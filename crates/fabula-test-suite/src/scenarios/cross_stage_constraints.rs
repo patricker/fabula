@@ -28,7 +28,7 @@ pub fn batch_cross_stage_gt_matches<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "150 > 100 should match");
 }
@@ -56,7 +56,7 @@ pub fn batch_cross_stage_gt_no_match<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 0, "80 > 100 should not match");
 }
@@ -81,7 +81,7 @@ pub fn batch_cross_stage_lt_matches<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "5.0 < 7.5 should match");
 }
@@ -106,7 +106,7 @@ pub fn batch_cross_stage_eq_matches<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "500 == 500 should match");
 }
@@ -114,7 +114,7 @@ pub fn batch_cross_stage_eq_matches<G: TestGraph>() {
 /// Incremental: GtVar works with on_edge_added.
 pub fn incremental_cross_stage_gt<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("escalation")

@@ -25,7 +25,7 @@ fn incremental_integration() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(cascade_timeout);
 
     let mut graph = MemGraph::new();

@@ -4,7 +4,7 @@ use fabula_memory::{MemGraph, MemValue};
 #[test]
 fn incremental_monitoring() {
     // #region incremental_monitoring
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     let mut graph = MemGraph::new();
 
     engine.register(

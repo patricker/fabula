@@ -21,12 +21,13 @@ use std::hash::Hash;
 // Block 2: Evaluation methods -- full bounds + DataSource parameter.
 // ---------------------------------------------------------------------------
 
-impl<N, L, V, T> SiftEngine<N, L, V, T>
+impl<N, L, V, T, E> SiftEngine<N, L, V, T, E>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+    E: super::LetEvaluator<N, V>,
 {
     /// Batch evaluation: find all complete matches in the current graph state.
     pub fn evaluate(
@@ -39,7 +40,7 @@ where
             if !self.enabled[idx] {
                 continue;
             }
-            let mut matches = free::evaluate_pattern_at(ds, pattern, &now);
+            let mut matches = free::evaluate_pattern_at(ds, pattern, &now, &self.let_evaluator);
             for m in &mut matches {
                 m.pattern_idx = Some(idx);
             }
@@ -124,7 +125,7 @@ where
                     value,
                     interval,
                     &HashMap::new(),
-                    &super::DefaultLetEvaluator,
+                    &self.let_evaluator,
                 ) {
                     for (bindings, intervals) in match_results {
                         // Determine next_stage and matched_stages based on group membership
@@ -239,7 +240,7 @@ where
             for &try_idx in &try_stages {
                 let stage = &pattern.stages[try_idx];
                 if let Some(match_results) =
-                    free::try_match_stage(ds, stage, source, label, value, interval, &pm.bindings, &super::DefaultLetEvaluator)
+                    free::try_match_stage(ds, stage, source, label, value, interval, &pm.bindings, &self.let_evaluator)
                 {
                     for (new_bindings, new_intervals) in match_results {
                         // Temporal check: new edge must come after all previously matched

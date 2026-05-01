@@ -73,7 +73,7 @@ fn roundtrip_hospitality() {
     let pattern = parse_pattern(pattern_dsl).unwrap();
     let graph = parse_graph(graph_dsl).unwrap();
 
-    let mut engine = SiftEngine::new();
+    let mut engine = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&graph);
     assert_eq!(matches.len(), 1, "hospitality pattern should match once");
@@ -124,7 +124,7 @@ fn roundtrip_hospitality_no_match() {
     let pattern = parse_pattern(pattern_dsl).unwrap();
     let graph = parse_graph(graph_dsl).unwrap();
 
-    let mut engine = SiftEngine::new();
+    let mut engine = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&graph);
     assert_eq!(
@@ -599,7 +599,7 @@ fn roundtrip_metric_during_gap() {
     // During: gap = start(inner) - start(outer) = 3 - 1 = 2, in [2, 50] ✓
     let pattern = parse_pattern(dsl).unwrap();
     let graph = parse_graph(graph_dsl).unwrap();
-    let mut engine = SiftEngine::new();
+    let mut engine = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&graph).len(),
@@ -627,7 +627,7 @@ fn roundtrip_metric_during_gap_too_small() {
     // During: gap = 3 - 1 = 2, but min is 5 → fails
     let pattern = parse_pattern(dsl).unwrap();
     let graph = parse_graph(graph_dsl).unwrap();
-    let mut engine = SiftEngine::new();
+    let mut engine = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&graph).len(), 0, "during gap=2 below min=5");
 }
@@ -659,7 +659,7 @@ fn roundtrip_two_betrayals_with_var_source() {
     "#;
     let pattern = parse_pattern(pattern_dsl).unwrap();
     let graph = parse_graph(graph_dsl).unwrap();
-    let mut engine = SiftEngine::new();
+    let mut engine = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&graph);
     assert_eq!(
@@ -744,7 +744,7 @@ fn compose_sequence_roundtrip_evaluation() {
     "#;
     let doc = parse_document(dsl).unwrap();
     let graph = parse_graph(graph_dsl).unwrap();
-    let mut engine = SiftEngine::new();
+    let mut engine = SiftEngine::new(DefaultLetEvaluator);
     for p in doc.patterns {
         engine.register(p);
     }
@@ -857,7 +857,7 @@ fn roundtrip_constraint_var_gt() {
         }
     "#;
     let doc = parse_document(dsl).unwrap();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     for p in &doc.patterns {
         engine.register(p.clone());
     }
@@ -889,7 +889,7 @@ fn roundtrip_constraint_var_no_match() {
         }
     "#;
     let doc = parse_document(dsl).unwrap();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     for p in &doc.patterns {
         engine.register(p.clone());
     }
@@ -921,7 +921,7 @@ fn roundtrip_constraint_var_eq() {
         }
     "#;
     let doc = parse_document(dsl).unwrap();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     for p in &doc.patterns {
         engine.register(p.clone());
     }
@@ -1003,7 +1003,7 @@ fn roundtrip_repeat_range() {
     let strikes = doc.patterns.iter().find(|p| p.name == "strikes").unwrap();
     assert!(strikes.repeat_range.is_some(), "should use repeat_range");
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     for p in &doc.patterns {
         engine.register(p.clone());
     }
@@ -1225,7 +1225,7 @@ fn roundtrip_one_of_matches() {
         }
     "#;
     let doc = parse_document(dsl).unwrap();
-    let mut engine: SiftEngineFor<fabula_memory::MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<fabula_memory::MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     for p in &doc.patterns {
         engine.register(p.clone());
     }
@@ -1249,7 +1249,7 @@ fn roundtrip_one_of_no_match() {
         }
     "#;
     let doc = parse_document(dsl).unwrap();
-    let mut engine: SiftEngineFor<fabula_memory::MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<fabula_memory::MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     for p in &doc.patterns {
         engine.register(p.clone());
     }

@@ -37,7 +37,7 @@ fn recipe1_matching() {
     g.add_ref("ev2", "actor", "alice", 3);
     g.set_time(10);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -62,7 +62,7 @@ fn recipe1_non_matching() {
     g.set_time(10);
     // #endregion
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 0);
@@ -111,7 +111,7 @@ fn recipe2_matching() {
     // No apology between t=1 and t=3 -> match
     // #endregion
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -133,7 +133,7 @@ fn recipe2_non_matching() {
     // Apology at t=2 is between e1 (t=1) and e2 (t=3) -> negated
     // #endregion
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 0);
@@ -167,7 +167,7 @@ fn recipe3_matching() {
     g.set_time(10);
     // #endregion
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -197,7 +197,7 @@ fn recipe3_non_matching() {
     g.set_time(10);
     // #endregion
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 0);
@@ -239,7 +239,7 @@ fn recipe4_matching() {
                    // sortie [3, 5) is During siege [1, 100) -> match
                    // #endregion
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -272,7 +272,7 @@ fn recipe4_non_matching() {
     // The Allen relation here is OverlappedBy, not During
     // #endregion
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 0);
@@ -311,7 +311,7 @@ fn recipe5_matching() {
     // No fulfill event by alice after t=1 -> match
     // #endregion
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -331,7 +331,7 @@ fn recipe5_non_matching() {
     // fulfill by alice at t=5, which is after promise at t=1 -> negated
     // #endregion
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 0);
@@ -374,7 +374,7 @@ fn recipe6_matching() {
     // bob's leave does not block alice's pattern -> match
     // #endregion
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -396,7 +396,7 @@ fn recipe6_non_matching() {
     // alice's leave at t=2 is between t=1 and t=3, all clauses match -> negated
     // #endregion
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 0);
@@ -426,7 +426,7 @@ fn recipe7_escalating_price() {
     g.add_num("o2", "price", 15.0, 2);
     g.set_time(10);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -457,7 +457,7 @@ fn recipe7_range_check() {
     g.add_num("r1", "value", 30.0, 2);
     g.set_time(10);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -513,7 +513,7 @@ fn recipe7_5_let_matches_exact_deadline() {
     g.add_num("e2", "pulse_count", 8.0, 5);
     g.set_time(10);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -529,7 +529,7 @@ fn recipe7_5_let_misses_off_deadline() {
     g.add_num("e2", "pulse_count", 99.0, 5); // not 3 + 5 = 8
     g.set_time(10);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 0);
 }
@@ -546,7 +546,7 @@ fn recipe7_5_chained_window_is_loose() {
     g.add_num("e2", "pulse_count", 99.0, 5); // off-deadline, but still > 3
     g.set_time(10);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1);
 }
@@ -573,7 +573,7 @@ fn recipe8_brute_force() {
     }
     g.set_time(10);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert!(!matches.is_empty(), "should match with 4 failures (>= 3)");
@@ -622,7 +622,7 @@ fn recipe9_concurrent_signals() {
     g.add_ref("ev4", "sensor", "s1", 4);
     g.set_time(10);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);

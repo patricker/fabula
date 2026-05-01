@@ -3,7 +3,7 @@
 use fabula::prelude::*;
 use fabula_memory::{MemGraph, MemValue};
 
-type Engine = SiftEngine<String, String, MemValue, i64>;
+type Engine = SiftEngine<String, String, MemValue, i64, DefaultLetEvaluator>;
 
 #[test]
 fn batch_unordered_any_order() {
@@ -24,7 +24,7 @@ fn batch_unordered_any_order() {
     g.add_str("ev2", "type", "beta", 2);
     g.set_time(10);
 
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(DefaultLetEvaluator);
     engine.register(pattern.clone());
     assert_eq!(engine.evaluate(&g).len(), 1);
 
@@ -34,7 +34,7 @@ fn batch_unordered_any_order() {
     g2.add_str("ev2", "type", "alpha", 2);
     g2.set_time(10);
 
-    let mut engine2 = Engine::new();
+    let mut engine2 = Engine::new(DefaultLetEvaluator);
     engine2.register(pattern);
     assert_eq!(engine2.evaluate(&g2).len(), 1);
 }
@@ -61,7 +61,7 @@ fn batch_unordered_with_preceding_stage() {
     g.add_str("ev2", "type", "alpha", 3);
     g.set_time(10);
 
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1);
 }
@@ -88,7 +88,7 @@ fn batch_unordered_with_following_stage() {
     g.add_str("ev3", "type", "finish", 3);
     g.set_time(10);
 
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1);
 }
@@ -116,7 +116,7 @@ fn batch_unordered_end_before_group_no_match() {
     g.add_str("ev3", "type", "beta", 3);
     g.set_time(10);
 
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 0);
 }
@@ -135,7 +135,7 @@ fn incremental_unordered_group() {
         .build();
 
     let mut g = MemGraph::new();
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(DefaultLetEvaluator);
     engine.register(pattern);
 
     // Add beta first
@@ -192,7 +192,7 @@ fn batch_unordered_shared_binding() {
     g.add_ref("ev2", "actor", "alice", 2);
     g.set_time(10);
 
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(DefaultLetEvaluator);
     engine.register(pattern.clone());
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -209,7 +209,7 @@ fn batch_unordered_shared_binding() {
     g2.add_ref("ev2", "actor", "bob", 2);
     g2.set_time(10);
 
-    let mut engine2 = Engine::new();
+    let mut engine2 = Engine::new(DefaultLetEvaluator);
     engine2.register(pattern);
     assert_eq!(engine2.evaluate(&g2).len(), 0);
 }
@@ -234,7 +234,7 @@ fn incremental_three_stage_middle_unordered() {
         .build();
 
     let mut g = MemGraph::new();
-    let mut engine = Engine::new();
+    let mut engine = Engine::new(DefaultLetEvaluator);
     engine.register(pattern);
 
     // Stage 1: start

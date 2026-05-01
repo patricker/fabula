@@ -17,7 +17,7 @@ pub fn multi_pattern_all_four_winnow<G: TestGraph>() {
     g.add_ref_edge("ev3", "target", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
 
     // Pattern 1: VoH
     engine.register(
@@ -102,7 +102,7 @@ pub fn multi_pattern_shared_events<G: TestGraph>() {
     g.add_ref_edge("ev1", "actor", "bob", 1);
     g.set_current_time(10);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     // Pattern 1: find any harm
     engine.register(
         PatternBuilder::new("any_harm")
@@ -133,7 +133,7 @@ pub fn multi_pattern_shared_events<G: TestGraph>() {
 /// Two patterns fire independently from the same edge event.
 pub fn incremental_multiple_patterns_fire<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
 
     // Pattern 1: full hospitality (3 stages)
     engine.register(

@@ -90,7 +90,7 @@ fn score_and_rank() {
     }
 
     let mut graph = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let idx_insider = engine.register(insider_trading_pattern());
     let idx_crash = engine.register(flash_crash_pattern());

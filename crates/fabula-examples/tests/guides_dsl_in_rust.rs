@@ -82,7 +82,7 @@ fn step3_evaluate() {
     )
     .unwrap();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     for pattern in doc.patterns {
         engine.register(pattern);
     }

@@ -30,7 +30,7 @@ fn voh_pattern<G: TestGraph>() -> Pattern<String, G::V> {
 /// Incremental: three stages fire Advanced, Advanced, Completed.
 pub fn incremental_hospitality_three_stages<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
 
     // Stage 1
@@ -87,7 +87,7 @@ pub fn incremental_hospitality_three_stages<G: TestGraph>() {
 /// Incremental: negation kills an in-progress match.
 pub fn incremental_negation_kills<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
 
     // Stages 1 + 2
@@ -145,7 +145,7 @@ pub fn incremental_negation_kills<G: TestGraph>() {
 /// Incremental: unrelated character leaving does NOT kill match.
 pub fn incremental_unrelated_leave_no_kill<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
 
     // Stages 1 + 2
@@ -197,7 +197,7 @@ pub fn incremental_unrelated_leave_no_kill<G: TestGraph>() {
 /// Incremental: single-stage pattern completes immediately.
 pub fn incremental_single_stage_completes<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     let pattern = PatternBuilder::new("find_harm")
         .stage("e", |s| {
             s.edge("e", "eventType".into(), G::str_val("harm"))
@@ -225,7 +225,7 @@ pub fn incremental_single_stage_completes<G: TestGraph>() {
 /// Incremental: drain_completed removes completed matches.
 pub fn incremental_drain_completed<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("find_harm")
             .stage("e", |s| s.edge("e", "eventType".into(), G::str_val("harm")))
@@ -256,7 +256,7 @@ pub fn incremental_drain_completed<G: TestGraph>() {
 /// Incremental: irrelevant edges produce no events.
 pub fn incremental_irrelevant_edges_silent<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
 
     // Match stage 1
@@ -293,7 +293,7 @@ pub fn incremental_irrelevant_edges_silent<G: TestGraph>() {
 /// Incremental: second host creates a fork (two active PMs).
 pub fn incremental_second_host_forks_pm<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
 
     // Stage 1: alice enters
@@ -346,7 +346,7 @@ pub fn incremental_second_host_forks_pm<G: TestGraph>() {
 /// Incremental: original PM at stage 0 survives after advancing to stage 1.
 pub fn incremental_original_pm_survives_advance<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
 
     // alice enters -> PM at stage 1
@@ -371,7 +371,7 @@ pub fn incremental_original_pm_survives_advance<G: TestGraph>() {
 /// Incremental: a completed single-stage pattern does not emit new events on subsequent edges.
 pub fn incremental_dead_and_complete_inert<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     let pattern = PatternBuilder::new("find_harm")
         .stage("e", |s| {
             s.edge("e", "eventType".into(), G::str_val("harm"))
@@ -426,7 +426,7 @@ pub fn incremental_dead_and_complete_inert<G: TestGraph>() {
 /// Incremental: negation is checked before advance (Phase 1 before Phase 3).
 pub fn incremental_negation_checked_before_advance<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
 
     // Pattern: promise -> fulfill, unless break_promise after promise
     let pattern = PatternBuilder::new("kept_promise")
@@ -481,7 +481,7 @@ pub fn incremental_negation_checked_before_advance<G: TestGraph>() {
 /// Incremental: negation window closes after e3 is bound (unless_between e1..e3).
 pub fn incremental_negation_only_when_window_open<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
 
     // Complete the 3-stage pattern fully
@@ -553,7 +553,7 @@ pub fn incremental_negation_only_when_window_open<G: TestGraph>() {
 /// Incremental: adding a negation edge AFTER completion does NOT invalidate the completed match.
 pub fn incremental_negation_after_completion_no_retroactive<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
 
     // Complete the pattern
@@ -631,7 +631,7 @@ pub fn incremental_negation_after_completion_no_retroactive<G: TestGraph>() {
 /// Incremental: negation event includes meaningful details.
 pub fn incremental_negation_event_details<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
 
     // Set up stages 1+2

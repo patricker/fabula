@@ -3,7 +3,7 @@
 
 use crate::TestGraph;
 use fabula::builder::PatternBuilder;
-use fabula::engine::{MatchState, SiftEngine, SiftEngineFor, SiftEvent};
+use fabula::engine::{DefaultLetEvaluator, MatchState, SiftEngine, SiftEngineFor, SiftEvent};
 use fabula::interval::Interval;
 
 fn two_stage_pattern<G: TestGraph>(
@@ -25,7 +25,7 @@ fn two_stage_pattern<G: TestGraph>(
 /// Without the flag, the stage-1 PM survives after a leave arrives.
 pub fn advance_in_place_default_preserves_original<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_stage_pattern::<G>(false));
 
     g.add_str_edge("ev1", "eventType", "enter", 1);
@@ -64,7 +64,7 @@ pub fn advance_in_place_default_preserves_original<G: TestGraph>() {
 /// With the flag, the stage-1 PM is consumed after strict-forward advancement.
 pub fn advance_in_place_consumes_original<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_stage_pattern::<G>(true));
 
     g.add_str_edge("ev1", "eventType", "enter", 1);
@@ -103,7 +103,7 @@ pub fn advance_in_place_consumes_original<G: TestGraph>() {
 /// Even with the flag, Completed events must still fire.
 pub fn advance_in_place_still_emits_completed<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_stage_pattern::<G>(true));
 
     g.add_str_edge("ev1", "eventType", "enter", 1);
@@ -137,7 +137,7 @@ pub fn advance_in_place_still_emits_completed<G: TestGraph>() {
 /// Crowd: two enters then one leave. With flag, no stage-1 residue.
 pub fn advance_in_place_crowded_no_residue<G: TestGraph>() {
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_stage_pattern::<G>(true));
 
     for (ev, t) in [("ev1", 1_i64), ("ev2", 2)].iter() {

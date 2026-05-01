@@ -6,7 +6,7 @@ fn incremental_negation_kills_only_matching_variable_bindings() {
     // Two partial matches for different characters; negation should
     // only kill the one whose bound variable matches.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("enter_then_harm")
             .stage("e1", |s| {
@@ -88,7 +88,7 @@ fn out_of_order_insertion_incremental_misses_match() {
     // via on_edge_added causes the incremental engine to miss valid matches
     // that batch evaluation finds.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("enter_then_harm")
             .stage("e1", |s| {
@@ -173,7 +173,7 @@ fn batch_and_incremental_agree_on_simple_case() {
 
     // Build graph incrementally
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern.clone());
 
     g.add_str("ev1", "eventType", "enter", 1);
@@ -218,7 +218,7 @@ fn batch_and_incremental_agree_on_simple_case() {
         .count();
 
     // Batch evaluation on the same graph
-    let mut batch_engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut batch_engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     batch_engine.register(pattern);
     let batch_matches = batch_engine.evaluate(&g);
 
@@ -234,7 +234,7 @@ fn batch_and_incremental_agree_on_simple_case() {
 fn incremental_temporal_ordering_enforced() {
     // B2 fix: on_edge_added now checks temporal ordering between stages.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("a_then_b")
             .stage("e1", |s| {
@@ -376,7 +376,7 @@ fn unless_global_no_stages_still_resolves() {
 #[test]
 fn why_not_nonexistent_pattern() {
     let g = MemGraph::new();
-    let engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     assert!(
         engine.why_not(&g, "nonexistent").is_none(),
         "why_not for unregistered pattern should return None"
@@ -390,7 +390,7 @@ fn why_not_matched_pattern_shows_all_matched() {
     g.add_ref("ev1", "actor", "bob", 1);
     g.set_time(10);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("find_harm")
             .stage("e", |s| {
@@ -411,7 +411,7 @@ fn why_not_matched_pattern_shows_all_matched() {
 #[test]
 fn why_not_stops_at_first_unmatched_stage() {
     let g = MemGraph::new(); // empty graph
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("three_stages")
             .stage("e1", |s| {
@@ -441,7 +441,7 @@ fn why_not_stops_at_first_unmatched_stage() {
 
 #[test]
 fn drain_completed_on_empty_engine() {
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     let drained = engine.drain_completed();
     assert!(drained.is_empty());
 }
@@ -449,7 +449,7 @@ fn drain_completed_on_empty_engine() {
 #[test]
 fn drain_completed_preserves_active_matches() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     // Register two patterns
     engine.register(

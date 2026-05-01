@@ -77,7 +77,7 @@ pub use types::*;
 /// let score = evaluate_narrative_quality(&delta);
 /// if score > best_score { best_engine = fork_engine; }
 /// ```
-pub struct SiftEngine<N: Debug + Clone, L, V: Debug + Clone, T: Clone> {
+pub struct SiftEngine<N: Debug + Clone, L, V: Debug + Clone, T: Clone, E> {
     pub(super) patterns: Vec<Pattern<L, V>>,
     pub(super) partial_matches: Vec<PartialMatch<N, V, T>>,
     pub(super) next_match_id: usize,
@@ -96,6 +96,10 @@ pub struct SiftEngine<N: Debug + Clone, L, V: Debug + Clone, T: Clone> {
     pub(super) tick_completed: HashSet<String>,
     pub(super) tick_negated: HashSet<String>,
     pub(super) tick_expired: HashSet<String>,
+    /// Let-binding evaluator. Use `DefaultLetEvaluator` if your `V`
+    /// implements [`ArithmeticValue`]; `NoLetEvaluator` for let-free
+    /// patterns; or supply your own `LetEvaluator` impl for foreign V.
+    pub(super) let_evaluator: E,
 }
 
 /// Convenience alias: extract type params from a [`DataSource`] impl.
@@ -104,11 +108,12 @@ pub struct SiftEngine<N: Debug + Clone, L, V: Debug + Clone, T: Clone> {
 /// // Instead of SiftEngine<String, String, MemValue, i64>:
 /// let engine: SiftEngineFor<MemGraph> = SiftEngine::new();
 /// ```
-pub type SiftEngineFor<DS> = SiftEngine<
+pub type SiftEngineFor<DS, E = DefaultLetEvaluator> = SiftEngine<
     <DS as DataSource>::N,
     <DS as DataSource>::L,
     <DS as DataSource>::V,
     <DS as DataSource>::T,
+    E,
 >;
 
 // NOTE: tick accumulators are NOT included in Clone -- a forked engine
@@ -119,15 +124,18 @@ pub type SiftEngineFor<DS> = SiftEngine<
 // wk-sift can construct and register patterns without T: Sub + NumericTime.
 // ---------------------------------------------------------------------------
 
-impl<N, L, V, T> SiftEngine<N, L, V, T>
+impl<N, L, V, T, E> SiftEngine<N, L, V, T, E>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
     V: PartialEq + PartialOrd + Clone + Debug + Hash,
     T: Ord + Clone + Debug + Hash,
 {
-    /// Create a new empty engine.
-    pub fn new() -> Self {
+    /// Create a new empty engine with the given let evaluator.
+    ///
+    /// Pick `DefaultLetEvaluator` if `V: ArithmeticValue`, `NoLetEvaluator`
+    /// for let-free use, or your own `LetEvaluator` impl for foreign V.
+    pub fn new(let_evaluator: E) -> Self {
         Self {
             patterns: Vec::new(),
             partial_matches: Vec::new(),
@@ -144,6 +152,7 @@ where
             tick_completed: HashSet::new(),
             tick_negated: HashSet::new(),
             tick_expired: HashSet::new(),
+            let_evaluator,
         }
     }
 
@@ -658,21 +667,22 @@ where
     }
 }
 
-impl<N, L, V, T> Default for SiftEngine<N, L, V, T>
+impl<N, L, V, T, E> Default for SiftEngine<N, L, V, T, E>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
     V: PartialEq + PartialOrd + Clone + Debug + Hash,
     T: Ord + Clone + Debug + Hash,
+    E: Default,
 {
     fn default() -> Self {
-        Self::new()
+        Self::new(E::default())
     }
 }
 
 // Manual Clone: tick accumulators are intentionally empty in cloned engines.
 // Do NOT replace with #[derive(Clone)] -- forked engines start fresh.
-impl<N: Debug + Clone, L: Clone, V: Debug + Clone, T: Clone> Clone for SiftEngine<N, L, V, T> {
+impl<N: Debug + Clone, L: Clone, V: Debug + Clone, T: Clone, E: Clone> Clone for SiftEngine<N, L, V, T, E> {
     /// Clone the entire engine state for speculative evaluation.
     ///
     /// Both the original and clone are independent -- advancing one
@@ -696,6 +706,7 @@ impl<N: Debug + Clone, L: Clone, V: Debug + Clone, T: Clone> Clone for SiftEngin
             tick_completed: HashSet::new(),
             tick_negated: HashSet::new(),
             tick_expired: HashSet::new(),
+            let_evaluator: self.let_evaluator.clone(),
         }
     }
 }

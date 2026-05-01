@@ -24,7 +24,7 @@ pub fn batch_rejects_wrong_temporal_order<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -53,7 +53,7 @@ pub fn temporal_same_timestamp_no_sequence<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -82,7 +82,7 @@ pub fn temporal_large_gap_still_matches<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -111,7 +111,7 @@ pub fn batch_correct_temporal_order<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),

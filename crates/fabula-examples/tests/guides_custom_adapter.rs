@@ -228,7 +228,7 @@ fn smoke_test() {
         })
         .build();
 
-    let mut engine: SiftEngine<String, String, MyValue, i64> = SiftEngine::new();
+    let mut engine: SiftEngine<String, String, MyValue, i64, DefaultLetEvaluator> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
 

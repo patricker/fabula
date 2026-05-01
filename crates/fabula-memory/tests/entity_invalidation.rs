@@ -4,7 +4,7 @@ use fabula_memory::{MemGraph, MemValue};
 #[test]
 fn kill_pms_involving_removes_matching_pms() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     // Two-stage pattern: alice does "start" then "end"
     engine.register(
@@ -51,7 +51,7 @@ fn kill_pms_involving_removes_matching_pms() {
 #[test]
 fn kill_pms_involving_spares_unrelated_pms() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("quest")
@@ -117,7 +117,7 @@ fn kill_pms_involving_spares_unrelated_pms() {
 
 #[test]
 fn kill_pms_involving_returns_zero_when_no_match() {
-    let engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     // No PMs exist at all
     let killed = engine.clone().kill_pms_involving(&"nobody".into());

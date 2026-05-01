@@ -41,7 +41,7 @@ fn batch_auditing() {
             })
             .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(skipped_approval_pattern);
     engine.register(payment_before_confirmation_pattern);
 

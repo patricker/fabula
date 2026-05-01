@@ -4,7 +4,7 @@ use fabula_memory::{MemGraph, MemValue};
 #[test]
 fn disable_pattern_skips_matching() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let idx = engine.register(
         PatternBuilder::new("test")
@@ -42,7 +42,7 @@ fn disable_pattern_skips_matching() {
 #[test]
 fn disable_kills_active_pms() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let idx = engine.register(
         PatternBuilder::new("two_stage")
@@ -91,7 +91,7 @@ fn disable_kills_active_pms() {
 #[test]
 fn reenable_allows_new_matches() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let idx = engine.register(
         PatternBuilder::new("test")
@@ -131,7 +131,7 @@ fn reenable_allows_new_matches() {
 #[test]
 fn pattern_metrics_track_events() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let idx = engine.register(
         PatternBuilder::new("test")
@@ -161,7 +161,7 @@ fn pattern_metrics_track_events() {
 #[test]
 fn stale_patterns_detected() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("stale")
@@ -203,7 +203,7 @@ fn stale_patterns_detected() {
 #[test]
 fn deregister_soft_deletes() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let idx = engine.register(
         PatternBuilder::new("ephemeral")
@@ -233,7 +233,7 @@ fn deregister_soft_deletes() {
 #[test]
 fn evaluate_skips_disabled() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let idx = engine.register(
         PatternBuilder::new("batch_test")
@@ -256,7 +256,7 @@ fn evaluate_skips_disabled() {
 #[test]
 fn tick_delta_summarizes_events() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("quick")
@@ -319,7 +319,7 @@ fn tick_delta_summarizes_events() {
 #[test]
 fn clone_engine_is_independent() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("two_stage")
@@ -397,7 +397,7 @@ fn clone_engine_is_independent() {
 
 #[test]
 fn clone_preserves_disabled_state() {
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let idx = engine.register(
         PatternBuilder::new("test")
@@ -423,7 +423,7 @@ fn clone_preserves_disabled_state() {
 #[test]
 fn plant_payoff_tracks_setup_and_resolution() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let plant_idx = engine.register(
         PatternBuilder::new("promise")
@@ -477,7 +477,7 @@ fn plant_payoff_tracks_setup_and_resolution() {
 #[test]
 fn plant_payoff_stale_detection() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     let plant_idx = engine.register(
         PatternBuilder::new("setup")
@@ -530,7 +530,7 @@ fn plant_payoff_stale_detection() {
 #[test]
 fn end_tick_accumulates_and_clears() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("quick")
@@ -591,7 +591,7 @@ fn end_tick_accumulates_and_clears() {
 #[test]
 fn end_tick_detects_stale_after_many_ticks() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("stuck")
@@ -629,7 +629,7 @@ fn end_tick_detects_stale_after_many_ticks() {
 #[test]
 fn stats_reset() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("test")
             .stage("e", |s| {
@@ -661,7 +661,7 @@ fn stats_reset() {
 #[test]
 fn pm_created_at_set_on_initiation() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("two_stage")
             .stage("e1", |s| {
@@ -694,7 +694,7 @@ fn pm_created_at_set_on_initiation() {
 #[test]
 fn pm_created_at_inherited_on_advance() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("three_stage")
             .stage("e1", |s| {
@@ -748,7 +748,7 @@ fn pm_created_at_inherited_on_advance() {
 #[test]
 fn pm_expires_after_deadline_ticks() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("sla")
@@ -838,7 +838,7 @@ fn pm_expires_after_deadline_ticks() {
 #[test]
 fn no_expiry_without_deadline() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("no_deadline")
@@ -879,7 +879,7 @@ fn no_expiry_without_deadline() {
 #[test]
 fn completed_before_deadline_no_expiry() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     // Single-stage pattern: completion removes the PM entirely.
     engine.register(
@@ -918,7 +918,7 @@ fn completed_before_deadline_no_expiry() {
 #[test]
 fn negation_kills_before_deadline() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("negatable")
@@ -974,7 +974,7 @@ fn negation_kills_before_deadline() {
 #[test]
 fn deadline_created_at_tick_inherited_on_advance() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("three_stage_deadline")
@@ -1055,7 +1055,7 @@ fn batch_cross_stage_gt_var_matches() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1, "150 > 100 should match");
@@ -1081,7 +1081,7 @@ fn batch_cross_stage_gt_var_no_match() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 0, "80 > 100 should not match");
 }
@@ -1089,7 +1089,7 @@ fn batch_cross_stage_gt_var_no_match() {
 #[test]
 fn incremental_cross_stage_gt_var() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("escalation")
@@ -1155,7 +1155,7 @@ fn cross_stage_eq_var_matches() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "500 == 500 should match");
 }
@@ -1182,7 +1182,7 @@ fn cross_stage_var_node_type_mismatch_no_match() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -1212,7 +1212,7 @@ fn cross_stage_gt_boundary_equality_no_match() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -1242,7 +1242,7 @@ fn cross_stage_gte_boundary_equality_matches() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "100 >= 100 should match");
 }
@@ -1267,7 +1267,7 @@ fn cross_stage_lte_matches() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(engine.evaluate(&g).len(), 1, "30 <= 50 should match");
 }
@@ -1296,7 +1296,7 @@ fn cross_stage_var_range_check() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -1334,7 +1334,7 @@ fn cross_stage_var_in_negation_body() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -1360,7 +1360,7 @@ fn repeat_range_completes_at_min() {
 
     let pattern = fabula::compose::repeat_range("strikes", &offense, 3, Some(5), &["target"]);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let mut g = MemGraph::new();
 
@@ -1433,7 +1433,7 @@ fn repeat_range_continues_after_min() {
 
     let pattern = fabula::compose::repeat_range("strikes", &offense, 2, Some(5), &["target"]);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let mut g = MemGraph::new();
 
@@ -1486,7 +1486,7 @@ fn repeat_range_stops_at_max() {
 
     let pattern = fabula::compose::repeat_range("strikes", &offense, 2, Some(4), &["target"]);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let mut g = MemGraph::new();
 
@@ -1534,7 +1534,7 @@ fn repeat_range_unbounded_keeps_matching() {
 
     let pattern = fabula::compose::repeat_range("strikes", &offense, 2, None, &["target"]);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let mut g = MemGraph::new();
 
@@ -1576,7 +1576,7 @@ fn repeat_range_first_last_bindings() {
     // min=2 means 2 total occurrences → completes after first_ + first last_
     let pattern = fabula::compose::repeat_range("strikes", &offense, 2, Some(4), &["target"]);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let mut g = MemGraph::new();
 
@@ -1672,7 +1672,7 @@ fn repeat_range_exact_is_backward_compatible() {
 #[test]
 fn inactivity_pruning_kills_stale_pms() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("two_stage")
@@ -1737,7 +1737,7 @@ fn inactivity_pruning_kills_stale_pms() {
 #[test]
 fn inactivity_pruning_spares_active_pms() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("two_stage")
@@ -1789,7 +1789,7 @@ fn inactivity_pruning_spares_active_pms() {
 #[test]
 fn inactivity_pruning_none_means_no_pruning() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("two_stage")

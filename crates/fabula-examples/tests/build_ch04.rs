@@ -143,7 +143,7 @@ fn react_to_events() {
     }
 
     let mut graph = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(insider_trading_pattern());
     engine.register(flash_crash_pattern());

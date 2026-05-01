@@ -29,7 +29,7 @@ fn voh_pattern<G: TestGraph>() -> Pattern<String, G::V> {
 /// why_not on an empty graph stops at the first unmatched stage.
 pub fn gap_empty_graph<G: TestGraph>() {
     let g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
     let analysis = engine.why_not(&g, "violation_of_hospitality").unwrap();
     assert_eq!(
@@ -46,7 +46,7 @@ pub fn gap_empty_graph<G: TestGraph>() {
 /// why_not returns None for an unregistered pattern.
 pub fn gap_unknown_pattern<G: TestGraph>() {
     let g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
     let result = engine.why_not(&g, "nonexistent_pattern");
     assert!(result.is_none(), "unknown pattern should return None");
@@ -68,7 +68,7 @@ pub fn gap_partially_matched_stage<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let analysis = engine.why_not(&g, "tagged_entry").unwrap();
 
@@ -103,7 +103,7 @@ pub fn gap_second_stage_fails_binding<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let analysis = engine.why_not(&g, "leader_entry").unwrap();
 
@@ -136,7 +136,7 @@ pub fn gap_negated_clause_in_stage<G: TestGraph>() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
 
     // Batch: should not match because tag=forbidden exists
@@ -159,7 +159,7 @@ pub fn gap_with_partial_data<G: TestGraph>() {
     g.add_ref_edge("ev1", "actor", "alice", 1);
     g.set_current_time(10);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(voh_pattern::<G>());
     let analysis = engine.why_not(&g, "violation_of_hospitality").unwrap();
     // why_not stops at the first unmatched stage. Since bindings don't

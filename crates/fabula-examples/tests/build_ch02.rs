@@ -77,7 +77,7 @@ fn flash_crash_pattern() -> Pattern<String, MemValue> {
 // #region putting_it_together
 fn run_all_patterns() {
     let mut graph = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(insider_trading_pattern());
     engine.register(repeated_manipulation_pattern());

@@ -107,36 +107,40 @@ fn resolve_target<N: Debug, V: Clone + PartialEq + PartialOrd + Debug>(
 /// without any engine state.
 ///
 /// Returned matches have `pattern_idx: None` since there is no engine registry.
-pub fn evaluate_pattern<N, L, V, T>(
+pub fn evaluate_pattern<N, L, V, T, E>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
     pattern: &Pattern<L, V>,
+    evaluator: &E,
 ) -> Vec<Match<N, V, T>>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+    E: super::LetEvaluator<N, V>,
 {
     let now = ds.now();
-    evaluate_pattern_at(ds, pattern, &now)
+    evaluate_pattern_at(ds, pattern, &now, evaluator)
 }
 
 /// Evaluate a single pattern, returning only the first complete match.
 ///
 /// Stops as soon as one match is found -- O(1) matches instead of O(all).
 /// For the common case where you only need "does at least one match exist?"
-pub fn evaluate_pattern_first<N, L, V, T>(
+pub fn evaluate_pattern_first<N, L, V, T, E>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
     pattern: &Pattern<L, V>,
+    evaluator: &E,
 ) -> Option<Match<N, V, T>>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+    E: super::LetEvaluator<N, V>,
 {
     let now = ds.now();
-    evaluate_pattern_limit(ds, pattern, &now, 1)
+    evaluate_pattern_limit(ds, pattern, &now, 1, evaluator)
         .into_iter()
         .next()
 }
@@ -145,17 +149,19 @@ where
 ///
 /// Stops candidate expansion early when possible. For storylet pools where
 /// 50 matches exist but only the top 5 matter.
-pub fn evaluate_pattern_limit<N, L, V, T>(
+pub fn evaluate_pattern_limit<N, L, V, T, E>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
     pattern: &Pattern<L, V>,
     at: &T,
     max: usize,
+    evaluator: &E,
 ) -> Vec<Match<N, V, T>>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+    E: super::LetEvaluator<N, V>,
 {
     if max == 0 || pattern.stages.is_empty() {
         return Vec::new();
@@ -164,11 +170,11 @@ where
     let steps = build_stage_steps(pattern);
     let mut candidates: Vec<MatchCandidate<N, V, T>> = match &steps[0] {
         StageStep::Single(idx) => {
-            find_stage_matches(ds, &pattern.stages[*idx], &HashMap::new(), at, &super::DefaultLetEvaluator)
+            find_stage_matches(ds, &pattern.stages[*idx], &HashMap::new(), at, evaluator)
         }
         StageStep::Unordered(indices) => {
             let init = vec![(HashMap::new(), HashMap::new())];
-            expand_unordered_group(ds, pattern, &init, indices, at, &super::DefaultLetEvaluator)
+            expand_unordered_group(ds, pattern, &init, indices, at, evaluator)
         }
     };
 
@@ -178,7 +184,7 @@ where
                 let mut next = Vec::new();
                 for (bindings, intervals) in &candidates {
                     for (new_b, new_i) in
-                        find_stage_matches(ds, &pattern.stages[*idx], bindings, at, &super::DefaultLetEvaluator)
+                        find_stage_matches(ds, &pattern.stages[*idx], bindings, at, evaluator)
                     {
                         let mut merged_b = bindings.clone();
                         merged_b.extend(new_b);
@@ -190,7 +196,7 @@ where
                 candidates = next;
             }
             StageStep::Unordered(indices) => {
-                candidates = expand_unordered_group(ds, pattern, &candidates, indices, at, &super::DefaultLetEvaluator);
+                candidates = expand_unordered_group(ds, pattern, &candidates, indices, at, evaluator);
             }
         }
     }
@@ -243,16 +249,18 @@ where
 /// Like [`evaluate_pattern`] but takes an explicit `at` time instead of
 /// calling `ds.now()`. Useful for speculative evaluation -- checking what
 /// would match at a future or past timestamp without mutating the graph's clock.
-pub fn evaluate_pattern_at<N, L, V, T>(
+pub fn evaluate_pattern_at<N, L, V, T, E>(
     ds: &(impl DataSource<N = N, L = L, V = V, T = T> + ?Sized),
     pattern: &Pattern<L, V>,
     now: &T,
+    evaluator: &E,
 ) -> Vec<Match<N, V, T>>
 where
     N: Eq + Hash + Clone + Debug,
     L: Eq + Hash + Clone + Debug,
-    V: PartialEq + PartialOrd + Clone + Debug + Hash + crate::expr::ArithmeticValue,
+    V: PartialEq + PartialOrd + Clone + Debug + Hash,
     T: Ord + Clone + Debug + Hash + std::ops::Sub<Output = T> + crate::interval::NumericTime,
+    E: super::LetEvaluator<N, V>,
 {
     if pattern.stages.is_empty() {
         return Vec::new();
@@ -266,11 +274,11 @@ where
     // Process first step
     let mut candidates: Vec<MatchCandidate<N, V, T>> = match &steps[0] {
         StageStep::Single(idx) => {
-            find_stage_matches(ds, &pattern.stages[*idx], &HashMap::new(), now, &super::DefaultLetEvaluator)
+            find_stage_matches(ds, &pattern.stages[*idx], &HashMap::new(), now, evaluator)
         }
         StageStep::Unordered(indices) => {
             let init = vec![(HashMap::new(), HashMap::new())];
-            expand_unordered_group(ds, pattern, &init, indices, now, &super::DefaultLetEvaluator)
+            expand_unordered_group(ds, pattern, &init, indices, now, evaluator)
         }
     };
 
@@ -281,7 +289,7 @@ where
                 let mut next = Vec::new();
                 for (bindings, intervals) in &candidates {
                     for (new_b, new_i) in
-                        find_stage_matches(ds, &pattern.stages[*idx], bindings, now, &super::DefaultLetEvaluator)
+                        find_stage_matches(ds, &pattern.stages[*idx], bindings, now, evaluator)
                     {
                         let mut merged_b = bindings.clone();
                         merged_b.extend(new_b);
@@ -293,7 +301,7 @@ where
                 candidates = next;
             }
             StageStep::Unordered(indices) => {
-                candidates = expand_unordered_group(ds, pattern, &candidates, indices, now, &super::DefaultLetEvaluator);
+                candidates = expand_unordered_group(ds, pattern, &candidates, indices, now, evaluator);
             }
         }
     }

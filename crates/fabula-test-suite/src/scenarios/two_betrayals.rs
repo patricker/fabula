@@ -35,7 +35,7 @@ pub fn batch_two_betrayals_match<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_betrayals_pattern::<G>());
     let matches = engine.evaluate(&g);
     assert_eq!(
@@ -58,7 +58,7 @@ pub fn batch_two_betrayals_intervening_blocks<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_betrayals_pattern::<G>());
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -79,7 +79,7 @@ pub fn batch_two_betrayals_other_actor_doesnt_block<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_betrayals_pattern::<G>());
     assert_eq!(
         engine.evaluate(&g).len(),
@@ -98,7 +98,7 @@ pub fn batch_two_betrayals_non_impulsive_no_match<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(two_betrayals_pattern::<G>());
     assert_eq!(
         engine.evaluate(&g).len(),

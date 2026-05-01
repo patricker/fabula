@@ -35,7 +35,7 @@ fn gap_analysis_auditing() {
     graph.add_ref("e2", "resource", "db_prod", 3);
     graph.set_time(10);
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(violation_pattern);
 
     let matches = engine.evaluate(&graph);

@@ -5,7 +5,7 @@
 
 use wasm_bindgen::prelude::*;
 
-use fabula::engine::{MatchState, SiftEngine, StageStatus};
+use fabula::engine::{DefaultLetEvaluator, MatchState, SiftEngine, SiftEngineFor, StageStatus};
 use fabula::interval::Interval;
 use fabula_dsl::ast::GraphAst;
 use fabula_memory::{MemGraph, MemValue};
@@ -152,7 +152,7 @@ pub fn evaluate_batch(pattern_dsl: &str, graph_dsl: &str) -> JsValue {
         Err(e) => return err_json(e),
     };
 
-    let mut engine = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&graph);
 
@@ -261,7 +261,7 @@ pub fn evaluate_incremental(pattern_dsl: &str, graph_dsl: &str) -> JsValue {
     });
 
     let mut graph = MemGraph::new();
-    let mut engine = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     let pattern_name = pattern.name.clone();
     engine.register(pattern);
 
@@ -489,7 +489,7 @@ pub fn why_not(pattern_dsl: &str, graph_dsl: &str) -> JsValue {
     };
 
     let pattern_name = pattern.name.clone();
-    let mut engine = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
 
     match engine.why_not(&graph, &pattern_name) {

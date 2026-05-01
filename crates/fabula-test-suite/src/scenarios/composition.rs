@@ -33,7 +33,7 @@ pub fn batch_sequence_shared_binding<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 5);
     g.set_current_time(10);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(arc);
 
     let matches = engine.evaluate(&g);
@@ -67,7 +67,7 @@ pub fn batch_sequence_different_actors_no_match<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "bob", 5); // different actor
     g.set_current_time(10);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(arc);
 
     let matches = engine.evaluate(&g);
@@ -117,7 +117,7 @@ pub fn batch_sequence_with_negation<G: TestGraph>() {
     g.add_ref_edge("ev3", "actor", "alice", 7);
     g.set_current_time(10);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(arc);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 0, "cancel should block the match");
@@ -150,7 +150,7 @@ pub fn incremental_choice_exclusive<G: TestGraph>() {
     let crises = compose::choice("crisis", &[&war, &famine, &plague], true);
 
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     for c in crises {
         engine.register(c);
     }
@@ -203,7 +203,7 @@ pub fn incremental_choice_exclusive_multistage<G: TestGraph>() {
     let paths = compose::choice("path", &[&path_a, &path_b], true);
 
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     for p in paths {
         engine.register(p);
     }
@@ -285,7 +285,7 @@ pub fn incremental_choice_nonexclusive<G: TestGraph>() {
     let crises = compose::choice("crisis", &[&war, &famine], false);
 
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     for c in crises {
         engine.register(c);
     }
@@ -354,7 +354,7 @@ pub fn batch_repeat_shared_binding<G: TestGraph>() {
     g.add_ref_edge("ev3", "actor", "alice", 10);
     g.set_current_time(15);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(escalation);
 
     let matches = engine.evaluate(&g);
@@ -384,7 +384,7 @@ pub fn private_pattern_suppresses_events<G: TestGraph>() {
         .build();
 
     let mut g = G::new_graph();
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(public_pat);
     engine.register(private_pat);
 
@@ -453,7 +453,7 @@ pub fn batch_repeat_different_actors_no_match<G: TestGraph>() {
     g.add_ref_edge("ev3", "actor", "alice", 10);
     g.set_current_time(15);
 
-    let mut engine: SiftEngineFor<G> = SiftEngine::new();
+    let mut engine: SiftEngineFor<G> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(escalation);
 
     let matches = engine.evaluate(&g);

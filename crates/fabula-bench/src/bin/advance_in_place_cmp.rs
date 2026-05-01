@@ -5,7 +5,7 @@
 //! peak active PM count for each and the ratio.
 
 use fabula::builder::PatternBuilder;
-use fabula::engine::{SiftEngine, SiftEngineFor};
+use fabula::engine::{DefaultLetEvaluator, SiftEngine, SiftEngineFor};
 use fabula::interval::Interval;
 use fabula::pattern::Pattern;
 use fabula_memory::{MemGraph, MemValue};
@@ -29,7 +29,7 @@ use fabula::engine::MatchState;
 /// Returns (active_pm_count, total_pm_count) at end of workload.
 fn run_workload(advance_in_place: bool) -> (usize, usize) {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern(advance_in_place));
 
     // 200 enters.

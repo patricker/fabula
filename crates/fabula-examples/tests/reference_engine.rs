@@ -5,10 +5,10 @@ use fabula_memory::{MemGraph, MemValue};
 fn engine_creation() {
     // #region engine_creation
     // Explicit type parameters:
-    let _engine: SiftEngine<String, String, MemValue, i64> = SiftEngine::new();
+    let _engine: SiftEngine<String, String, MemValue, i64, DefaultLetEvaluator> = SiftEngine::new(DefaultLetEvaluator);
 
     // Or use the SiftEngineFor alias (extracts types from a DataSource):
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 
     engine.register(
         PatternBuilder::new("example")
@@ -25,7 +25,7 @@ fn engine_creation() {
 #[test]
 fn end_tick_usage() {
     // #region end_tick_usage
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("offer_accept")
             .stage("e1", |s| {

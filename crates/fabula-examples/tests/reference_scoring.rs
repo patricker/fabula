@@ -8,7 +8,7 @@ fn surprise_scorer_usage() {
     let mut scorer = SurpriseScorer::new();
     scorer.set_baseline(0, 0.1); // expect pattern 0 to match 10% of rounds
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("betrayal")
             .stage("e", |s| {

@@ -93,7 +93,7 @@ fn dsl_compile_and_evaluate() {
     )
     .expect("pattern should parse");
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
 
     let mut graph = MemGraph::new();

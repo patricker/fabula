@@ -1288,7 +1288,7 @@ mod tests {
 
         assert_eq!(doc.patterns[0].unordered_groups, vec![vec![0, 1]]);
 
-        let mut engine = fabula::engine::SiftEngine::<String, String, MemValue, i64>::new();
+        let mut engine = fabula::engine::SiftEngine::<String, String, MemValue, i64, fabula::engine::DefaultLetEvaluator>::new(fabula::engine::DefaultLetEvaluator);
         engine.register(doc.patterns[0].clone());
         let matches = engine.evaluate(&doc.graphs[0]);
         assert_eq!(matches.len(), 1);

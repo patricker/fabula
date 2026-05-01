@@ -9,7 +9,7 @@ fn dedup_before_fix_same_actor_duplicates() {
     // bindings {person=alice} but different intervals. These are distinct
     // temporal threads and should all be kept.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("two_stage")
             .stage("e1", |s| {
@@ -47,7 +47,7 @@ fn dedup_before_fix_duplicate_events_produce_multiple() {
     // Single-stage pattern with duplicate edges in the graph.
     // Today: duplicate edges produce duplicate completed matches.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("find_harm")
             .stage("e", |s| {
@@ -85,7 +85,7 @@ fn dedup_distinct_intervals_not_merged() {
     // Same actor enters at t=1 and t=3. Same bindings (person=alice) but
     // different intervals. These are distinct temporal threads -- both kept.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("enter_then_act")
             .stage("e1", |s| {
@@ -133,7 +133,7 @@ fn dedup_pm_count_bounded() {
     // 50 events from the same node at the same timestamp should produce
     // at most 1 PM per stage, not 50.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("two_harms")
             .stage("e1", |s| {
@@ -173,7 +173,7 @@ fn dedup_pm_count_bounded() {
 fn dedup_events_match_pms() {
     // Event count must equal PM count -- no orphan events, no silent PMs.
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("find_harm")
             .stage("e", |s| {
@@ -205,7 +205,7 @@ fn dedup_events_match_pms() {
 #[test]
 fn stats_on_edge_added_counter() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("test")
             .stage("e", |s| {
@@ -244,7 +244,7 @@ fn stats_on_edge_added_counter() {
 #[test]
 fn stats_fingerprints_and_negation() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("test")
             .stage("e1", |s| {
@@ -299,7 +299,7 @@ fn stats_fingerprints_and_negation() {
 #[test]
 fn stats_peak_active_pms() {
     let mut g = MemGraph::new();
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     engine.register(
         PatternBuilder::new("test")
             .stage("e1", |s| {

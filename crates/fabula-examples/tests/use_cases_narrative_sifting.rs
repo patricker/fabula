@@ -25,7 +25,7 @@ fn surprise_scoring() {
         })
         .build();
 
-    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+    let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
     let broken_promise_idx = engine.register(broken_promise);
 
     let mut scorer = SurpriseScorer::new();
