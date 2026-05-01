@@ -104,9 +104,12 @@ pub struct SiftEngine<N: Debug + Clone, L, V: Debug + Clone, T: Clone, E> {
 
 /// Convenience alias: extract type params from a [`DataSource`] impl.
 ///
+/// Defaults the let-evaluator type to [`DefaultLetEvaluator`]. Use the
+/// second type parameter to override (e.g., `SiftEngineFor<MemGraph, NoLetEvaluator>`).
+///
 /// ```rust,ignore
-/// // Instead of SiftEngine<String, String, MemValue, i64>:
-/// let engine: SiftEngineFor<MemGraph> = SiftEngine::new();
+/// // Instead of SiftEngine<String, String, MemValue, i64, DefaultLetEvaluator>:
+/// let engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);
 /// ```
 pub type SiftEngineFor<DS, E = DefaultLetEvaluator> = SiftEngine<
     <DS as DataSource>::N,
