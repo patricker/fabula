@@ -58,19 +58,21 @@ fn extract_value<'a, N: Debug, V: Debug>(
 /// successful results back in. Returns `false` if any let fails to evaluate or
 /// shadows an existing binding (defense in depth -- the DSL compiler should
 /// already reject shadowing at compile time).
-pub(super) fn eval_stage_lets<N, L, V>(
+pub(super) fn eval_stage_lets<N, L, V, E>(
     stage: &Stage<L, V>,
     bindings: &mut HashMap<String, BoundValue<N, V>>,
+    evaluator: &E,
 ) -> bool
 where
     N: Eq + Hash + Clone + Debug,
-    V: crate::expr::ArithmeticValue + Clone + Debug,
+    V: Clone + Debug,
+    E: super::LetEvaluator<N, V>,
 {
     for cb in &stage.let_bindings {
         if bindings.contains_key(&cb.name) {
             return false;
         }
-        match cb.expr.eval(bindings) {
+        match evaluator.evaluate(&cb.expr, bindings) {
             Some(v) => {
                 bindings.insert(cb.name.clone(), BoundValue::Value(v));
             }
@@ -562,7 +564,7 @@ where
             for (k, v) in b.iter() {
                 merged.entry(k.clone()).or_insert_with(|| v.clone());
             }
-            if !eval_stage_lets(stage, &mut merged) {
+            if !eval_stage_lets(stage, &mut merged, &super::DefaultLetEvaluator) {
                 continue;
             }
             // Surface let-derived bindings into the candidate's `b` so callers
@@ -1048,7 +1050,7 @@ where
     intervals.insert(stage.anchor.0.clone(), interval.clone());
 
     // Evaluate stage lets against the merged map and surface results back.
-    if !eval_stage_lets(stage, &mut merged) {
+    if !eval_stage_lets(stage, &mut merged, &super::DefaultLetEvaluator) {
         return None;
     }
     for cb in &stage.let_bindings {
