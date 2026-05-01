@@ -58,9 +58,10 @@ pub mod prelude {
     pub use crate::datasource::{DataSource, Label, NodeId, Val, ValueConstraint};
     pub use crate::engine::{
         evaluate_pattern, evaluate_pattern_at, evaluate_pattern_first, evaluate_pattern_limit,
-        gap_analysis, gap_analysis_at, BoundValue, ClauseAnalysis, EngineStats, GapAnalysis, Match,
-        MatchState, PartialMatch, PatternMetrics, PlantPayoffPair, PlantStatus, SiftEngine,
-        SiftEngineFor, SiftEvent, StageAnalysis, StageStatus, TickDelta,
+        gap_analysis, gap_analysis_at, BoundValue, ClauseAnalysis, DefaultLetEvaluator,
+        EngineStats, GapAnalysis, LetEvaluator, Match, MatchState, NoLetEvaluator, PartialMatch,
+        PatternMetrics, PlantPayoffPair, PlantStatus, SiftEngine, SiftEngineFor, SiftEvent,
+        StageAnalysis, StageStatus, TickDelta,
     };
     pub use crate::interval::{AllenRelation, Interval, NumericTime};
     pub use crate::pattern::{

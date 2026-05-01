@@ -38,12 +38,14 @@ use std::hash::{Hash, Hasher};
 
 mod eval;
 mod free;
+mod let_evaluator;
 mod types;
 
 pub use free::{
     evaluate_pattern, evaluate_pattern_at, evaluate_pattern_first, evaluate_pattern_limit,
     gap_analysis, gap_analysis_at,
 };
+pub use let_evaluator::{DefaultLetEvaluator, LetEvaluator, NoLetEvaluator};
 pub use types::*;
 
 // ---------------------------------------------------------------------------
