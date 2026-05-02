@@ -349,6 +349,30 @@ pub fn assemble_signals_weighted(
 /// `significance.pattern_importance` (default `1.0` per missing entry),
 /// matching the per-pattern semantics already applied to advancements and
 /// completions.
+///
+/// # Example
+///
+/// ```rust,ignore
+/// use fabula_narratives::scorer::{
+///     assemble_signals_with_significance, score, NarrativeWeights, SignificanceMap,
+/// };
+///
+/// // Author-time: declare what matters more.
+/// let mut significance = SignificanceMap::default();
+/// significance.pattern_importance.insert("climax".into(), 10.0);
+/// significance.thread_significance.insert("main_arc".into(), 5.0);
+/// significance.thread_significance.insert("side_quest".into(), 0.5);
+///
+/// // Per-tick: feed engine state + significance into the scorer.
+/// let violations = thread_tracker.check_filo();
+/// let signals = assemble_signals_with_significance(
+///     &delta, &plant_statuses, &violations,
+///     trajectory, desired,
+///     pivot, surprise, sequential_surprise,
+///     &significance,
+/// );
+/// let result = score(&signals, &NarrativeWeights::default());
+/// ```
 #[allow(clippy::too_many_arguments)]
 pub fn assemble_signals_with_significance(
     delta: &TickDelta,
