@@ -38,11 +38,11 @@ pub struct StuScoredMatch<N: Debug, V: Debug, T: Debug + Clone> {
 
 /// Internal frequency table for a single pattern.
 #[derive(Debug, Clone, Default)]
-struct PropertyTable {
+pub(crate) struct PropertyTable {
     /// How many matches have been observed for this pattern.
-    total_matches: u64,
+    pub(crate) total_matches: u64,
     /// How many matches contained each property.
-    property_counts: HashMap<String, u64>,
+    pub(crate) property_counts: HashMap<String, u64>,
     /// Co-occurrence counts for property pairs (canonical sorted order).
     /// Only populated when `pmi_correction` is enabled on the scorer.
     pair_counts: HashMap<(String, String), u64>,
