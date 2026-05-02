@@ -200,14 +200,24 @@ pub fn score(signals: &NarrativeSignals, weights: &NarrativeWeights) -> Narrativ
     } else {
         signals.completions as f64
     };
+    let filo = if signals.weighted_filo_violations > 0.0 {
+        signals.weighted_filo_violations
+    } else {
+        signals.filo_violations as f64
+    };
+    let res = if signals.weighted_resolutions > 0.0 {
+        signals.weighted_resolutions
+    } else {
+        signals.resolutions as f64
+    };
     let scale = weights.time_scale;
     let breakdown = ScoreBreakdown {
         progress: adv * weights.progress * scale,
         completion: comp * weights.completion * scale,
         stall_penalty: signals.stalled as f64 * weights.stall_penalty * scale,
         unresolved_penalty: signals.unresolved_plants as f64 * weights.unresolved_penalty * scale,
-        resolution: signals.resolutions as f64 * weights.resolution_reward * scale,
-        filo_penalty: signals.filo_violations as f64 * weights.filo_violation_penalty * scale,
+        resolution: res * weights.resolution_reward * scale,
+        filo_penalty: filo * weights.filo_violation_penalty * scale,
         tension: signals.tension_fit * weights.tension_fit * scale,
         pivot: signals.pivot_magnitude * weights.pivot_reward * scale,
         surprise: signals.surprise * weights.surprise_reward * scale,
@@ -542,5 +552,58 @@ mod tests {
         let s = NarrativeSignals::default();
         assert_eq!(s.weighted_filo_violations, 0.0);
         assert_eq!(s.weighted_resolutions, 0.0);
+    }
+
+    #[test]
+    fn score_uses_weighted_filo_when_nonzero() {
+        let signals_unweighted = NarrativeSignals {
+            filo_violations: 2,
+            ..Default::default()
+        };
+        let signals_weighted = NarrativeSignals {
+            filo_violations: 2, // ignored because weighted is nonzero
+            weighted_filo_violations: 5.0,
+            ..Default::default()
+        };
+        let weights = NarrativeWeights::default();
+
+        let s_unweighted = score(&signals_unweighted, &weights);
+        let s_weighted = score(&signals_weighted, &weights);
+
+        // unweighted: 2 violations * filo_violation_penalty (-3.0) = -6.0
+        // weighted:   5.0 (sum of thread weights) * -3.0 = -15.0
+        assert!((s_unweighted.breakdown.filo_penalty - (2.0 * weights.filo_violation_penalty)).abs() < 1e-9);
+        assert!((s_weighted.breakdown.filo_penalty - (5.0 * weights.filo_violation_penalty)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn score_uses_weighted_resolutions_when_nonzero() {
+        let signals = NarrativeSignals {
+            resolutions: 1, // ignored because weighted is nonzero
+            weighted_resolutions: 7.5,
+            ..Default::default()
+        };
+        let weights = NarrativeWeights::default();
+
+        let s = score(&signals, &weights);
+
+        // 7.5 * resolution_reward (5.0) = 37.5
+        assert!((s.breakdown.resolution - (7.5 * weights.resolution_reward)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn score_falls_back_to_unweighted_when_weighted_is_zero() {
+        let signals = NarrativeSignals {
+            filo_violations: 4,
+            resolutions: 2,
+            // weighted fields default to 0.0
+            ..Default::default()
+        };
+        let weights = NarrativeWeights::default();
+
+        let s = score(&signals, &weights);
+
+        assert!((s.breakdown.filo_penalty - (4.0 * weights.filo_violation_penalty)).abs() < 1e-9);
+        assert!((s.breakdown.resolution - (2.0 * weights.resolution_reward)).abs() < 1e-9);
     }
 }
