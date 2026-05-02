@@ -436,6 +436,21 @@ engine output.
 Subsumed by pattern metadata (done in Salience integration). Use
 `meta("narrative_role", "kernel")` or `meta("narrative_role", "satellite")`.
 
+#### 7.9 DSL block / inline comments
+
+The lexer already supports `//` line comments (handled by
+`skip_whitespace_and_comments` in `fabula-dsl/src/lexer.rs:117`). What's
+missing is `/* ... */` block / inline-mid-line comments — useful for
+temporarily disabling a chunk of a pattern, or annotating a constraint
+on the same line without splitting it across lines.
+
+**Files**: `fabula-dsl/src/lexer.rs` (extend `skip_whitespace_and_comments`)
+**Effort**: Low. Add a `/*` arm that scans to the matching `*/`, increments
+`line` on each `\n` inside, and errors on unterminated. Add tokenizer
+tests parallel to `tokenize_comments` covering: simple block comment,
+multi-line block comment, mid-token comment (`pattern /* foo */ name`),
+unterminated block comment error.
+
 ---
 
 ### Phase 8 — Research & Publication
