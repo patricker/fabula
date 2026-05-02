@@ -16,6 +16,7 @@
 
 use divan::Bencher;
 use fabula_bench::{generate_trace, NarrativeShape, NarrativeTrace, NarrativeTraceConfig};
+use fabula_narratives::distance::JensenShannon;
 use fabula_narratives::pivot::PivotDetector;
 use fabula_narratives::scorer::{assemble_signals, score, NarrativeWeights};
 use fabula_narratives::tension::TensionTracker;
@@ -36,7 +37,7 @@ fn run_pipeline(trace: &NarrativeTrace) {
         thread_tracker.register(name, *open_idx, *close_idx);
     }
     let mut tension_tracker = TensionTracker::new(20);
-    let mut pivot_detector = PivotDetector::new();
+    let mut pivot_detector = PivotDetector::<JensenShannon>::new();
     let weights = NarrativeWeights::default();
 
     for tick in &trace.ticks {
@@ -69,7 +70,7 @@ fn run_pipeline(trace: &NarrativeTrace) {
 struct WarmedPipeline {
     thread_tracker: ThreadTracker,
     tension_tracker: TensionTracker,
-    pivot_detector: PivotDetector,
+    pivot_detector: PivotDetector<JensenShannon>,
     weights: NarrativeWeights,
 }
 
@@ -90,7 +91,7 @@ fn warm_pipeline(
         thread_tracker.register(name, *open_idx, *close_idx);
     }
     let mut tension_tracker = TensionTracker::new(20);
-    let mut pivot_detector = PivotDetector::new();
+    let mut pivot_detector = PivotDetector::<JensenShannon>::new();
 
     for tick in trace.ticks.iter().take(warmup_count) {
         thread_tracker.observe_delta(&tick.delta);

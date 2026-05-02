@@ -335,6 +335,7 @@ pub fn generate_trace(config: &NarrativeTraceConfig) -> NarrativeTrace {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use fabula_narratives::distance::JensenShannon;
     use fabula_narratives::pivot::PivotDetector;
     use fabula_narratives::scorer::{assemble_signals, score, NarrativeWeights};
     use fabula_narratives::tension::TensionTracker;
@@ -357,7 +358,7 @@ mod tests {
             thread_tracker.register(name, *open_idx, *close_idx);
         }
         let mut tension_tracker = TensionTracker::new(20);
-        let mut pivot_detector = PivotDetector::new();
+        let mut pivot_detector = PivotDetector::<JensenShannon>::new();
         let weights = NarrativeWeights::default();
 
         let mut nonzero_scores = 0usize;

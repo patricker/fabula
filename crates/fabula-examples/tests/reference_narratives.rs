@@ -1,3 +1,4 @@
+use fabula_narratives::distance::JensenShannon;
 use fabula_narratives::pivot::PivotDetector;
 use fabula_narratives::scorer::{score, NarrativeSignals, NarrativeWeights};
 use fabula_narratives::tension::{TensionTracker, Trajectory};
@@ -32,7 +33,7 @@ fn tension_tracker_usage() {
 #[test]
 fn pivot_detector_usage() {
     // #region pivot_detector
-    let mut pivot = PivotDetector::new();
+    let mut pivot = PivotDetector::<JensenShannon>::new();
 
     // Tick 1: peaceful events
     pivot.push("trade");

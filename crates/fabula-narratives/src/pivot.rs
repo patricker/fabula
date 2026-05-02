@@ -9,17 +9,20 @@
 //! updated each tick. JSD is symmetric and bounded in [0, 1] (when using
 //! log base 2), making it directly comparable across ticks.
 
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-/// Detects narrative pivots via event distribution shift (JSD).
+/// Detects narrative pivots via event distribution shift.
 ///
-/// Feed event type strings each tick via [`push`], then call [`end_tick`]
-/// to compute the JSD between this tick's distribution and the previous tick's.
+/// Generic over a [`crate::distance::DistanceMetric`]. The default metric is
+/// [`crate::distance::JensenShannon`], preserving the original Schulz (2024)
+/// Pivot measure. Use [`PivotDetector::with_metric`] to supply a different
+/// metric instance.
 ///
 /// ```rust
+/// use fabula_narratives::distance::JensenShannon;
 /// use fabula_narratives::pivot::PivotDetector;
 ///
-/// let mut pivot = PivotDetector::new();
+/// let mut pivot = PivotDetector::<JensenShannon>::new();
 /// // Tick 1: mostly peaceful events
 /// pivot.push("trade"); pivot.push("trade"); pivot.push("talk");
 /// let _ = pivot.end_tick(); // first tick has no previous -- returns 0
@@ -30,20 +33,41 @@ use std::collections::{HashMap, HashSet};
 /// assert!(jsd > 0.5, "dramatic shift should produce high JSD");
 /// ```
 #[derive(Debug, Clone, Default)]
-pub struct PivotDetector {
+pub struct PivotDetector<M = crate::distance::JensenShannon>
+where
+    M: crate::distance::DistanceMetric + Default,
+{
     /// Event counts for the current tick.
     current_counts: HashMap<String, u64>,
     /// Normalized distribution from the previous tick.
     prev_distribution: HashMap<String, f64>,
     /// Total events in current tick.
     current_total: u64,
-    /// History of JSD values.
+    /// History of distance values.
     history: Vec<f64>,
+    /// The distance metric used to compare consecutive distributions.
+    metric: M,
 }
 
-impl PivotDetector {
+impl<M> PivotDetector<M>
+where
+    M: crate::distance::DistanceMetric + Default,
+{
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Construct a detector with a specific metric instance. Useful when
+    /// the metric carries configuration; for stateless metrics like the
+    /// built-ins, `PivotDetector::<MyMetric>::new()` is equivalent.
+    pub fn with_metric(metric: M) -> Self {
+        Self {
+            current_counts: HashMap::new(),
+            prev_distribution: HashMap::new(),
+            current_total: 0,
+            history: Vec::new(),
+            metric,
+        }
     }
 
     /// Record an event type for the current tick.
@@ -55,50 +79,41 @@ impl PivotDetector {
         self.current_total += 1;
     }
 
-    /// End the current tick: compute JSD against previous tick's distribution,
-    /// save current as previous, clear accumulators.
+    /// End the current tick: compute the distance against the previous tick's
+    /// distribution, save current as previous, clear accumulators.
     ///
-    /// Returns the JSD value in [0, 1]. First tick returns 0.0 (no previous).
-    ///
-    /// Empty ticks (no events pushed) return 0.0 and leave the previous
-    /// distribution unchanged -- the next non-empty tick compares against the
-    /// last non-empty tick's distribution.
+    /// Returns the distance value. First tick returns `0.0` (no previous).
+    /// Empty ticks return `0.0` and leave the previous distribution unchanged.
     pub fn end_tick(&mut self) -> f64 {
         if self.current_total == 0 {
-            // Empty tick -- no events, no pivot
             self.history.push(0.0);
             return 0.0;
         }
 
-        // Normalize current counts to a distribution
         let current_dist: HashMap<String, f64> = self
             .current_counts
             .iter()
             .map(|(k, &v)| (k.clone(), v as f64 / self.current_total as f64))
             .collect();
 
-        let jsd = if self.prev_distribution.is_empty() {
-            0.0 // First tick -- no previous to compare
+        let d = if self.prev_distribution.is_empty() {
+            0.0
         } else {
-            jensen_shannon_divergence(&self.prev_distribution, &current_dist)
+            self.metric.distance(&self.prev_distribution, &current_dist)
         };
 
-        self.history.push(jsd);
+        self.history.push(d);
         self.prev_distribution = current_dist;
         self.current_counts.clear();
         self.current_total = 0;
 
-        jsd
+        d
     }
 
-    /// Most recent JSD value.
     pub fn last_pivot(&self) -> f64 {
         self.history.last().copied().unwrap_or(0.0)
     }
 
-    /// Average pivot magnitude over the last N ticks.
-    ///
-    /// Returns 0.0 if the history is empty or window is 0.
     pub fn average_pivot(&self, window: usize) -> f64 {
         if self.history.is_empty() || window == 0 {
             return 0.0;
@@ -108,12 +123,10 @@ impl PivotDetector {
         slice.iter().sum::<f64>() / slice.len() as f64
     }
 
-    /// Full history of JSD values.
     pub fn history(&self) -> &[f64] {
         &self.history
     }
 
-    /// Reset all state.
     pub fn reset(&mut self) {
         self.current_counts.clear();
         self.prev_distribution.clear();
@@ -122,39 +135,15 @@ impl PivotDetector {
     }
 }
 
-/// Jensen-Shannon Divergence between two categorical distributions.
-/// JSD(P || Q) = 0.5 * KL(P || M) + 0.5 * KL(Q || M), where M = (P + Q) / 2.
-/// Uses log base 2, so result is in [0, 1].
-fn jensen_shannon_divergence(p: &HashMap<String, f64>, q: &HashMap<String, f64>) -> f64 {
-    let all_keys: HashSet<&String> = p.keys().chain(q.keys()).collect();
-
-    let mut jsd = 0.0;
-    for key in all_keys {
-        let p_val = p.get(key).copied().unwrap_or(0.0);
-        let q_val = q.get(key).copied().unwrap_or(0.0);
-        let m_val = (p_val + q_val) / 2.0;
-
-        if m_val > 0.0 {
-            if p_val > 0.0 {
-                jsd += 0.5 * p_val * (p_val / m_val).log2();
-            }
-            if q_val > 0.0 {
-                jsd += 0.5 * q_val * (q_val / m_val).log2();
-            }
-        }
-    }
-
-    // Clamp: floating-point rounding can produce tiny negative values
-    jsd.max(0.0)
-}
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::distance::{DistanceMetric, Hellinger, JensenShannon};
 
     #[test]
     fn identical_distributions_zero_jsd() {
-        let mut p = PivotDetector::new();
+        let mut p = PivotDetector::<JensenShannon>::new();
         p.push("trade");
         p.push("talk");
         p.end_tick();
@@ -170,7 +159,7 @@ mod tests {
 
     #[test]
     fn completely_different_distributions_high_jsd() {
-        let mut p = PivotDetector::new();
+        let mut p = PivotDetector::<JensenShannon>::new();
         p.push("peace");
         p.push("peace");
         p.end_tick();
@@ -186,20 +175,20 @@ mod tests {
 
     #[test]
     fn first_tick_returns_zero() {
-        let mut p = PivotDetector::new();
+        let mut p = PivotDetector::<JensenShannon>::new();
         p.push("test");
         assert_eq!(p.end_tick(), 0.0);
     }
 
     #[test]
     fn empty_tick_returns_zero() {
-        let mut p = PivotDetector::new();
+        let mut p = PivotDetector::<JensenShannon>::new();
         assert_eq!(p.end_tick(), 0.0);
     }
 
     #[test]
     fn partial_overlap_moderate_jsd() {
-        let mut p = PivotDetector::new();
+        let mut p = PivotDetector::<JensenShannon>::new();
         // Tick 1: mostly trade
         p.push("trade");
         p.push("trade");
@@ -219,7 +208,7 @@ mod tests {
 
     #[test]
     fn average_pivot_over_window() {
-        let mut p = PivotDetector::new();
+        let mut p = PivotDetector::<JensenShannon>::new();
         // 5 ticks of identical events
         for _ in 0..5 {
             p.push("same");
@@ -233,7 +222,7 @@ mod tests {
 
     #[test]
     fn average_pivot_zero_window_returns_zero() {
-        let mut p = PivotDetector::new();
+        let mut p = PivotDetector::<JensenShannon>::new();
         p.push("test");
         p.end_tick();
         // window=0 should return 0.0, not NaN
@@ -245,11 +234,37 @@ mod tests {
     fn jsd_is_bounded_zero_one() {
         let p: HashMap<String, f64> = [("a".into(), 1.0)].into();
         let q: HashMap<String, f64> = [("b".into(), 1.0)].into();
-        let jsd = jensen_shannon_divergence(&p, &q);
+        let jsd = JensenShannon.distance(&p, &q);
         assert!(
             jsd >= 0.0 && jsd <= 1.0,
             "JSD should be in [0, 1], got {}",
             jsd
         );
+    }
+
+    #[test]
+    fn pivot_detector_with_custom_metric() {
+        let mut p: PivotDetector<Hellinger> = PivotDetector::with_metric(Hellinger);
+        p.push("trade");
+        p.push("trade");
+        p.end_tick(); // first tick — returns 0
+
+        p.push("attack");
+        p.push("attack");
+        let d = p.end_tick();
+        assert!(d > 0.5, "Hellinger should detect distribution shift; got {}", d);
+        assert!(d <= 1.0, "Hellinger is bounded [0, 1]; got {}", d);
+    }
+
+    #[test]
+    fn default_pivot_detector_uses_jsd() {
+        // PivotDetector::<JensenShannon>::new() is the default — backward compat
+        let mut p = PivotDetector::<JensenShannon>::new();
+        p.push("a");
+        p.end_tick();
+        p.push("b");
+        let d = p.end_tick();
+        // Total mass shift from {a:1.0} to {b:1.0} = JSD = 1.0
+        assert!((d - 1.0).abs() < 1e-9);
     }
 }

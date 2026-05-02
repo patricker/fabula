@@ -17,6 +17,7 @@ use std::sync::Arc;
 
 use divan::Bencher;
 use fabula_bench::narrative_workload::{generate_trace, NarrativeTrace, NarrativeTraceConfig};
+use fabula_narratives::distance::JensenShannon;
 use fabula_narratives::pivot::PivotDetector;
 use fabula_narratives::scorer::{assemble_signals, score, NarrativeWeights};
 use fabula_narratives::tension::TensionTracker;
@@ -45,7 +46,7 @@ struct NarrativeGame {
     depth: usize,
     thread_tracker: ThreadTracker,
     tension_tracker: TensionTracker,
-    pivot_detector: PivotDetector,
+    pivot_detector: PivotDetector<JensenShannon>,
     trace: Arc<NarrativeTrace>,
 }
 
@@ -60,7 +61,7 @@ impl NarrativeGame {
             depth: 0,
             thread_tracker,
             tension_tracker: TensionTracker::new(20),
-            pivot_detector: PivotDetector::new(),
+            pivot_detector: PivotDetector::<JensenShannon>::new(),
             trace,
         }
     }

@@ -357,6 +357,7 @@ fn tick_deltas_and_scoring() {
 #[test]
 fn narrative_scoring_integration() {
     // #region narrative_scoring
+    use fabula_narratives::distance::JensenShannon;
     use fabula_narratives::pivot::PivotDetector;
     use fabula_narratives::scorer::{assemble_signals, score, NarrativeWeights};
     use fabula_narratives::tension::{TensionTracker, Trajectory};
@@ -371,7 +372,7 @@ fn narrative_scoring_integration() {
     let mut thread_tracker = ThreadTracker::new();
     // thread_tracker.register("investigation", open_idx, close_idx);
     let mut tension = TensionTracker::new(10); // sliding window of 10 ticks
-    let mut pivot = PivotDetector::new();
+    let mut pivot = PivotDetector::<JensenShannon>::new();
 
     // Inside your tick loop, after feeding edges with on_edge_added():
     let (delta, _expired_events) = engine.end_tick(50);
