@@ -20,8 +20,10 @@ pub enum TokenKind {
     Sharing,    // sharing
     Concurrent, // concurrent
     In,         // in
-    Importance, // importance
-    Let,        // let
+    Importance,  // importance
+    Let,         // let
+    Template,    // template
+    Instantiate, // instantiate
 
     // Symbols
     LBrace,    // {
@@ -565,6 +567,8 @@ impl<'a> Lexer<'a> {
             "in" => TokenKind::In,
             "importance" => TokenKind::Importance,
             "let" => TokenKind::Let,
+            "template" => TokenKind::Template,
+            "instantiate" => TokenKind::Instantiate,
             _ => TokenKind::Ident(word.to_string()),
         };
         Ok(Token {
@@ -725,5 +729,22 @@ world""""#;
         assert!(matches!(tokens[3].kind, TokenKind::Semicolon));
         assert!(matches!(tokens[13].kind, TokenKind::Plus));
         assert!(matches!(tokens[14].kind, TokenKind::Number(n) if n == 1.0));
+    }
+
+    #[test]
+    fn tokenize_template_keyword() {
+        let src = "template harm_arc(aggressor, victim) {}";
+        let tokens = Lexer::new(src).tokenize().expect("should tokenize");
+        let kinds: Vec<&TokenKind> = tokens.iter().map(|t| &t.kind).collect();
+        assert!(matches!(kinds[0], TokenKind::Template));
+        assert!(matches!(kinds[1], TokenKind::Ident(s) if s == "harm_arc"));
+    }
+
+    #[test]
+    fn tokenize_instantiate_keyword() {
+        let src = r#"instantiate harm_arc("alice", "bob")"#;
+        let tokens = Lexer::new(src).tokenize().expect("should tokenize");
+        assert!(matches!(tokens[0].kind, TokenKind::Instantiate));
+        assert!(matches!(tokens[1].kind, TokenKind::Ident(ref s) if s == "harm_arc"));
     }
 }
