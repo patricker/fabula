@@ -7,6 +7,42 @@
 //! Observations and lookups are keyed on `(pattern, role)` instead of just
 //! `pattern`. Math, aggregation modes, and Laplace smoothing are identical
 //! to [`StuScorer`].
+//!
+//! # Use case: villain doing villain things
+//!
+//! ```rust
+//! use fabula::scoring::RoleConditionedStuScorer;
+//!
+//! let mut scorer = RoleConditionedStuScorer::new();
+//!
+//! // Train: villains stab (95% knife, 5% words),
+//! //        heroes argue (5% knife, 95% words).
+//! for _ in 0..95 { scorer.observe_one("betrayal", "villain", &["weapon=knife"]); }
+//! for _ in 0..5  { scorer.observe_one("betrayal", "villain", &["weapon=words"]); }
+//! for _ in 0..5  { scorer.observe_one("betrayal", "hero",    &["weapon=knife"]); }
+//! for _ in 0..95 { scorer.observe_one("betrayal", "hero",    &["weapon=words"]); }
+//!
+//! // The marginal frequency of weapon=knife (across roles) is ~50%, so
+//! // the plain StuScorer would say "moderate surprise" for both.
+//! //
+//! // The role-conditioned scorer distinguishes:
+//! let villain_knife = scorer
+//!     .property_frequency("betrayal", "villain", "weapon=knife")
+//!     .unwrap();
+//! let hero_knife = scorer
+//!     .property_frequency("betrayal", "hero", "weapon=knife")
+//!     .unwrap();
+//!
+//! assert!(villain_knife > 0.9); // expected — not surprising
+//! assert!(hero_knife    < 0.1); // unexpected — high surprise
+//! ```
+//!
+//! # When to use this vs [`StuScorer`]
+//!
+//! - Use `StuScorer` when surprise is meant to capture "rare in the corpus."
+//! - Use `RoleConditionedStuScorer` when surprise is meant to capture
+//!   "rare *for this kind of actor*." The two are complementary; you can
+//!   wire both into a composite score and weight them differently.
 
 use crate::engine::Match;
 use crate::scoring::stu::{PropertyTable, StuAggregation, StuScoredMatch};
