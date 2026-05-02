@@ -8,20 +8,42 @@
 //! `pattern`. Math, aggregation modes, and Laplace smoothing are identical
 //! to [`StuScorer`].
 
-use crate::scoring::stu::PropertyTable;
+use crate::engine::Match;
+use crate::scoring::stu::{PropertyTable, StuAggregation, StuScoredMatch};
 use std::collections::HashMap;
+use std::fmt::Debug;
 
 /// Surprise scorer that conditions on entity role.
-#[derive(Debug, Clone, Default)]
+///
+/// Tracks per-property frequencies keyed on `(pattern, role)` instead of
+/// just `pattern`. See the [module-level docs](self) for the use case.
+#[derive(Debug, Clone)]
 pub struct RoleConditionedStuScorer {
     /// `(pattern, role) -> PropertyTable`.
     tables: HashMap<(String, String), PropertyTable>,
+    /// How to combine per-property frequencies into a single score.
+    aggregation: StuAggregation,
+}
+
+impl Default for RoleConditionedStuScorer {
+    fn default() -> Self {
+        Self {
+            tables: HashMap::new(),
+            aggregation: StuAggregation::ArithmeticMean,
+        }
+    }
 }
 
 impl RoleConditionedStuScorer {
     /// Create a new empty scorer with arithmetic mean aggregation (default).
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the aggregation strategy. Default is `ArithmeticMean`.
+    pub fn with_aggregation(mut self, aggregation: StuAggregation) -> Self {
+        self.aggregation = aggregation;
+        self
     }
 
     /// Record properties for a single match in the context of a role.
@@ -70,11 +92,127 @@ impl RoleConditionedStuScorer {
     pub fn reset(&mut self) {
         self.tables.clear();
     }
+
+    /// Score a batch of matches, each with its associated role and
+    /// pre-extracted property list. Returns one `StuScoredMatch` per input.
+    ///
+    /// Score interpretation depends on the aggregation mode: **lower = more
+    /// surprising** for `ArithmeticMean`, `GeometricMean`, and `Min`;
+    /// **higher = more surprising** for `TfIdf`.
+    ///
+    /// Matches whose `(pattern, role)` pair has not been observed get
+    /// `stu_score = 1.0` (maximally unsurprising — no data to distinguish).
+    #[allow(clippy::type_complexity)]
+    pub fn score<
+        N: Debug + Clone + PartialEq,
+        V: Debug + Clone + PartialEq,
+        T: Debug + Clone + PartialEq,
+    >(
+        &self,
+        matches_with_role_and_props: &[(Match<N, V, T>, String, Vec<String>)],
+    ) -> Vec<StuScoredMatch<N, V, T>> {
+        matches_with_role_and_props
+            .iter()
+            .map(|(m, role, props)| {
+                let key = (m.pattern.clone(), role.clone());
+                let table = self.tables.get(&key);
+
+                if props.is_empty() || table.is_none() {
+                    return StuScoredMatch {
+                        pattern: m.pattern.clone(),
+                        pattern_idx: m.pattern_idx,
+                        bindings: m.bindings.clone(),
+                        intervals: m.intervals.clone(),
+                        metadata: m.metadata.clone(),
+                        property_frequencies: Vec::new(),
+                        stu_score: 1.0,
+                    };
+                }
+
+                let table = table.unwrap();
+                let vocab_size = table.property_counts.len() as f64;
+
+                // Deduplicate properties (consistent with observe_one)
+                let unique_props: Vec<&String> = {
+                    let mut seen = std::collections::HashSet::new();
+                    props.iter().filter(|p| seen.insert(p.as_str())).collect()
+                };
+
+                let prop_freqs: Vec<(String, f64)> = unique_props
+                    .iter()
+                    .map(|prop| {
+                        let count = table
+                            .property_counts
+                            .get(prop.as_str())
+                            .copied()
+                            .unwrap_or(0);
+                        let freq =
+                            (count as f64 + 1.0) / (table.total_matches as f64 + vocab_size);
+                        (prop.to_string(), freq)
+                    })
+                    .collect();
+
+                let stu_score = aggregate(&self.aggregation, &prop_freqs);
+
+                StuScoredMatch {
+                    pattern: m.pattern.clone(),
+                    pattern_idx: m.pattern_idx,
+                    bindings: m.bindings.clone(),
+                    intervals: m.intervals.clone(),
+                    metadata: m.metadata.clone(),
+                    property_frequencies: prop_freqs,
+                    stu_score,
+                }
+            })
+            .collect()
+    }
+}
+
+/// Combine per-property frequencies into a single score per the aggregation
+/// strategy. Mirrors [`StuScorer`]'s aggregation math (same formulas, same
+/// polarity conventions) but without cold-start attenuation — the
+/// `RoleConditionedStuScorer` omits attenuation so scores are directly
+/// comparable to the trained frequencies.
+///
+/// **Lower = more surprising** for `ArithmeticMean`, `GeometricMean`, `Min`.
+/// **Higher = more surprising** for `TfIdf`.
+fn aggregate(aggregation: &StuAggregation, prop_freqs: &[(String, f64)]) -> f64 {
+    if prop_freqs.is_empty() {
+        return 1.0;
+    }
+    let k = prop_freqs.len() as f64;
+    match aggregation {
+        StuAggregation::ArithmeticMean => {
+            prop_freqs.iter().map(|(_, f)| f).sum::<f64>() / k
+        }
+        StuAggregation::GeometricMean => {
+            (prop_freqs.iter().map(|(_, f)| f.ln()).sum::<f64>() / k).exp()
+        }
+        StuAggregation::Min => prop_freqs
+            .iter()
+            .map(|(_, f)| *f)
+            .fold(f64::INFINITY, f64::min),
+        StuAggregation::TfIdf => {
+            // Higher = more surprising. Sum of -log2(freq) per property.
+            // Matches StuScorer's log-base semantics.
+            prop_freqs.iter().map(|(_, f)| -f.log2()).sum::<f64>()
+        }
+    }
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn fake_match(pattern: &str) -> Match<String, String, i64> {
+        Match {
+            pattern: pattern.to_string(),
+            pattern_idx: None,
+            bindings: std::collections::HashMap::new(),
+            intervals: std::collections::HashMap::new(),
+            metadata: std::collections::HashMap::new(),
+        }
+    }
 
     #[test]
     fn role_conditioned_recovers_per_role_distribution() {
@@ -159,5 +297,84 @@ mod tests {
         // Frequency of "x" with vocab=2 (x, y), counts: x=1: (1+1)/(1+2) = 2/3
         let fx = scorer.property_frequency("p", "r", "x").unwrap();
         assert!((fx - (2.0 / 3.0)).abs() < 1e-9, "got {}", fx);
+    }
+
+    // -----------------------------------------------------------------------
+    // Aggregation and score() tests (Task 3)
+    // -----------------------------------------------------------------------
+
+    #[test]
+    fn score_uses_role_conditioned_frequencies() {
+        let mut scorer = RoleConditionedStuScorer::new();
+        // Villains: knife is common, words is rare.
+        for _ in 0..95 {
+            scorer.observe_one("betrayal", "villain", &["weapon=knife"]);
+        }
+        for _ in 0..5 {
+            scorer.observe_one("betrayal", "villain", &["weapon=words"]);
+        }
+        // Heroes: knife is rare.
+        for _ in 0..5 {
+            scorer.observe_one("betrayal", "hero", &["weapon=knife"]);
+        }
+        for _ in 0..95 {
+            scorer.observe_one("betrayal", "hero", &["weapon=words"]);
+        }
+
+        let villain_match = fake_match("betrayal");
+        let hero_match = fake_match("betrayal");
+        let scored = scorer.score(&[
+            (villain_match, "villain".to_string(), vec!["weapon=knife".to_string()]),
+            (hero_match, "hero".to_string(), vec!["weapon=knife".to_string()]),
+        ]);
+
+        assert_eq!(scored.len(), 2);
+        // ArithmeticMean: lower = more surprising. Hero knife should score
+        // much lower than villain knife.
+        assert!(
+            scored[0].stu_score > scored[1].stu_score * 5.0,
+            "expected villain knife (common 95%) to score much higher than hero knife (rare 5%); got villain={}, hero={}",
+            scored[0].stu_score, scored[1].stu_score
+        );
+    }
+
+    #[test]
+    fn score_unknown_role_yields_neutral_one() {
+        let mut scorer = RoleConditionedStuScorer::new();
+        scorer.observe_one("betrayal", "villain", &["weapon=knife"]);
+
+        let m = fake_match("betrayal");
+        let scored = scorer.score(&[(m, "stranger".to_string(), vec!["weapon=knife".to_string()])]);
+        assert_eq!(scored.len(), 1);
+        assert!(
+            (scored[0].stu_score - 1.0).abs() < 1e-9,
+            "unknown (pattern, role) yields neutral score 1.0; got {}",
+            scored[0].stu_score
+        );
+    }
+
+    #[test]
+    fn with_aggregation_changes_score_combination() {
+        let mut scorer = RoleConditionedStuScorer::new().with_aggregation(StuAggregation::Min);
+        scorer.observe_one("p", "r", &["common"]);
+        scorer.observe_one("p", "r", &["common"]);
+        scorer.observe_one("p", "r", &["common", "rare"]);
+
+        let m = fake_match("p");
+        let scored = scorer.score(&[(
+            m,
+            "r".to_string(),
+            vec!["common".to_string(), "rare".to_string()],
+        )]);
+
+        // Min aggregation = freq of the rarest property.
+        // common: 3/3 + 1, vocab=2 → 4/5 = 0.8
+        // rare:   1/3 + 1, vocab=2 → 2/5 = 0.4
+        // Min = 0.4
+        assert!(
+            (scored[0].stu_score - 0.4).abs() < 1e-9,
+            "Min aggregation should pick the rare property's freq; got {}",
+            scored[0].stu_score
+        );
     }
 }
