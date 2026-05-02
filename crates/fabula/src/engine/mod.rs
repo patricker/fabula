@@ -176,6 +176,26 @@ where
         &self.patterns
     }
 
+    /// Return a map from pattern name to importance weight, suitable for
+    /// passing to [`fabula_narratives::scorer::assemble_signals_weighted`]
+    /// (or any other consumer expecting `HashMap<String, f64>` of pattern
+    /// importance values).
+    ///
+    /// Private patterns (`pattern.private == true`) are excluded — their
+    /// matches are already filtered from engine output, so weighting them
+    /// in narrative scoring would be incoherent.
+    ///
+    /// Default importance is `1.0`. Patterns set via the builder method
+    /// `.importance(weight)` or the DSL `importance N.N` directive carry
+    /// their authored value through into this map.
+    pub fn pattern_importance_map(&self) -> HashMap<String, f64> {
+        self.patterns
+            .iter()
+            .filter(|p| !p.private)
+            .map(|p| (p.name.clone(), p.importance))
+            .collect()
+    }
+
     /// All partial matches (including completed ones).
     pub fn partial_matches(&self) -> &[PartialMatch<N, V, T>] {
         &self.partial_matches
@@ -694,7 +714,9 @@ where
 
 // Manual Clone: tick accumulators are intentionally empty in cloned engines.
 // Do NOT replace with #[derive(Clone)] -- forked engines start fresh.
-impl<N: Debug + Clone, L: Clone, V: Debug + Clone, T: Clone, E: Clone> Clone for SiftEngine<N, L, V, T, E> {
+impl<N: Debug + Clone, L: Clone, V: Debug + Clone, T: Clone, E: Clone> Clone
+    for SiftEngine<N, L, V, T, E>
+{
     /// Clone the entire engine state for speculative evaluation.
     ///
     /// Both the original and clone are independent -- advancing one
