@@ -178,6 +178,26 @@ impl MemGraph {
         self.add_edge(source, label, value, at);
     }
 
+    /// Add an event node to the graph with one `eventType` edge and one
+    /// `tag` edge per tag value. All edges open at `time` (use
+    /// [`add_edge_bounded`] if you need a closed interval).
+    ///
+    /// This is sugar for the multi-tag event convention. Equivalent to
+    /// calling `add_edge` once per `(node, "eventType", type)` and once
+    /// per `(node, "tag", tag)`. See `docs/docs/guides/tag-modeling.md`
+    /// for the modeling rationale.
+    pub fn add_event(&mut self, id: &str, event_type: &str, tags: &[&str], time: i64) {
+        self.add_edge(
+            id,
+            "eventType",
+            MemValue::Str(event_type.to_string()),
+            time,
+        );
+        for tag in tags {
+            self.add_edge(id, "tag", MemValue::Str((*tag).to_string()), time);
+        }
+    }
+
     /// Total number of edges.
     pub fn edge_count(&self) -> usize {
         self.edges.len()
