@@ -18,7 +18,9 @@
 mod sequential;
 mod stu;
 mod surprise;
+pub mod role_conditioned;
 
+pub use role_conditioned::RoleConditionedStuScorer;
 pub use sequential::SequentialScorer;
 pub use stu::{StuAggregation, StuScoredMatch, StuScorer};
 pub use surprise::{ScoredMatch, SurpriseScorer};
