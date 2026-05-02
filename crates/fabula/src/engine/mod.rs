@@ -177,7 +177,7 @@ where
     }
 
     /// Return a map from pattern name to importance weight, suitable for
-    /// passing to [`fabula_narratives::scorer::assemble_signals_weighted`]
+    /// passing to `fabula_narratives::scorer::assemble_signals_weighted`
     /// (or any other consumer expecting `HashMap<String, f64>` of pattern
     /// importance values).
     ///
@@ -188,6 +188,26 @@ where
     /// Default importance is `1.0`. Patterns set via the builder method
     /// `.importance(weight)` or the DSL `importance N.N` directive carry
     /// their authored value through into this map.
+    ///
+    /// # Example
+    ///
+    /// ```rust,ignore
+    /// // Register patterns with explicit importance:
+    /// let climax = PatternBuilder::new("climax")
+    ///     .stage("e1", |s| s.edge("e1", "type", "duel"))
+    ///     .importance(10.0)
+    ///     .build();
+    /// engine.register(climax);
+    ///
+    /// // Per-tick: extract the map and feed it to the narrative scorer.
+    /// let importance = engine.pattern_importance_map();
+    /// let signals = fabula_narratives::scorer::assemble_signals_weighted(
+    ///     &delta, &plant_statuses, filo_violations,
+    ///     trajectory, desired, pivot, surprise, sequential_surprise,
+    ///     &importance,
+    /// );
+    /// let score = fabula_narratives::scorer::score(&signals, &weights);
+    /// ```
     pub fn pattern_importance_map(&self) -> HashMap<String, f64> {
         self.patterns
             .iter()
