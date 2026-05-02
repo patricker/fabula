@@ -170,6 +170,11 @@ fn expand_pattern_instantiations(
 
     let mut result_stages: Vec<StageAst> = Vec::new();
     let mut inst_iter = ast.instantiations.iter().peekable();
+    // Each instantiation gets a unique index so its stage anchors and the
+    // clause sources that reference them can be prefixed (`inst0__e1`,
+    // `inst1__e1`, …). This prevents anchor collisions when the same
+    // template is instantiated multiple times in one pattern.
+    let mut next_inst_idx: usize = 0;
 
     for (orig_idx, orig_stage) in ast.stages.iter().enumerate() {
         // Splice any instantiations that should appear before this orig_stage.
@@ -184,8 +189,9 @@ fn expand_pattern_instantiations(
                         span: (0, 0),
                         message: format!("unknown template `{}`", inst.template_name),
                     })?;
-                let expanded = expand_template(tmpl, &inst.args)?;
+                let expanded = expand_template(tmpl, &inst.args, next_inst_idx)?;
                 result_stages.extend(expanded);
+                next_inst_idx += 1;
                 inst_iter.next();
             } else {
                 break;
@@ -205,8 +211,9 @@ fn expand_pattern_instantiations(
                 span: (0, 0),
                 message: format!("unknown template `{}`", inst.template_name),
             })?;
-        let expanded = expand_template(tmpl, &inst.args)?;
+        let expanded = expand_template(tmpl, &inst.args, next_inst_idx)?;
         result_stages.extend(expanded);
+        next_inst_idx += 1;
     }
 
     Ok(PatternAst {
@@ -224,9 +231,19 @@ fn expand_pattern_instantiations(
     })
 }
 
-/// Expand a single template invocation: substitute parameters into a clone
-/// of the template's stages and return the resulting stage list.
-fn expand_template(template: &TemplateAst, args: &[String]) -> Result<Vec<StageAst>, ParseError> {
+/// Expand a single template invocation: rename anchors per-instantiation
+/// (so multiple instantiations of the same template don't collide on stage
+/// anchor names), then substitute parameters into a clone of the template's
+/// stages.
+///
+/// Anchor renaming happens first; parameter substitution sees the prefixed
+/// anchor names and won't accidentally replace them even if a parameter
+/// shares a name with an anchor (which is unusual but legal).
+fn expand_template(
+    template: &TemplateAst,
+    args: &[String],
+    instantiation_idx: usize,
+) -> Result<Vec<StageAst>, ParseError> {
     if template.params.len() != args.len() {
         return Err(ParseError {
             line: 0,
@@ -247,13 +264,44 @@ fn expand_template(template: &TemplateAst, args: &[String]) -> Result<Vec<StageA
         .zip(args.iter().map(|a| a.as_str()))
         .collect();
 
+    // Collect anchor names defined by this template's stages so we can
+    // rewrite both the anchor field and any clause source that references
+    // those anchors. Anchors not in this set (e.g., references to outer
+    // pattern stages — currently impossible since templates don't reach
+    // outside their body, but cheap to be defensive) are left alone.
+    let template_anchors: std::collections::HashSet<&str> = template
+        .stages
+        .iter()
+        .map(|s| s.anchor.as_str())
+        .collect();
+    let prefix = format!("inst{}__", instantiation_idx);
+
     let mut out = Vec::with_capacity(template.stages.len());
     for stage in &template.stages {
         let mut new_stage = stage.clone();
+        rename_anchors_in_stage(&mut new_stage, &template_anchors, &prefix);
         substitute_in_stage(&mut new_stage, &substitutions);
         out.push(new_stage);
     }
     Ok(out)
+}
+
+/// Rewrite any anchor references in a stage so they're scoped to a single
+/// instantiation. Touches the stage's `anchor` field plus every clause
+/// `source` whose value matches one of `template_anchors`.
+fn rename_anchors_in_stage(
+    stage: &mut StageAst,
+    template_anchors: &std::collections::HashSet<&str>,
+    prefix: &str,
+) {
+    if template_anchors.contains(stage.anchor.as_str()) {
+        stage.anchor = format!("{}{}", prefix, stage.anchor);
+    }
+    for clause in &mut stage.clauses {
+        if template_anchors.contains(clause.source.as_str()) {
+            clause.source = format!("{}{}", prefix, clause.source);
+        }
+    }
 }
 
 fn substitute_in_stage(
@@ -277,10 +325,12 @@ fn substitute_in_clause(
     if let Some(&replacement) = subs.get(clause.source.as_str()) {
         clause.source = replacement.to_string();
     }
-    // Label: usually a literal string; occasionally a param name.
-    if let Some(&replacement) = subs.get(clause.label.as_str()) {
-        clause.label = replacement.to_string();
-    }
+    // Note: labels are NOT substituted. Labels are predicate names from the
+    // graph schema (e.g., "actor", "target", "eventType"). If a parameter
+    // happens to share a name with a label (e.g., a template with parameter
+    // `actor` matching `e1.actor -> ?actor`), substituting the label would
+    // silently rewire the clause to query a non-existent edge. Labels are
+    // schema-identifying string literals, not parameterizable positions.
     // Target: rewrite based on variant.
     substitute_in_target(&mut clause.target, subs);
 }

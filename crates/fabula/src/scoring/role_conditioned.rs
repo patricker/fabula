@@ -5,8 +5,10 @@
 //! high marginal surprise but low conditional surprise given their role.
 //!
 //! Observations and lookups are keyed on `(pattern, role)` instead of just
-//! `pattern`. Math, aggregation modes, and Laplace smoothing are identical
-//! to [`StuScorer`].
+//! `pattern`. Aggregation modes (`ArithmeticMean`, `GeometricMean`, `Min`,
+//! `TfIdf`) and Laplace smoothing are equivalent to [`StuScorer`], with one
+//! deliberate omission: cold-start attenuation is not applied here. Scores
+//! converge with `StuScorer`'s output as the per-role observation count grows.
 //!
 //! # Use case: villain doing villain things
 //!

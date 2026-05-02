@@ -55,12 +55,32 @@ string at every occurrence in:
 
 | Position | Example before | Example after `instantiate t("alice", "bob")` |
 |---|---|---|
-| Variable reference | `e1.actor -> ?aggressor` | `e1.actor -> ?alice` |
+| Clause source | `?aggressor.eventType = "harm"` | `?alice.eventType = "harm"` |
 | Bind target | `e1.actor -> ?victim` | `e1.actor -> ?bob` |
+| `*Var` constraint target | `e1.actor = ?aggressor` | `e1.actor = ?alice` |
+| Node-ref target | `e1.actor -> aggressor` | `e1.actor -> alice` |
 | String-literal target | `e1.role = "aggressor"` | `e1.role = "alice"` |
 | `OneOf` member | `e1.tag in ["aggressor", "ritual"]` | `e1.tag in ["alice", "ritual"]` |
 
+**Labels are NOT substituted.** A label like `actor` in `e1.actor -> ?aggressor`
+identifies the predicate name in your graph schema, not a parameterizable
+position. If a parameter happened to share a name with a label, substituting
+the label would silently rewire the clause to query a non-existent edge —
+so the substitution skips labels entirely. Pick parameter names that don't
+collide with the labels you want to keep (most schemas use noun-like labels
+`actor`, `target`, `eventType` and parameter names tend to be role-like
+`aggressor`, `victim`, `witness` — collisions are uncommon in practice).
+
 Numeric and boolean literals are *not* substituted.
+
+Stage anchor names are also not parameter-substituted, but they ARE renamed
+per-instantiation to a fresh prefix (`inst0__e1`, `inst1__e1`, …) so two
+instantiations of the same template don't collide on anchor scope.
+
+Stage `let` bindings inside templates are not yet substituted — if you put
+a parameterized expression in a `let` binding inside a template, the result
+is unspecified. For the current version, write `let` bindings outside
+template bodies in the calling pattern.
 
 ## Multiple instantiations
 
@@ -110,6 +130,11 @@ Here `full_arc` compiles to a two-stage pattern: `prep` then `climax`.
 - **No cross-document imports** — templates are document-scoped.
 - **No nested templates** — `instantiate` cannot appear inside a template body.
 - **Arguments must be string literals** — not numbers, booleans, or `?var` references.
+- **Labels are not parameterizable** — pick parameter names that don't collide
+  with predicate names in your schema (see "What gets substituted" above).
+- **`let` bindings inside template bodies are not substituted** — if you need
+  a parameterized `let`, define it in the calling pattern after the
+  `instantiate` directive.
 
 These are intentional simplifications. File an issue with a concrete use case
 if you need one of these constraints lifted.

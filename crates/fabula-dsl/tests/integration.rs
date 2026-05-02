@@ -1534,8 +1534,16 @@ fn instantiate_can_be_invoked_multiple_times() {
     let p = &result.patterns[0];
     assert_eq!(p.stages.len(), 2, "two instantiations produce two stages");
 
-    let stage1_clause = p.stages[0].clauses.iter().find(|c| c.label == "actor").unwrap();
-    let stage2_clause = p.stages[1].clauses.iter().find(|c| c.label == "actor").unwrap();
+    let stage1_clause = p.stages[0]
+        .clauses
+        .iter()
+        .find(|c| c.label == "actor")
+        .unwrap();
+    let stage2_clause = p.stages[1]
+        .clauses
+        .iter()
+        .find(|c| c.label == "actor")
+        .unwrap();
 
     match (&stage1_clause.target, &stage2_clause.target) {
         (Target::Bind(v1), Target::Bind(v2)) => {
@@ -1544,4 +1552,69 @@ fn instantiate_can_be_invoked_multiple_times() {
         }
         other => panic!("unexpected targets: {:?}", other),
     }
+
+    // Anchors must differ across instantiations — otherwise the engine
+    // would constrain stage 1 to match the same node as stage 0 because
+    // the anchor `e1` is treated as already-bound.
+    assert_ne!(
+        p.stages[0].anchor.0, p.stages[1].anchor.0,
+        "two instantiations of the same template must produce distinct \
+         stage anchors; got {:?} and {:?}",
+        p.stages[0].anchor.0, p.stages[1].anchor.0
+    );
+}
+
+#[test]
+fn instantiate_multi_engine_evaluates_independently() {
+    // Regression guard for the anchor-collision bug. Two instantiations of
+    // the same single-stage template must produce two distinct matches when
+    // the graph contains two distinct events, one matching each
+    // instantiation's substituted bind. If the anchors collide, the engine
+    // either drops one match or collapses both into one.
+    use fabula::engine::{evaluate_pattern, DefaultLetEvaluator};
+    use fabula_memory::{MemGraph, MemValue};
+
+    let src = r#"
+        template harm_by(actor) {
+            stage e1 {
+                e1.eventType = "harm"
+                e1.actor -> ?actor
+            }
+        }
+        pattern double_harm {
+            instantiate harm_by("alice")
+            instantiate harm_by("bob")
+        }
+    "#;
+    let result = parse_document(src).expect("should compile");
+    let pattern = &result.patterns[0];
+    assert_eq!(pattern.stages.len(), 2);
+
+    let mut g = MemGraph::new();
+    // Event ev1: a harm event whose actor edge resolves to node "alice".
+    g.add_edge(
+        "ev1",
+        "eventType",
+        MemValue::Str("harm".into()),
+        1,
+    );
+    g.add_edge("ev1", "actor", MemValue::Node("alice".into()), 1);
+    // Event ev2: a harm event whose actor resolves to node "bob".
+    g.add_edge(
+        "ev2",
+        "eventType",
+        MemValue::Str("harm".into()),
+        2,
+    );
+    g.add_edge("ev2", "actor", MemValue::Node("bob".into()), 2);
+    g.set_time(10);
+
+    let matches = evaluate_pattern(&g, pattern, &DefaultLetEvaluator);
+    assert_eq!(
+        matches.len(),
+        1,
+        "expected exactly one full match (ev1 binds inst0__e1, ev2 binds inst1__e1); \
+         got {} — anchor collision likely",
+        matches.len()
+    );
 }
