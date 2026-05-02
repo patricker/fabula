@@ -29,6 +29,17 @@ impl Document {
             })
             .collect()
     }
+
+    /// All template ASTs in declaration order.
+    pub fn templates(&self) -> Vec<&TemplateAst> {
+        self.items
+            .iter()
+            .filter_map(|i| match i {
+                DocumentItem::Template(t) => Some(t),
+                _ => None,
+            })
+            .collect()
+    }
 }
 
 /// A single item in a document.
@@ -37,6 +48,7 @@ pub enum DocumentItem {
     Pattern(PatternAst),
     Graph(GraphAst),
     Compose(ComposeAst),
+    Template(TemplateAst),
 }
 
 /// A compose directive -- builds a pattern from named sub-patterns.
@@ -74,6 +86,15 @@ pub enum ComposeBody {
 pub struct PatternAst {
     pub name: String,
     pub stages: Vec<StageAst>,
+    /// Parallel-list of instantiate directives interleaved with stages. Each
+    /// entry is `(position, InstantiateAst)` where `position` is the index
+    /// into `stages` *before* which the instantiation splices its stages in.
+    /// For example, `position == stages.len()` means the instantiation appends
+    /// after all explicitly-declared stages.
+    ///
+    /// This parallel-list approach preserves backward compatibility with all
+    /// existing callers of `PatternAst.stages` (parser, compiler, tests).
+    pub instantiations: Vec<(usize, InstantiateAst)>,
     pub negations: Vec<NegationAst>,
     pub temporals: Vec<TemporalAst>,
     pub metadata: Vec<(String, String)>,
@@ -90,6 +111,31 @@ pub struct PatternAst {
     pub advance_in_place: bool,
 }
 
+/// A reusable parameterized template. Defined at document scope; expanded
+/// at compile time. Templates cannot themselves contain `instantiate`
+/// directives (no nested templating in this version).
+#[derive(Debug, Clone)]
+pub struct TemplateAst {
+    pub name: String,
+    /// Parameter names in declaration order. Each parameter is substituted
+    /// textually wherever it appears in the body — in clause sources, in
+    /// `?param` variable references, in string-literal targets, etc.
+    pub params: Vec<String>,
+    /// The template body's stages. These are AST nodes, not yet specialized
+    /// for any particular argument set.
+    pub stages: Vec<StageAst>,
+}
+
+/// A request to instantiate a template inside a pattern body. Resolved
+/// (and replaced with the substituted stages) by the compiler.
+#[derive(Debug, Clone)]
+pub struct InstantiateAst {
+    pub template_name: String,
+    /// String-literal arguments only in this version. `args.len()` must
+    /// equal the referenced template's `params.len()` at compile time.
+    pub args: Vec<String>,
+}
+
 /// The interior of a pattern -- stages, negations, and temporal constraints,
 /// without the `pattern name { }` wrapper.
 ///
@@ -99,6 +145,8 @@ pub struct PatternAst {
 #[derive(Debug, Clone)]
 pub struct PatternBody {
     pub stages: Vec<StageAst>,
+    /// Instantiate directives interleaved with stages; see `PatternAst::instantiations`.
+    pub instantiations: Vec<(usize, InstantiateAst)>,
     pub negations: Vec<NegationAst>,
     pub temporals: Vec<TemporalAst>,
     pub metadata: Vec<(String, String)>,

@@ -95,7 +95,8 @@ impl Parser {
                 TokenKind::Pattern => items.push(DocumentItem::Pattern(self.parse_pattern()?)),
                 TokenKind::Graph => items.push(DocumentItem::Graph(self.parse_graph()?)),
                 TokenKind::Compose => items.push(DocumentItem::Compose(self.parse_compose()?)),
-                _ => return Err(self.error("expected 'pattern', 'graph', or 'compose'")),
+                TokenKind::Template => items.push(DocumentItem::Template(self.parse_template()?)),
+                _ => return Err(self.error("expected 'pattern', 'graph', 'compose', or 'template'")),
             }
         }
 
@@ -141,6 +142,7 @@ impl Parser {
         Ok(PatternAst {
             name,
             stages: body.stages,
+            instantiations: body.instantiations,
             negations: body.negations,
             temporals: body.temporals,
             metadata: body.metadata,
@@ -172,6 +174,7 @@ impl Parser {
     /// ```
     pub fn parse_pattern_body(&mut self) -> Result<PatternBody, ParseError> {
         let mut stages = Vec::new();
+        let mut instantiations = Vec::new();
         let mut negations = Vec::new();
         let mut temporals = Vec::new();
         let mut metadata = Vec::new();
@@ -181,6 +184,11 @@ impl Parser {
         while !self.check(TokenKind::RBrace) && !self.at_eof() {
             match &self.peek().kind {
                 TokenKind::Stage => stages.push(self.parse_stage()?),
+                TokenKind::Instantiate => {
+                    let pos = stages.len();
+                    let inst = self.parse_instantiate()?;
+                    instantiations.push((pos, inst));
+                }
                 TokenKind::Unless => negations.push(self.parse_negation()?),
                 TokenKind::Temporal => temporals.push(self.parse_temporal()?),
                 TokenKind::Concurrent => {
@@ -217,13 +225,14 @@ impl Parser {
                     last.let_bindings.push(lb);
                 }
                 _ => return Err(self.error(
-                    "expected 'stage', 'unless', 'temporal', 'concurrent', 'meta', 'deadline', or 'let'",
+                    "expected 'stage', 'instantiate', 'unless', 'temporal', 'concurrent', 'meta', 'deadline', or 'let'",
                 )),
             }
         }
 
         Ok(PatternBody {
             stages,
+            instantiations,
             negations,
             temporals,
             metadata,
@@ -335,6 +344,61 @@ impl Parser {
             gap_min,
             gap_max,
         })
+    }
+
+    /// Parse a `template name(params) { stages }` definition.
+    pub fn parse_template(&mut self) -> Result<crate::ast::TemplateAst, ParseError> {
+        self.expect(TokenKind::Template)?;
+        let name = self.expect_ident()?;
+
+        // Parameter list: (a, b, c) or ()
+        self.expect(TokenKind::LParen)?;
+        let mut params = Vec::new();
+        if !self.check(TokenKind::RParen) {
+            params.push(self.expect_ident()?);
+            while self.check(TokenKind::Comma) {
+                self.advance();
+                params.push(self.expect_ident()?);
+            }
+        }
+        self.expect(TokenKind::RParen)?;
+
+        // Body: { stage ... stage ... }
+        self.expect(TokenKind::LBrace)?;
+        let mut stages = Vec::new();
+        while !self.check(TokenKind::RBrace) && !self.at_eof() {
+            if !self.check(TokenKind::Stage) {
+                return Err(self.error(
+                    "expected `stage` inside template body (templates cannot contain \
+                     `instantiate` and must have at least one stage)",
+                ));
+            }
+            stages.push(self.parse_stage()?);
+        }
+        self.expect(TokenKind::RBrace)?;
+
+        if stages.is_empty() {
+            return Err(self.error("template must contain at least one stage"));
+        }
+
+        Ok(crate::ast::TemplateAst { name, params, stages })
+    }
+
+    /// Parse an `instantiate name(args)` directive.
+    pub fn parse_instantiate(&mut self) -> Result<crate::ast::InstantiateAst, ParseError> {
+        self.expect(TokenKind::Instantiate)?;
+        let template_name = self.expect_ident()?;
+        self.expect(TokenKind::LParen)?;
+        let mut args = Vec::new();
+        if !self.check(TokenKind::RParen) {
+            args.push(self.expect_string()?);
+            while self.check(TokenKind::Comma) {
+                self.advance();
+                args.push(self.expect_string()?);
+            }
+        }
+        self.expect(TokenKind::RParen)?;
+        Ok(crate::ast::InstantiateAst { template_name, args })
     }
 
     /// Parse a `let name = expr` declaration. Returns the LetAst; the caller
@@ -908,6 +972,20 @@ impl Parser {
                 }
             }
             _ => Err(self.error("expected number")),
+        }
+    }
+
+    /// Expect and consume a string literal token.
+    pub fn expect_string(&mut self) -> Result<String, ParseError> {
+        match &self.peek().kind {
+            TokenKind::String(_) => {
+                if let TokenKind::String(s) = &self.advance().kind {
+                    Ok(s.clone())
+                } else {
+                    unreachable!()
+                }
+            }
+            _ => Err(self.error("expected string literal")),
         }
     }
 
