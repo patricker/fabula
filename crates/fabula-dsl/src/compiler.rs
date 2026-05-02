@@ -116,6 +116,7 @@ pub fn compile_pattern_body_with<M: TypeMapper>(
     let ast = PatternAst {
         name: name.to_string(),
         stages: body.stages.clone(),
+        instantiations: body.instantiations.clone(),
         negations: body.negations.clone(),
         temporals: body.temporals.clone(),
         metadata: body.metadata.clone(),
@@ -126,6 +127,205 @@ pub fn compile_pattern_body_with<M: TypeMapper>(
         advance_in_place: body.advance_in_place,
     };
     compile_pattern_with(&ast, mapper)
+}
+
+// ---------------------------------------------------------------------------
+// Template expansion
+// ---------------------------------------------------------------------------
+
+/// Compile a pattern AST, expanding any `instantiate` directives using the
+/// provided template list. Templates defined earlier in the document are
+/// passed in via `templates`.
+pub fn compile_pattern_with_templates<M: TypeMapper>(
+    ast: &PatternAst,
+    templates: &[&TemplateAst],
+    mapper: &M,
+) -> Result<Pattern<M::L, M::V>, ParseError> {
+    if ast.instantiations.is_empty() {
+        // Fast path: no instantiations, compile normally.
+        return compile_pattern_with(ast, mapper);
+    }
+
+    // Expand instantiations into a new PatternAst with all stages inlined.
+    let expanded = expand_pattern_instantiations(ast, templates)?;
+    compile_pattern_with(&expanded, mapper)
+}
+
+/// Expand all `instantiate` directives in a `PatternAst` into a new
+/// `PatternAst` with the substituted stages spliced in-order.
+fn expand_pattern_instantiations(
+    ast: &PatternAst,
+    templates: &[&TemplateAst],
+) -> Result<PatternAst, ParseError> {
+    // Build expanded stage list by interleaving existing stages with
+    // template-expanded stages at the recorded insertion positions.
+    //
+    // Strategy: process stages and instantiations in parallel, maintaining
+    // a cursor over the original `ast.stages` list and splicing in
+    // expanded template stages at the recorded `pos` values.
+    //
+    // Each instantiation has `pos` = number of original stages that come
+    // *before* it in declaration order. We walk through original stages and
+    // instantiations together by their positions.
+
+    let mut result_stages: Vec<StageAst> = Vec::new();
+    let mut inst_iter = ast.instantiations.iter().peekable();
+
+    for (orig_idx, orig_stage) in ast.stages.iter().enumerate() {
+        // Splice any instantiations that should appear before this orig_stage.
+        while let Some((pos, inst)) = inst_iter.peek() {
+            if *pos <= orig_idx {
+                let tmpl = templates
+                    .iter()
+                    .find(|t| t.name == inst.template_name)
+                    .ok_or_else(|| ParseError {
+                        line: 0,
+                        column: 0,
+                        span: (0, 0),
+                        message: format!("unknown template `{}`", inst.template_name),
+                    })?;
+                let expanded = expand_template(tmpl, &inst.args)?;
+                result_stages.extend(expanded);
+                inst_iter.next();
+            } else {
+                break;
+            }
+        }
+        result_stages.push(orig_stage.clone());
+    }
+
+    // Splice any remaining instantiations (those that appear after all stages).
+    for (_, inst) in inst_iter {
+        let tmpl = templates
+            .iter()
+            .find(|t| t.name == inst.template_name)
+            .ok_or_else(|| ParseError {
+                line: 0,
+                column: 0,
+                span: (0, 0),
+                message: format!("unknown template `{}`", inst.template_name),
+            })?;
+        let expanded = expand_template(tmpl, &inst.args)?;
+        result_stages.extend(expanded);
+    }
+
+    Ok(PatternAst {
+        name: ast.name.clone(),
+        stages: result_stages,
+        instantiations: Vec::new(), // already expanded
+        negations: ast.negations.clone(),
+        temporals: ast.temporals.clone(),
+        metadata: ast.metadata.clone(),
+        deadline: ast.deadline,
+        unordered_groups: ast.unordered_groups.clone(),
+        private: ast.private,
+        importance: ast.importance,
+        advance_in_place: ast.advance_in_place,
+    })
+}
+
+/// Expand a single template invocation: substitute parameters into a clone
+/// of the template's stages and return the resulting stage list.
+fn expand_template(template: &TemplateAst, args: &[String]) -> Result<Vec<StageAst>, ParseError> {
+    if template.params.len() != args.len() {
+        return Err(ParseError {
+            line: 0,
+            column: 0,
+            span: (0, 0),
+            message: format!(
+                "template `{}` expects {} argument(s), got {}",
+                template.name,
+                template.params.len(),
+                args.len(),
+            ),
+        });
+    }
+    let substitutions: std::collections::HashMap<&str, &str> = template
+        .params
+        .iter()
+        .map(|p| p.as_str())
+        .zip(args.iter().map(|a| a.as_str()))
+        .collect();
+
+    let mut out = Vec::with_capacity(template.stages.len());
+    for stage in &template.stages {
+        let mut new_stage = stage.clone();
+        substitute_in_stage(&mut new_stage, &substitutions);
+        out.push(new_stage);
+    }
+    Ok(out)
+}
+
+fn substitute_in_stage(
+    stage: &mut StageAst,
+    subs: &std::collections::HashMap<&str, &str>,
+) {
+    // Stage anchor (`stage <name>`) is preserved as-is.
+    for clause in &mut stage.clauses {
+        substitute_in_clause(clause, subs);
+    }
+    // let_bindings: variable names and expression vars could technically be
+    // params, but template bodies are typically pure-stage DSL with no lets.
+    // We leave let_bindings unsubstituted in this version.
+}
+
+fn substitute_in_clause(
+    clause: &mut ClauseAst,
+    subs: &std::collections::HashMap<&str, &str>,
+) {
+    // Source node: rewrite param references (bare ident or ?param).
+    if let Some(&replacement) = subs.get(clause.source.as_str()) {
+        clause.source = replacement.to_string();
+    }
+    // Label: usually a literal string; occasionally a param name.
+    if let Some(&replacement) = subs.get(clause.label.as_str()) {
+        clause.label = replacement.to_string();
+    }
+    // Target: rewrite based on variant.
+    substitute_in_target(&mut clause.target, subs);
+}
+
+fn substitute_in_target(
+    target: &mut ClauseTarget,
+    subs: &std::collections::HashMap<&str, &str>,
+) {
+    match target {
+        ClauseTarget::Bind(var) => {
+            if let Some(&replacement) = subs.get(var.as_str()) {
+                *var = replacement.to_string();
+            }
+        }
+        ClauseTarget::NodeRef(node) => {
+            if let Some(&replacement) = subs.get(node.as_str()) {
+                *node = replacement.to_string();
+            }
+        }
+        ClauseTarget::ConstraintVar(_, var) => {
+            if let Some(&replacement) = subs.get(var.as_str()) {
+                *var = replacement.to_string();
+            }
+        }
+        ClauseTarget::LiteralStr(s) => {
+            // Substitute if the literal string IS exactly a parameter name.
+            // (Whole-token substitution only — no substring replacement.)
+            if let Some(&replacement) = subs.get(s.as_str()) {
+                *s = replacement.to_string();
+            }
+        }
+        ClauseTarget::OneOf(values) => {
+            for v in values {
+                if let ConstraintValue::Str(s) = v {
+                    if let Some(&replacement) = subs.get(s.as_str()) {
+                        *s = replacement.to_string();
+                    }
+                }
+            }
+        }
+        // Numbers, booleans, and numeric constraints are not substituted.
+        ClauseTarget::LiteralNum(_)
+        | ClauseTarget::LiteralBool(_)
+        | ClauseTarget::Constraint(_, _) => {}
+    }
 }
 
 /// Compile a pattern AST using a custom [`TypeMapper`].
@@ -1288,7 +1488,13 @@ mod tests {
 
         assert_eq!(doc.patterns[0].unordered_groups, vec![vec![0, 1]]);
 
-        let mut engine = fabula::engine::SiftEngine::<String, String, MemValue, i64, fabula::engine::DefaultLetEvaluator>::new(fabula::engine::DefaultLetEvaluator);
+        let mut engine = fabula::engine::SiftEngine::<
+            String,
+            String,
+            MemValue,
+            i64,
+            fabula::engine::DefaultLetEvaluator,
+        >::new(fabula::engine::DefaultLetEvaluator);
         engine.register(doc.patterns[0].clone());
         let matches = engine.evaluate(&doc.graphs[0]);
         assert_eq!(matches.len(), 1);

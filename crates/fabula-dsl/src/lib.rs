@@ -45,7 +45,7 @@ pub mod error;
 pub mod lexer;
 pub mod parser;
 
-use ast::DocumentItem;
+use ast::{DocumentItem, TemplateAst};
 use error::ParseError;
 use fabula::pattern::Pattern;
 use fabula_memory::{MemGraph, MemValue};
@@ -117,11 +117,15 @@ pub fn parse_document_with<M: TypeMapper>(
     let mut patterns = Vec::new();
     let mut graphs = Vec::new();
     let mut named: HashMap<String, Pattern<M::L, M::V>> = HashMap::new();
+    let mut templates: Vec<&TemplateAst> = Vec::new();
 
     for item in &doc.items {
         match item {
+            DocumentItem::Template(t) => {
+                templates.push(t);
+            }
             DocumentItem::Pattern(ast) => {
-                let pat = compiler::compile_pattern_with(ast, mapper)?;
+                let pat = compiler::compile_pattern_with_templates(ast, &templates, mapper)?;
                 named.insert(ast.name.clone(), pat.clone());
                 patterns.push(pat);
             }

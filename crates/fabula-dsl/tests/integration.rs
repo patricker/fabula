@@ -1320,3 +1320,228 @@ fn roundtrip_importance_default() {
     let pattern = parse_pattern(dsl).unwrap();
     assert_eq!(pattern.importance, 1.0);
 }
+
+// ---------------------------------------------------------------------------
+// Template tests (Tasks 3, 4, 5)
+// ---------------------------------------------------------------------------
+
+/// Helper: parse DSL source to a raw `Document` AST (not yet compiled).
+fn parse_doc_ast(src: &str) -> Result<fabula_dsl::ast::Document, fabula_dsl::error::ParseError> {
+    let tokens = fabula_dsl::lexer::Lexer::new(src).tokenize()?;
+    fabula_dsl::parser::Parser::new(tokens).parse_document()
+}
+
+// --- Task 3: parse template definitions ---
+
+#[test]
+fn parse_template_definition() {
+    let src = r#"
+        template harm_arc(aggressor, victim) {
+            stage e1 {
+                e1.eventType = "harm"
+                e1.actor -> ?aggressor
+            }
+        }
+    "#;
+    let doc = parse_doc_ast(src).expect("template should parse");
+    let templates = doc.templates();
+    assert_eq!(templates.len(), 1);
+    let t = templates[0];
+    assert_eq!(t.name, "harm_arc");
+    assert_eq!(t.params, vec!["aggressor".to_string(), "victim".to_string()]);
+    assert_eq!(t.stages.len(), 1);
+    assert_eq!(t.stages[0].clauses.len(), 2);
+}
+
+#[test]
+fn parse_template_with_zero_params() {
+    let src = r#"
+        template empty() {
+            stage e1 {
+                e1.eventType = "anything"
+            }
+        }
+    "#;
+    let doc = parse_doc_ast(src).expect("zero-param template should parse");
+    let templates = doc.templates();
+    assert_eq!(templates[0].params.len(), 0);
+}
+
+#[test]
+fn parse_template_with_no_stages_errors() {
+    let src = r#"template harm() { }"#;
+    let result = parse_doc_ast(src);
+    assert!(result.is_err(), "empty template body should error");
+    let err_msg = result.unwrap_err().to_string();
+    assert!(
+        err_msg.contains("at least one stage") || err_msg.contains("expected stage"),
+        "error should mention missing stage; got: {}",
+        err_msg
+    );
+}
+
+// --- Task 4: parse instantiate in pattern bodies ---
+
+#[test]
+fn parse_instantiate_in_pattern_body() {
+    let src = r#"
+        template harm_arc(a, v) {
+            stage e1 { e1.eventType = "harm" }
+        }
+        pattern alice_revenge {
+            instantiate harm_arc("alice", "bob")
+        }
+    "#;
+    let doc = parse_doc_ast(src).expect("should parse");
+    let patterns = doc.patterns();
+    assert_eq!(patterns.len(), 1);
+    let pattern = patterns[0];
+    // The pattern has one instantiation and no direct stages.
+    assert_eq!(pattern.instantiations.len(), 1);
+    let (pos, inst) = &pattern.instantiations[0];
+    assert_eq!(*pos, 0); // inserted before any stage
+    assert_eq!(inst.template_name, "harm_arc");
+    assert_eq!(inst.args, vec!["alice".to_string(), "bob".to_string()]);
+}
+
+#[test]
+fn parse_pattern_can_mix_stages_and_instantiations() {
+    let src = r#"
+        template harm(a, v) { stage e1 { e1.actor -> ?a } }
+        pattern complex {
+            stage prep { prep.eventType = "setup" }
+            instantiate harm("alice", "bob")
+            stage final_stage { final_stage.eventType = "cleanup" }
+        }
+    "#;
+    let doc = parse_doc_ast(src).expect("should parse");
+    let pattern = doc.patterns()[0];
+    // 2 direct stages, 1 instantiation at position 1 (after `prep`)
+    assert_eq!(pattern.stages.len(), 2);
+    assert_eq!(pattern.instantiations.len(), 1);
+    let (pos, _) = &pattern.instantiations[0];
+    assert_eq!(*pos, 1, "instantiate follows the first stage");
+}
+
+// --- Task 5: compile-time template expansion ---
+
+#[test]
+fn instantiate_substitutes_parameters_into_clauses() {
+    use fabula::pattern::Target;
+
+    let src = r#"
+        template harm_arc(aggressor, victim) {
+            stage e1 {
+                e1.eventType = "harm"
+                e1.actor -> ?aggressor
+                e1.target -> ?victim
+            }
+            stage e2 {
+                e2.eventType = "retaliation"
+                e2.actor -> ?victim
+                e2.target -> ?aggressor
+            }
+        }
+        pattern alice_revenge {
+            instantiate harm_arc("alice", "bob")
+        }
+        pattern carol_revenge {
+            instantiate harm_arc("carol", "dave")
+        }
+    "#;
+
+    let result = parse_document(src).expect("should parse and compile");
+    let patterns = &result.patterns;
+    assert_eq!(patterns.len(), 2);
+    let alice = patterns.iter().find(|p| p.name == "alice_revenge").unwrap();
+    let carol = patterns.iter().find(|p| p.name == "carol_revenge").unwrap();
+
+    assert_eq!(alice.stages.len(), 2);
+    assert_eq!(carol.stages.len(), 2);
+
+    // alice's e1 stage: actor -> alice
+    let alice_e1 = &alice.stages[0];
+    let alice_actor_clause = alice_e1
+        .clauses
+        .iter()
+        .find(|c| c.label == "actor")
+        .expect("alice e1 should have an actor clause");
+    match &alice_actor_clause.target {
+        Target::Bind(var) => assert_eq!(var.0, "alice"),
+        other => panic!("expected Bind(\"alice\"), got {:?}", other),
+    }
+
+    // carol's e2 stage: actor -> dave
+    let carol_e2 = &carol.stages[1];
+    let carol_actor_clause = carol_e2
+        .clauses
+        .iter()
+        .find(|c| c.label == "actor")
+        .expect("carol e2 should have an actor clause");
+    match &carol_actor_clause.target {
+        Target::Bind(var) => assert_eq!(var.0, "dave"),
+        other => panic!("expected Bind(\"dave\"), got {:?}", other),
+    }
+}
+
+#[test]
+fn instantiate_unknown_template_errors() {
+    let src = r#"
+        pattern p {
+            instantiate undefined_template("a")
+        }
+    "#;
+    let result = parse_document(src);
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("undefined_template") || err.contains("unknown template"),
+        "error should mention the missing template: {}",
+        err
+    );
+}
+
+#[test]
+fn instantiate_arity_mismatch_errors() {
+    let src = r#"
+        template t(a, b) { stage e1 { e1.actor -> ?a } }
+        pattern p {
+            instantiate t("just_one_arg")
+        }
+    "#;
+    let result = parse_document(src);
+    assert!(result.is_err());
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("arity") || err.contains("argument") || err.contains("expected 2"),
+        "error should mention arity mismatch: {}",
+        err
+    );
+}
+
+#[test]
+fn instantiate_can_be_invoked_multiple_times() {
+    use fabula::pattern::Target;
+
+    let src = r#"
+        template t(name) { stage e1 { e1.actor -> ?name } }
+        pattern p {
+            instantiate t("alice")
+            instantiate t("bob")
+        }
+    "#;
+    let result = parse_document(src).expect("should compile");
+    let p = &result.patterns[0];
+    assert_eq!(p.stages.len(), 2, "two instantiations produce two stages");
+
+    let stage1_clause = p.stages[0].clauses.iter().find(|c| c.label == "actor").unwrap();
+    let stage2_clause = p.stages[1].clauses.iter().find(|c| c.label == "actor").unwrap();
+
+    match (&stage1_clause.target, &stage2_clause.target) {
+        (Target::Bind(v1), Target::Bind(v2)) => {
+            assert_eq!(v1.0, "alice");
+            assert_eq!(v2.0, "bob");
+        }
+        other => panic!("unexpected targets: {:?}", other),
+    }
+}
