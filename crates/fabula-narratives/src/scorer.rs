@@ -23,6 +23,25 @@ use std::collections::HashMap;
 use crate::tension::Trajectory;
 use fabula::engine::{PlantStatus, TickDelta};
 
+/// Per-pattern and per-thread significance weights.
+///
+/// Consumed by [`assemble_signals_with_significance`] (and, transitively,
+/// by [`assemble_signals_weighted`]) to scale advancement/completion counts,
+/// FILO penalties, and resolution rewards by authored importance.
+///
+/// Patterns or threads not present in the maps default to weight `1.0`.
+/// This means an empty `SignificanceMap` is identical in behavior to the
+/// unweighted [`assemble_signals`] path.
+#[derive(Debug, Clone, Default)]
+pub struct SignificanceMap {
+    /// Pattern name -> weight. Drives `weighted_advancements`,
+    /// `weighted_completions`, and `weighted_resolutions`.
+    pub pattern_importance: HashMap<String, f64>,
+    /// Thread name -> weight. Drives `weighted_filo_violations` (each
+    /// violation's penalty is scaled by the violating thread's weight).
+    pub thread_significance: HashMap<String, f64>,
+}
+
 /// Configurable weights for each scoring signal.
 #[derive(Debug, Clone)]
 pub struct NarrativeWeights {
@@ -118,6 +137,14 @@ pub struct NarrativeSignals {
     pub weighted_advancements: f64,
     /// Importance-weighted completion count. 0.0 means use unweighted `completions`.
     pub weighted_completions: f64,
+    /// Significance-weighted FILO violation count. `0.0` means use unweighted
+    /// `filo_violations`. Computed as the sum of thread weights for each
+    /// violation; `1.0` per violation when no significance is supplied.
+    pub weighted_filo_violations: f64,
+    /// Importance-weighted resolution count. `0.0` means use unweighted
+    /// `resolutions`. Computed as the sum of pattern weights for each
+    /// resolution.
+    pub weighted_resolutions: f64,
 }
 
 /// Composite narrative quality score with explainable sub-scores.
@@ -256,6 +283,8 @@ pub fn assemble_signals(
         sequential_surprise,
         weighted_advancements: 0.0,
         weighted_completions: 0.0,
+        weighted_filo_violations: 0.0,
+        weighted_resolutions: 0.0,
     }
 }
 
@@ -499,5 +528,19 @@ mod tests {
     #[test]
     fn default_time_scale_is_one() {
         assert_eq!(NarrativeWeights::default().time_scale, 1.0);
+    }
+
+    #[test]
+    fn significance_map_default_is_empty_maps() {
+        let m = SignificanceMap::default();
+        assert!(m.pattern_importance.is_empty());
+        assert!(m.thread_significance.is_empty());
+    }
+
+    #[test]
+    fn signals_default_zero_weighted_filo_and_resolutions() {
+        let s = NarrativeSignals::default();
+        assert_eq!(s.weighted_filo_violations, 0.0);
+        assert_eq!(s.weighted_resolutions, 0.0);
     }
 }
