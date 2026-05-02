@@ -47,9 +47,24 @@ pub struct NarrativeWeights {
     /// Reward for sequential surprise (unexpected transitions between patterns).
     pub sequential_surprise_reward: f64,
     /// Multiplier applied to the final total and every breakdown component.
-    /// Defaults to `1.0`. Callers can update this per tick to amplify or
-    /// attenuate scoring as the narrative progresses (e.g., `2.0` for Act 3
-    /// climax, `0.5` for prologue). Set to `1.0` to disable time-scaling.
+    /// Defaults to `1.0`. Callers update this per tick to amplify or attenuate
+    /// scoring as the narrative progresses.
+    ///
+    /// # Example: linear ramp from 1.0 (prologue) to 2.0 (climax)
+    ///
+    /// ```rust
+    /// use fabula_narratives::scorer::NarrativeWeights;
+    ///
+    /// fn weights_for_tick(tick: u64, total: u64) -> NarrativeWeights {
+    ///     let progress = tick as f64 / total as f64; // 0.0 .. 1.0
+    ///     NarrativeWeights {
+    ///         time_scale: 1.0 + progress, // 1.0 .. 2.0
+    ///         ..NarrativeWeights::default()
+    ///     }
+    /// }
+    /// ```
+    ///
+    /// Set to `1.0` (the default) to disable time-scaling.
     pub time_scale: f64,
 }
 
