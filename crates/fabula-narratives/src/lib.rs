@@ -37,7 +37,10 @@
 //!    caller-provided samples, not DataSource queries.
 //! 3. **Research-backed.** Each module cites its academic foundation.
 
+pub mod distance;
 pub mod pivot;
 pub mod scorer;
 pub mod tension;
 pub mod thread;
+
+pub use distance::{DistanceMetric, Hellinger, JensenShannon, KullbackLeibler};
