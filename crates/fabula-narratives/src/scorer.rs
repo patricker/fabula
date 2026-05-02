@@ -339,6 +339,74 @@ pub fn assemble_signals_weighted(
     signals
 }
 
+/// Like [`assemble_signals_weighted`] but consumes a [`SignificanceMap`] and
+/// computes weighted FILO violations and weighted resolutions in addition to
+/// weighted advancements and completions.
+///
+/// `violations` is the slice returned by `ThreadTracker::check_filo()`. Each
+/// violation's penalty is scaled by `significance.thread_significance` (default
+/// `1.0` per missing entry). Resolutions are scaled by
+/// `significance.pattern_importance` (default `1.0` per missing entry),
+/// matching the per-pattern semantics already applied to advancements and
+/// completions.
+#[allow(clippy::too_many_arguments)]
+pub fn assemble_signals_with_significance(
+    delta: &TickDelta,
+    plant_statuses: &[PlantStatus],
+    violations: &[crate::thread::FiloViolation],
+    tension_trajectory: Trajectory,
+    desired_trajectory: Trajectory,
+    pivot_magnitude: f64,
+    surprise: f64,
+    sequential_surprise: f64,
+    significance: &SignificanceMap,
+) -> NarrativeSignals {
+    let mut signals = assemble_signals_weighted(
+        delta,
+        plant_statuses,
+        violations.len(),
+        tension_trajectory,
+        desired_trajectory,
+        pivot_magnitude,
+        surprise,
+        sequential_surprise,
+        &significance.pattern_importance,
+    );
+
+    // Weighted FILO: sum thread weights for each violation; default 1.0.
+    signals.weighted_filo_violations = violations
+        .iter()
+        .map(|v| {
+            significance
+                .thread_significance
+                .get(&v.closed_thread)
+                .copied()
+                .unwrap_or(1.0)
+        })
+        .sum();
+
+    // Weighted resolutions: sum pattern weights for each completed pattern that
+    // is registered as a payoff pattern; default 1.0.
+    signals.weighted_resolutions = delta
+        .completed
+        .iter()
+        .filter(|name| {
+            plant_statuses
+                .iter()
+                .any(|p| &p.payoff_pattern == *name)
+        })
+        .map(|name| {
+            significance
+                .pattern_importance
+                .get(name)
+                .copied()
+                .unwrap_or(1.0)
+        })
+        .sum();
+
+    signals
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -605,5 +673,92 @@ mod tests {
 
         assert!((s.breakdown.filo_penalty - (4.0 * weights.filo_violation_penalty)).abs() < 1e-9);
         assert!((s.breakdown.resolution - (2.0 * weights.resolution_reward)).abs() < 1e-9);
+    }
+
+    #[test]
+    fn assemble_with_significance_weights_filo_by_thread() {
+        use crate::thread::FiloViolation;
+
+        let delta = TickDelta::default();
+        let plant_statuses: Vec<PlantStatus> = vec![];
+        let violations = vec![
+            FiloViolation { closed_thread: "main_arc".into(), ..Default::default() },
+            FiloViolation { closed_thread: "side_quest".into(), ..Default::default() },
+        ];
+
+        let mut significance = SignificanceMap::default();
+        significance.thread_significance.insert("main_arc".into(), 5.0);
+        significance.thread_significance.insert("side_quest".into(), 0.5);
+
+        let signals = assemble_signals_with_significance(
+            &delta, &plant_statuses, &violations,
+            Trajectory::Unknown, Trajectory::Unknown,
+            0.0, 0.0, 0.0,
+            &significance,
+        );
+
+        // weighted_filo = 5.0 (main_arc) + 0.5 (side_quest) = 5.5
+        assert!((signals.weighted_filo_violations - 5.5).abs() < 1e-9);
+        assert_eq!(signals.filo_violations, 2); // raw count still populated
+    }
+
+    #[test]
+    fn assemble_with_significance_weights_resolutions_by_pattern() {
+        let delta = TickDelta {
+            completed: vec!["climax".to_string(), "side_quest".to_string()],
+            ..Default::default()
+        };
+        let plant_statuses: Vec<PlantStatus> = vec![
+            PlantStatus {
+                payoff_pattern: "climax".to_string(),
+                active_plants: 0,
+                payoff_completions: 1,
+                ..Default::default()
+            },
+            PlantStatus {
+                payoff_pattern: "side_quest".to_string(),
+                active_plants: 0,
+                payoff_completions: 1,
+                ..Default::default()
+            },
+        ];
+        let violations: Vec<crate::thread::FiloViolation> = vec![];
+
+        let mut significance = SignificanceMap::default();
+        significance.pattern_importance.insert("climax".into(), 10.0);
+        // side_quest defaults to 1.0
+
+        let signals = assemble_signals_with_significance(
+            &delta, &plant_statuses, &violations,
+            Trajectory::Unknown, Trajectory::Unknown,
+            0.0, 0.0, 0.0,
+            &significance,
+        );
+
+        // weighted_resolutions = 10.0 (climax) + 1.0 (side_quest default) = 11.0
+        assert!((signals.weighted_resolutions - 11.0).abs() < 1e-9);
+    }
+
+    #[test]
+    fn assemble_signals_weighted_remains_compatible() {
+        // The legacy entry point still works, doesn't touch the new fields.
+        let delta = TickDelta {
+            advanced: vec!["alpha".to_string()],
+            ..Default::default()
+        };
+        let plant_statuses: Vec<PlantStatus> = vec![];
+        let mut importance = HashMap::new();
+        importance.insert("alpha".to_string(), 3.0);
+
+        let signals = assemble_signals_weighted(
+            &delta, &plant_statuses, 0,
+            Trajectory::Unknown, Trajectory::Unknown,
+            0.0, 0.0, 0.0,
+            &importance,
+        );
+
+        assert!((signals.weighted_advancements - 3.0).abs() < 1e-9);
+        assert_eq!(signals.weighted_filo_violations, 0.0); // not exercised by legacy path
+        assert_eq!(signals.weighted_resolutions, 0.0);     // not exercised by legacy path
     }
 }

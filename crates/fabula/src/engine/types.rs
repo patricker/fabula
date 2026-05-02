@@ -339,7 +339,7 @@ pub struct PlantPayoffPair {
 }
 
 /// Status of a single plant from [`SiftEngine::plant_status`].
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct PlantStatus {
     /// Plant pattern name.
     pub plant_pattern: String,

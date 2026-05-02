@@ -34,7 +34,7 @@ pub struct ThreadStatus {
 
 /// A FILO nesting violation -- thread A opened before thread B but B hasn't
 /// closed yet while A is closing.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct FiloViolation {
     /// Thread that closed out of order.
     pub closed_thread: String,
