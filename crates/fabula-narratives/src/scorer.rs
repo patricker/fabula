@@ -700,6 +700,44 @@ mod tests {
     }
 
     #[test]
+    fn time_scale_applies_to_weighted_filo_and_resolution() {
+        // Regression guard: the weighted-FILO and weighted-resolution lines
+        // added by the SignificanceMap work must continue to multiply by
+        // weights.time_scale. Without `* scale` on these lines, this test
+        // would observe 1.0x penalties despite a 2.0x time_scale.
+        let signals = NarrativeSignals {
+            weighted_filo_violations: 5.0,
+            weighted_resolutions: 3.0,
+            ..Default::default()
+        };
+        let weights = NarrativeWeights {
+            time_scale: 2.0,
+            ..NarrativeWeights::default()
+        };
+
+        let s = score(&signals, &weights);
+
+        // weighted FILO: 5.0 * filo_violation_penalty (-3.0) * time_scale (2.0) = -30.0
+        assert!(
+            (s.breakdown.filo_penalty
+                - (5.0 * weights.filo_violation_penalty * weights.time_scale))
+                .abs()
+                < 1e-9,
+            "expected filo_penalty to be scaled by time_scale; got {}",
+            s.breakdown.filo_penalty
+        );
+        // weighted resolution: 3.0 * resolution_reward (5.0) * time_scale (2.0) = 30.0
+        assert!(
+            (s.breakdown.resolution
+                - (3.0 * weights.resolution_reward * weights.time_scale))
+                .abs()
+                < 1e-9,
+            "expected resolution to be scaled by time_scale; got {}",
+            s.breakdown.resolution
+        );
+    }
+
+    #[test]
     fn assemble_with_significance_weights_filo_by_thread() {
         use crate::thread::FiloViolation;
 

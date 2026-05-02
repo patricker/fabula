@@ -50,9 +50,10 @@ pub struct FiloViolation {
 /// ```rust,ignore
 /// let mut tracker = ThreadTracker::new();
 /// tracker.register("investigation", open_idx, close_idx);
-/// // After each tick:
-/// let status = tracker.thread_status(&engine);
-/// let violations = tracker.check_filo(&completed_close_order);
+/// // After each tick, observe the engine's tick delta:
+/// tracker.observe_delta(&delta);
+/// let status = tracker.status(|idx| engine.is_pattern_enabled(idx));
+/// let violations = tracker.check_filo();
 /// ```
 #[derive(Debug, Clone, Default)]
 pub struct ThreadTracker {

@@ -135,6 +135,20 @@ where
     }
 }
 
+/// Convenience alias for the common case: `PivotDetector` over
+/// [`JensenShannon`](crate::distance::JensenShannon).
+///
+/// Equivalent to writing `PivotDetector<JensenShannon>` but reads cleaner
+/// at call sites where the metric isn't otherwise constrained:
+///
+/// ```rust
+/// use fabula_narratives::pivot::DefaultPivotDetector;
+/// let mut p = DefaultPivotDetector::new();
+/// p.push("trade");
+/// p.end_tick();
+/// ```
+pub type DefaultPivotDetector = PivotDetector<crate::distance::JensenShannon>;
+
 
 #[cfg(test)]
 mod tests {
