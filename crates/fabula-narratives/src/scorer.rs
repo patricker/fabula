@@ -46,6 +46,11 @@ pub struct NarrativeWeights {
     pub surprise_reward: f64,
     /// Reward for sequential surprise (unexpected transitions between patterns).
     pub sequential_surprise_reward: f64,
+    /// Multiplier applied to the final total and every breakdown component.
+    /// Defaults to `1.0`. Callers can update this per tick to amplify or
+    /// attenuate scoring as the narrative progresses (e.g., `2.0` for Act 3
+    /// climax, `0.5` for prologue). Set to `1.0` to disable time-scaling.
+    pub time_scale: f64,
 }
 
 impl Default for NarrativeWeights {
@@ -61,6 +66,7 @@ impl Default for NarrativeWeights {
             pivot_reward: 1.5,
             surprise_reward: 1.0,
             sequential_surprise_reward: 1.0,
+            time_scale: 1.0,
         }
     }
 }
@@ -152,17 +158,20 @@ pub fn score(signals: &NarrativeSignals, weights: &NarrativeWeights) -> Narrativ
     } else {
         signals.completions as f64
     };
+    let scale = weights.time_scale;
     let breakdown = ScoreBreakdown {
-        progress: adv * weights.progress,
-        completion: comp * weights.completion,
-        stall_penalty: signals.stalled as f64 * weights.stall_penalty,
-        unresolved_penalty: signals.unresolved_plants as f64 * weights.unresolved_penalty,
-        resolution: signals.resolutions as f64 * weights.resolution_reward,
-        filo_penalty: signals.filo_violations as f64 * weights.filo_violation_penalty,
-        tension: signals.tension_fit * weights.tension_fit,
-        pivot: signals.pivot_magnitude * weights.pivot_reward,
-        surprise: signals.surprise * weights.surprise_reward,
-        sequential_surprise: signals.sequential_surprise * weights.sequential_surprise_reward,
+        progress: adv * weights.progress * scale,
+        completion: comp * weights.completion * scale,
+        stall_penalty: signals.stalled as f64 * weights.stall_penalty * scale,
+        unresolved_penalty: signals.unresolved_plants as f64 * weights.unresolved_penalty * scale,
+        resolution: signals.resolutions as f64 * weights.resolution_reward * scale,
+        filo_penalty: signals.filo_violations as f64 * weights.filo_violation_penalty * scale,
+        tension: signals.tension_fit * weights.tension_fit * scale,
+        pivot: signals.pivot_magnitude * weights.pivot_reward * scale,
+        surprise: signals.surprise * weights.surprise_reward * scale,
+        sequential_surprise: signals.sequential_surprise
+            * weights.sequential_surprise_reward
+            * scale,
     };
 
     let total = breakdown.progress
@@ -450,5 +459,30 @@ mod tests {
         );
         // "minor" defaults to 1.0, "climax" is 10.0
         assert_eq!(signals.weighted_advancements, 11.0);
+    }
+
+    #[test]
+    fn time_scale_multiplies_total_score() {
+        let signals = NarrativeSignals {
+            advancements: 3,
+            completions: 1,
+            ..Default::default()
+        };
+
+        let baseline = NarrativeWeights::default();
+        let amplified = NarrativeWeights {
+            time_scale: 2.0,
+            ..NarrativeWeights::default()
+        };
+
+        let baseline_score = score(&signals, &baseline).total;
+        let amplified_score = score(&signals, &amplified).total;
+
+        assert!((amplified_score - 2.0 * baseline_score).abs() < 1e-9);
+    }
+
+    #[test]
+    fn default_time_scale_is_one() {
+        assert_eq!(NarrativeWeights::default().time_scale, 1.0);
     }
 }
