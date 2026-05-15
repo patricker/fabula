@@ -1,6 +1,6 @@
 [package]
 name = "fabula-discovery"
-version = "0.1.0"
+version = "0.2.0"
 edition.workspace = true
 license.workspace = true
 repository.workspace = true
@@ -10,8 +10,8 @@ keywords = ["pattern-discovery", "sifting", "process-mining", "fabula", "narrati
 categories = ["algorithms", "science"]
 
 [dependencies]
-fabula = { path = "../fabula", version = "0.1" }
-fabula-memory = { path = "../fabula-memory", version = "0.1" }
+fabula = { path = "../fabula", version = "0.2" }
+fabula-memory = { path = "../fabula-memory", version = "0.2" }
 
 [dev-dependencies]
-fabula-dsl = { path = "../fabula-dsl", version = "0.1" }
+fabula-dsl = { path = "../fabula-dsl", version = "0.2" }
