@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-> **Wiki**: Run `wiki briefing` for pre-compiled cross-repo context, or `wiki search <term>` to find specific topics. Use the `/wiki` skill for full command reference. Wiki lives at `/home/peter/code/wiki/`.
+> **Wiki**: Run `wiki briefing <topic>` for cross-repo context (set `$WIKI_DIR=~/code/wiki` or `cd ~/code/wiki` first). Topics for this repo: `fabula`, `datasource-contract`, `narrative-scoring`, `pattern-composition-and-time`. Use the `wiki` skill for the full command reference.
 
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
