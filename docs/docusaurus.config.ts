@@ -42,6 +42,10 @@ const config: Config = {
           remarkPlugins: [remarkCodeRegion],
         },
         blog: false, // No blog for a library
+        gtag: {
+          trackingID: 'G-XRTR9HXEK3',
+          anonymizeIP: true,
+        },
         theme: {
           customCss: './src/css/custom.css',
         },
