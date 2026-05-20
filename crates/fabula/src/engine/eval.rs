@@ -239,9 +239,16 @@ where
 
             for &try_idx in &try_stages {
                 let stage = &pattern.stages[try_idx];
-                if let Some(match_results) =
-                    free::try_match_stage(ds, stage, source, label, value, interval, &pm.bindings, &self.let_evaluator)
-                {
+                if let Some(match_results) = free::try_match_stage(
+                    ds,
+                    stage,
+                    source,
+                    label,
+                    value,
+                    interval,
+                    &pm.bindings,
+                    &self.let_evaluator,
+                ) {
                     for (new_bindings, new_intervals) in match_results {
                         // Temporal check: new edge must come after all previously matched
                         // intervals, EXCEPT for intervals within the same unordered group

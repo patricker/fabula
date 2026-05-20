@@ -19,7 +19,8 @@ pub fn batch_unordered_group_any_order<G: TestGraph>() {
     g1.add_str_edge("ev2", "type", "beta", 2);
     g1.set_current_time(10);
 
-    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> = SiftEngine::new(DefaultLetEvaluator);
+    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> =
+        SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern.clone());
     let matches = engine.evaluate(&g1);
     assert_eq!(matches.len(), 1, "should match with alpha before beta");
@@ -30,7 +31,8 @@ pub fn batch_unordered_group_any_order<G: TestGraph>() {
     g2.add_str_edge("ev2", "type", "alpha", 2);
     g2.set_current_time(10);
 
-    let mut engine2: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> = SiftEngine::new(DefaultLetEvaluator);
+    let mut engine2: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> =
+        SiftEngine::new(DefaultLetEvaluator);
     engine2.register(pattern);
     let matches2 = engine2.evaluate(&g2);
     assert_eq!(matches2.len(), 1, "should match with beta before alpha");
@@ -54,7 +56,8 @@ pub fn batch_unordered_group_after_ordered<G: TestGraph>() {
     g.add_str_edge("ev2", "type", "alpha", 3); // alpha second
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> = SiftEngine::new(DefaultLetEvaluator);
+    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> =
+        SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -78,7 +81,8 @@ pub fn batch_unordered_group_before_ordered<G: TestGraph>() {
     g.add_str_edge("ev3", "type", "finish", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> = SiftEngine::new(DefaultLetEvaluator);
+    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> =
+        SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -103,7 +107,8 @@ pub fn batch_unordered_group_ordering_with_ordered<G: TestGraph>() {
     g.add_str_edge("ev3", "type", "beta", 3);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> = SiftEngine::new(DefaultLetEvaluator);
+    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> =
+        SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
     let matches = engine.evaluate(&g);
     // This should not match because "finish" at t=2 comes before "beta" at t=3,
@@ -125,7 +130,8 @@ pub fn incremental_unordered_group<G: TestGraph>() {
         .build();
 
     let mut g = G::new_graph();
-    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> = SiftEngine::new(DefaultLetEvaluator);
+    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> =
+        SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern);
 
     // Add beta first
@@ -191,7 +197,8 @@ pub fn batch_unordered_group_shared_binding<G: TestGraph>() {
     g.add_ref_edge("ev2", "actor", "alice", 2);
     g.set_current_time(10);
 
-    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> = SiftEngine::new(DefaultLetEvaluator);
+    let mut engine: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> =
+        SiftEngine::new(DefaultLetEvaluator);
     engine.register(pattern.clone());
     let matches = engine.evaluate(&g);
     assert_eq!(matches.len(), 1);
@@ -208,7 +215,8 @@ pub fn batch_unordered_group_shared_binding<G: TestGraph>() {
     g2.add_ref_edge("ev2", "actor", "bob", 2);
     g2.set_current_time(10);
 
-    let mut engine2: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> = SiftEngine::new(DefaultLetEvaluator);
+    let mut engine2: SiftEngine<String, String, G::V, i64, DefaultLetEvaluator> =
+        SiftEngine::new(DefaultLetEvaluator);
     engine2.register(pattern);
     let matches2 = engine2.evaluate(&g2);
     assert_eq!(matches2.len(), 0, "different actors should not match");

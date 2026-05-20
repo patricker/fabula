@@ -196,7 +196,8 @@ where
                 candidates = next;
             }
             StageStep::Unordered(indices) => {
-                candidates = expand_unordered_group(ds, pattern, &candidates, indices, at, evaluator);
+                candidates =
+                    expand_unordered_group(ds, pattern, &candidates, indices, at, evaluator);
             }
         }
     }
@@ -301,7 +302,8 @@ where
                 candidates = next;
             }
             StageStep::Unordered(indices) => {
-                candidates = expand_unordered_group(ds, pattern, &candidates, indices, now, evaluator);
+                candidates =
+                    expand_unordered_group(ds, pattern, &candidates, indices, now, evaluator);
             }
         }
     }
@@ -462,7 +464,9 @@ where
         for &si in group_indices {
             let mut next_partial = Vec::new();
             for (b, iv) in &partial {
-                for (new_b, new_iv) in find_stage_matches(ds, &pattern.stages[si], b, now, evaluator) {
+                for (new_b, new_iv) in
+                    find_stage_matches(ds, &pattern.stages[si], b, now, evaluator)
+                {
                     let mut merged_b = b.clone();
                     merged_b.extend(new_b);
                     let mut merged_iv = iv.clone();

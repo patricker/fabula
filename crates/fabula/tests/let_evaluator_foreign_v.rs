@@ -67,7 +67,13 @@ impl LetEvaluator<String, OpaqueValue> for OpaqueValueLetEvaluator {
                         BinOp::Add => Some(lv + rv),
                         BinOp::Sub => Some(lv - rv),
                         BinOp::Mul => Some(lv * rv),
-                        BinOp::Div => if rv == 0 { None } else { Some(lv / rv) },
+                        BinOp::Div => {
+                            if rv == 0 {
+                                None
+                            } else {
+                                Some(lv / rv)
+                            }
+                        }
                     }
                 }
             }
@@ -81,11 +87,8 @@ fn custom_evaluator_does_arithmetic_over_foreign_v() {
     let mut bindings: HashMap<String, BoundValue<String, OpaqueValue>> = HashMap::new();
     bindings.insert("x".into(), BoundValue::Value(OpaqueValue::Num(3)));
 
-    let expr: Expr<OpaqueValue> = Expr::bin(
-        BinOp::Add,
-        Expr::var("x"),
-        Expr::lit(OpaqueValue::Num(5)),
-    );
+    let expr: Expr<OpaqueValue> =
+        Expr::bin(BinOp::Add, Expr::var("x"), Expr::lit(OpaqueValue::Num(5)));
 
     let result = OpaqueValueLetEvaluator.evaluate(&expr, &bindings);
     assert_eq!(result, Some(OpaqueValue::Num(8)));
@@ -123,11 +126,21 @@ fn engine_with_default_evaluator_still_works_for_arithmetic_v() {
     struct N(i64);
 
     impl fabula::ArithmeticValue for N {
-        fn try_add(&self, o: &Self) -> Option<Self> { Some(N(self.0 + o.0)) }
-        fn try_sub(&self, o: &Self) -> Option<Self> { Some(N(self.0 - o.0)) }
-        fn try_mul(&self, o: &Self) -> Option<Self> { Some(N(self.0 * o.0)) }
+        fn try_add(&self, o: &Self) -> Option<Self> {
+            Some(N(self.0 + o.0))
+        }
+        fn try_sub(&self, o: &Self) -> Option<Self> {
+            Some(N(self.0 - o.0))
+        }
+        fn try_mul(&self, o: &Self) -> Option<Self> {
+            Some(N(self.0 * o.0))
+        }
         fn try_div(&self, o: &Self) -> Option<Self> {
-            if o.0 == 0 { None } else { Some(N(self.0 / o.0)) }
+            if o.0 == 0 {
+                None
+            } else {
+                Some(N(self.0 / o.0))
+            }
         }
     }
 

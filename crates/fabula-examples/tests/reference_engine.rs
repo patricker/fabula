@@ -5,7 +5,8 @@ use fabula_memory::{MemGraph, MemValue};
 fn engine_creation() {
     // #region engine_creation
     // Explicit type parameters:
-    let _engine: SiftEngine<String, String, MemValue, i64, DefaultLetEvaluator> = SiftEngine::new(DefaultLetEvaluator);
+    let _engine: SiftEngine<String, String, MemValue, i64, DefaultLetEvaluator> =
+        SiftEngine::new(DefaultLetEvaluator);
 
     // Or use the SiftEngineFor alias (extracts types from a DataSource):
     let mut engine: SiftEngineFor<MemGraph> = SiftEngine::new(DefaultLetEvaluator);

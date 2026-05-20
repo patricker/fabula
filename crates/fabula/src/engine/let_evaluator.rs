@@ -23,11 +23,7 @@ use std::fmt::Debug;
 /// `None` if any sub-expression failed. A `None` result causes the partial
 /// match to be discarded.
 pub trait LetEvaluator<N: Debug, V: Debug> {
-    fn evaluate(
-        &self,
-        expr: &Expr<V>,
-        bindings: &HashMap<String, BoundValue<N, V>>,
-    ) -> Option<V>;
+    fn evaluate(&self, expr: &Expr<V>, bindings: &HashMap<String, BoundValue<N, V>>) -> Option<V>;
 }
 
 /// A let evaluator that always returns `None`. Use for let-free patterns
@@ -56,11 +52,7 @@ where
     N: Debug,
     V: crate::expr::ArithmeticValue + Clone + Debug,
 {
-    fn evaluate(
-        &self,
-        expr: &Expr<V>,
-        bindings: &HashMap<String, BoundValue<N, V>>,
-    ) -> Option<V> {
+    fn evaluate(&self, expr: &Expr<V>, bindings: &HashMap<String, BoundValue<N, V>>) -> Option<V> {
         expr.eval(bindings)
     }
 }
@@ -74,11 +66,21 @@ mod tests {
     struct Num(f64);
 
     impl ArithmeticValue for Num {
-        fn try_add(&self, o: &Self) -> Option<Self> { Some(Num(self.0 + o.0)) }
-        fn try_sub(&self, o: &Self) -> Option<Self> { Some(Num(self.0 - o.0)) }
-        fn try_mul(&self, o: &Self) -> Option<Self> { Some(Num(self.0 * o.0)) }
+        fn try_add(&self, o: &Self) -> Option<Self> {
+            Some(Num(self.0 + o.0))
+        }
+        fn try_sub(&self, o: &Self) -> Option<Self> {
+            Some(Num(self.0 - o.0))
+        }
+        fn try_mul(&self, o: &Self) -> Option<Self> {
+            Some(Num(self.0 * o.0))
+        }
         fn try_div(&self, o: &Self) -> Option<Self> {
-            if o.0 == 0.0 { None } else { Some(Num(self.0 / o.0)) }
+            if o.0 == 0.0 {
+                None
+            } else {
+                Some(Num(self.0 / o.0))
+            }
         }
     }
 
@@ -87,7 +89,9 @@ mod tests {
         let bindings: HashMap<String, BoundValue<String, Num>> = HashMap::new();
         let expr: Expr<Num> = Expr::lit(Num(42.0));
         let result = <NoLetEvaluator as LetEvaluator<String, Num>>::evaluate(
-            &NoLetEvaluator, &expr, &bindings,
+            &NoLetEvaluator,
+            &expr,
+            &bindings,
         );
         assert_eq!(result, None);
     }
